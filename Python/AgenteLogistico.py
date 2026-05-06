@@ -14,6 +14,8 @@ from flask import Flask, request
 from rdflib import Graph, Literal, Namespace
 from rdflib.namespace import FOAF, RDF
 
+import requests as http_requests
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from AgentUtil.ACL import ACL
@@ -118,12 +120,78 @@ def elegir_centro(lat, lon):
     return min(centros, key=lambda c: haversine(lat, lon, c['lat'], c['lon']))
 
 
-def elegir_transportista(prioridad):
-    if prioridad == 'urgente':
-        return min(TRANSPORTISTAS, key=lambda t: t['dias'])
-    elif prioridad == 'economica':
-        return min(TRANSPORTISTAS, key=lambda t: t['precio_kg'])
-    return TRANSPORTISTAS[1]  # normal → NormalPost
+def negociar_transporte(prioridad, direccion):
+    global mss_cnt
+
+    gmess = Graph()
+    gmess.bind('dso', DSO)
+    search_obj = agn[f'Search-{mss_cnt}']
+    gmess.add((search_obj, RDF.type, DSO.Search))
+    gmess.add((search_obj, DSO.AgentType, ECSNS['Ag.Transportista']))
+    msg = build_message(gmess, perf=ACL.request, sender=LogisticoAgent.uri,
+                        receiver=DirectoryAgent.uri, content=search_obj, msgcnt=mss_cnt)
+    r = http_requests.get(DirectoryAgent.address,
+                          params={'content': msg.serialize(format='xml')})
+    mss_cnt += 1
+
+    gr_ds = Graph()
+    gr_ds.parse(data=r.text, format='xml')
+    transportistas_addr = [str(o) for s, p, o in gr_ds if p == DSO.Address]
+
+    if not transportistas_addr:
+        logger.warning('[Logistico] No hay transportistas en el DS, usando fallback')
+        return 'Desconocido', (datetime.now() + timedelta(days=3)).strftime('%Y-%m-%d')
+
+    # Construir CFP
+    cfp_graph = Graph()
+    cfp_graph.bind('ecsns', ECSNS)
+    cfp_uri = agn[f'CFP-{mss_cnt}']
+    cfp_graph.add((cfp_uri, RDF.type, ECSNS.CFP))
+    cfp_graph.add((cfp_uri, ECSNS.tieneDestino, Literal(direccion)))
+    cfp_graph.add((cfp_uri, ECSNS.tienePrioridad, Literal(prioridad)))
+    cfp_msg = build_message(cfp_graph, perf=ACL.request, sender=LogisticoAgent.uri,
+                            content=cfp_uri, msgcnt=mss_cnt)
+    mss_cnt += 1
+
+    # Recoger propuestas
+    mejor_precio = float('inf')
+    mejor_nombre = None
+    mejor_fecha = None
+    mejor_addr = None
+
+    for t_addr in transportistas_addr:
+        try:
+            resp = http_requests.get(t_addr,
+                                     params={'content': cfp_msg.serialize(format='xml')})
+            gr_resp = Graph()
+            gr_resp.parse(data=resp.text, format='xml')
+            msgdic_t = get_message_properties(gr_resp)
+            if msgdic_t and msgdic_t.get('performative') == ACL.propose:
+                oferta = msgdic_t.get('content')
+                precio = float(gr_resp.value(oferta, ECSNS.tienePrecio) or 999)
+                nombre = str(gr_resp.value(oferta, ECSNS.tieneTransportista) or '')
+                fecha  = str(gr_resp.value(oferta, ECSNS.tieneFechaEntrega) or '')
+                logger.info(f'[Logistico] Oferta de {nombre}: {precio}€ — {fecha}')
+                if precio < mejor_precio:
+                    mejor_precio = precio
+                    mejor_nombre = nombre
+                    mejor_fecha  = fecha
+                    mejor_addr   = t_addr
+        except Exception as e:
+            logger.warning(f'[Logistico] Error con transportista {t_addr}: {e}')
+
+    # Aceptar ganador, rechazar resto
+    for t_addr in transportistas_addr:
+        perf = ACL['accept-proposal'] if t_addr == mejor_addr else ACL['reject-proposal']
+        gr_dec = Graph()
+        msg_dec = build_message(gr_dec, perf=perf,
+                                sender=LogisticoAgent.uri, msgcnt=mss_cnt)
+        http_requests.get(t_addr, params={'content': msg_dec.serialize(format='xml')})
+        mss_cnt += 1
+
+    logger.info(f'[Logistico] Elegido: {mejor_nombre} — {mejor_precio}€ — {mejor_fecha}')
+
+    return mejor_nombre, mejor_fecha
 
 
 def juntar_productos():
@@ -146,12 +214,15 @@ def realizar_envios():
     if not pedidos:
         return
     for pedido in pedidos:
-        transportista = elegir_transportista(pedido.get('prioridad', 'normal'))
-        fecha = (datetime.now() + timedelta(days=transportista['dias'])).strftime('%Y-%m-%d')
+        nombre_t, fecha = negociar_transporte(
+            pedido.get('prioridad', 'normal'),
+            pedido.get('direccion', '')
+        )
+
         envio = {
             'id': 'ENV-' + str(uuid.uuid4())[:8].upper(),
             'pedido_id': pedido['id'],
-            'transportista': transportista['nombre'],
+            'transportista': nombre_t,
             'fecha_prevista': fecha,
             'estado': 'enviado',
         }
@@ -163,7 +234,7 @@ def realizar_envios():
         envios.append(envio)
         with open(ENVIOS_PATH, 'w') as f:
             json.dump(envios, f, indent=2)
-        logger.info(f"[Logistico] Envío {envio['id']} — {transportista['nombre']} — {fecha}")
+        logger.info(f"[Logistico] Envío {envio['id']} — {nombre_t} — {fecha}")
     guardar_pedidos([])
 
 
