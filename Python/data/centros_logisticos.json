@@ -1,0 +1,6 @@
+[
+  {"id": "CL-001", "nombre": "Centro Madrid", "lat": 40.4168, "lon": -3.7038},
+  {"id": "CL-002", "nombre": "Centro Barcelona", "lat": 41.3851, "lon": 2.1734},
+  {"id": "CL-003", "nombre": "Centro Valencia", "lat": 39.4699, "lon": -0.3763},
+  {"id": "CL-004", "nombre": "Centro Sevilla", "lat": 37.3891, "lon": -5.9845}
+]
