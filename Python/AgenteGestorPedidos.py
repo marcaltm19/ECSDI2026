@@ -13,6 +13,8 @@ from flask import Flask, request
 from rdflib import Graph, Literal, Namespace
 from rdflib.namespace import FOAF, RDF
 
+import requests as http_requests
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from AgentUtil.ACL import ACL
@@ -90,12 +92,18 @@ def get_agent_address(agent_type):
     search_obj = agn['Search-' + str(mss_cnt)]
     gmess.add((search_obj, RDF.type, DSO.Search))
     gmess.add((search_obj, DSO.AgentType, agent_type))
-    gr = send_message(
-        build_message(gmess, perf=ACL.request, sender=GestorAgent.uri,
-                      receiver=DirectoryAgent.uri, content=search_obj, msgcnt=mss_cnt),
+
+    msg = build_message(gmess, perf=ACL.request, sender=GestorAgent.uri,
+                        receiver=DirectoryAgent.uri, content=search_obj, msgcnt=mss_cnt)
+
+    response = http_requests.get(
         DirectoryAgent.address,
+        params={'content': msg.serialize(format='xml')}
     )
     mss_cnt += 1
+
+    gr = Graph()
+    gr.parse(data=response.text, format='xml')
     for s, p, o in gr:
         if p == DSO.Address:
             return str(o)
@@ -205,7 +213,7 @@ def comunicacion():
     gm = Graph()
     gm.parse(data=message, format='xml')
     msgdic = get_message_properties(gm)
-
+    
     if msgdic is None or msgdic.get('performative') != ACL.request:
         gr = build_message(Graph(), ACL['not-understood'],
                            sender=GestorAgent.uri, msgcnt=mss_cnt)
