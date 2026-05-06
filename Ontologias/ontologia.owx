@@ -1,0 +1,1304 @@
+<?xml version="1.0"?>
+<Ontology xmlns="http://www.w3.org/2002/07/owl#"
+     xml:base="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop"
+     xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+     xmlns:xml="http://www.w3.org/XML/1998/namespace"
+     xmlns:xsd="http://www.w3.org/2001/XMLSchema#"
+     xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
+     ontologyIRI="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop">
+    <Prefix name="" IRI="http://www.semanticweb.org/ECSDI2026/ontologies/shop/"/>
+    <Prefix name="owl" IRI="http://www.w3.org/2002/07/owl#"/>
+    <Prefix name="rdf" IRI="http://www.w3.org/1999/02/22-rdf-syntax-ns#"/>
+    <Prefix name="xml" IRI="http://www.w3.org/XML/1998/namespace"/>
+    <Prefix name="xsd" IRI="http://www.w3.org/2001/XMLSchema#"/>
+    <Prefix name="rdfs" IRI="http://www.w3.org/2000/01/rdf-schema#"/>
+    <Declaration>
+        <Class IRI="#AcceptProposal"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#Ag.Comprador"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#Ag.Devoluciones"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#Ag.Experiencia"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#Ag.GestorDePagos"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#Ag.GestorDePedidos"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#Ag.Logístico"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#Agent"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#Agree"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#Busqueda"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#CFP"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#CategoriaProducto"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#CentroLogistico"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#CobrarPedido"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#Communicacion"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#CompraProducto"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#Content"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#Conversation"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#ConversationState"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#Devolucion"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#Direccion"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#ElegirEmpresaTransporte"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#EmpresaTransporte"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#Factura"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#Failure"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#Feedback"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#Inform"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#InformarDesicion"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#InformarEmpresaTransporte"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#InformarFactura"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#InformarFecha"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#ListarProductos"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#ListarProductosAMedida"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#Marca"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#Message"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#ObtenerDetallesPedido"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#ObtenerFeedback"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#ObtenerProveedorPago"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#OfertaTransporte"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#PagarVendedor"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#Pedido"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#PedirReembolso"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#Performative"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#PeticionDevolucion"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#Producto"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#ProponerEnvio"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#Propose"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#Protocol"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#ReciboProveedorPago"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#ReembolsarCantidad"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#Refuse"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#RejectProposal"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#Request"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#RestriccionBusqueda"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#TiendaExterna"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#Usuario"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#CompraProducto(P)"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#Devolucion(P)"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#Feedback(P)"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#OfertaTransporte(P)"/>
+    </Declaration>
+    <Declaration>
+        <ObjectProperty IRI="#belongsToConversation"/>
+    </Declaration>
+    <Declaration>
+        <ObjectProperty IRI="#belongsToProtocol"/>
+    </Declaration>
+    <Declaration>
+        <ObjectProperty IRI="#compra"/>
+    </Declaration>
+    <Declaration>
+        <ObjectProperty IRI="#compuestoDe"/>
+    </Declaration>
+    <Declaration>
+        <ObjectProperty IRI="#direccionEntrega"/>
+    </Declaration>
+    <Declaration>
+        <ObjectProperty IRI="#empresa"/>
+    </Declaration>
+    <Declaration>
+        <ObjectProperty IRI="#empresaTransporte"/>
+    </Declaration>
+    <Declaration>
+        <ObjectProperty IRI="#estaEn"/>
+    </Declaration>
+    <Declaration>
+        <ObjectProperty IRI="#factura"/>
+    </Declaration>
+    <Declaration>
+        <ObjectProperty IRI="#fecha"/>
+    </Declaration>
+    <Declaration>
+        <ObjectProperty IRI="#feedback"/>
+    </Declaration>
+    <Declaration>
+        <ObjectProperty IRI="#genera_una"/>
+    </Declaration>
+    <Declaration>
+        <ObjectProperty IRI="#hacePedido"/>
+    </Declaration>
+    <Declaration>
+        <ObjectProperty IRI="#hasContent"/>
+    </Declaration>
+    <Declaration>
+        <ObjectProperty IRI="#hasPerformative"/>
+    </Declaration>
+    <Declaration>
+        <ObjectProperty IRI="#hasReceiver"/>
+    </Declaration>
+    <Declaration>
+        <ObjectProperty IRI="#hasSender"/>
+    </Declaration>
+    <Declaration>
+        <ObjectProperty IRI="#hasState"/>
+    </Declaration>
+    <Declaration>
+        <ObjectProperty IRI="#listadoProductos"/>
+    </Declaration>
+    <Declaration>
+        <ObjectProperty IRI="#lo_hace_un"/>
+    </Declaration>
+    <Declaration>
+        <ObjectProperty IRI="#nextState"/>
+    </Declaration>
+    <Declaration>
+        <ObjectProperty IRI="#ofrece"/>
+    </Declaration>
+    <Declaration>
+        <ObjectProperty IRI="#pedido"/>
+    </Declaration>
+    <Declaration>
+        <ObjectProperty IRI="#perteneceA"/>
+    </Declaration>
+    <Declaration>
+        <ObjectProperty IRI="#peticion"/>
+    </Declaration>
+    <Declaration>
+        <ObjectProperty IRI="#productoABuscar"/>
+    </Declaration>
+    <Declaration>
+        <ObjectProperty IRI="#productoADevolver"/>
+    </Declaration>
+    <Declaration>
+        <ObjectProperty IRI="#reembolso"/>
+    </Declaration>
+    <Declaration>
+        <ObjectProperty IRI="#referenciaProducto"/>
+    </Declaration>
+    <Declaration>
+        <ObjectProperty IRI="#tiendaExterna"/>
+    </Declaration>
+    <Declaration>
+        <ObjectProperty IRI="#tieneFactura"/>
+    </Declaration>
+    <Declaration>
+        <ObjectProperty IRI="#tieneFeedback"/>
+    </Declaration>
+    <Declaration>
+        <ObjectProperty IRI="#tieneUna"/>
+    </Declaration>
+    <Declaration>
+        <ObjectProperty IRI="#vendedor"/>
+    </Declaration>
+    <Declaration>
+        <ObjectProperty IRI="#viveEn"/>
+    </Declaration>
+    <Declaration>
+        <DataProperty IRI="#calle"/>
+    </Declaration>
+    <Declaration>
+        <DataProperty IRI="#cantidad"/>
+    </Declaration>
+    <Declaration>
+        <DataProperty IRI="#ciudad"/>
+    </Declaration>
+    <Declaration>
+        <DataProperty IRI="#codigoPostal"/>
+    </Declaration>
+    <Declaration>
+        <DataProperty IRI="#datosProveedor"/>
+    </Declaration>
+    <Declaration>
+        <DataProperty IRI="#descripcion"/>
+    </Declaration>
+    <Declaration>
+        <DataProperty IRI="#dineroDevuelto"/>
+    </Declaration>
+    <Declaration>
+        <DataProperty IRI="#email"/>
+    </Declaration>
+    <Declaration>
+        <DataProperty IRI="#fecha"/>
+    </Declaration>
+    <Declaration>
+        <DataProperty IRI="#fechaFactura"/>
+    </Declaration>
+    <Declaration>
+        <DataProperty IRI="#fechaPrivistaEntrega"/>
+    </Declaration>
+    <Declaration>
+        <DataProperty IRI="#fechaSalida"/>
+    </Declaration>
+    <Declaration>
+        <DataProperty IRI="#formulario"/>
+    </Declaration>
+    <Declaration>
+        <DataProperty IRI="#importeTotal"/>
+    </Declaration>
+    <Declaration>
+        <DataProperty IRI="#impuestos"/>
+    </Declaration>
+    <Declaration>
+        <DataProperty IRI="#informacion"/>
+    </Declaration>
+    <Declaration>
+        <DataProperty IRI="#mensajeAEnviar"/>
+    </Declaration>
+    <Declaration>
+        <DataProperty IRI="#motivo"/>
+    </Declaration>
+    <Declaration>
+        <DataProperty IRI="#nombre"/>
+    </Declaration>
+    <Declaration>
+        <DataProperty IRI="#numero"/>
+    </Declaration>
+    <Declaration>
+        <DataProperty IRI="#numeroFactura"/>
+    </Declaration>
+    <Declaration>
+        <DataProperty IRI="#numeroTarjeta"/>
+    </Declaration>
+    <Declaration>
+        <DataProperty IRI="#pais"/>
+    </Declaration>
+    <Declaration>
+        <DataProperty IRI="#peso"/>
+    </Declaration>
+    <Declaration>
+        <DataProperty IRI="#piso"/>
+    </Declaration>
+    <Declaration>
+        <DataProperty IRI="#precio"/>
+    </Declaration>
+    <Declaration>
+        <DataProperty IRI="#prioridad"/>
+    </Declaration>
+    <Declaration>
+        <DataProperty IRI="#puntuacion"/>
+    </Declaration>
+    <Declaration>
+        <DataProperty IRI="#subtotal"/>
+    </Declaration>
+    <Declaration>
+        <DataProperty IRI="#tarifaBase"/>
+    </Declaration>
+    <Declaration>
+        <DataProperty IRI="#textoConsulta"/>
+    </Declaration>
+    <Declaration>
+        <DataProperty IRI="#valorMax"/>
+    </Declaration>
+    <Declaration>
+        <DataProperty IRI="#valorMin"/>
+    </Declaration>
+    <Declaration>
+        <NamedIndividual IRI="#AcceptedState"/>
+    </Declaration>
+    <Declaration>
+        <NamedIndividual IRI="#BúsquedaRealizada"/>
+    </Declaration>
+    <Declaration>
+        <NamedIndividual IRI="#DoneState"/>
+    </Declaration>
+    <Declaration>
+        <NamedIndividual IRI="#EnvíoRealizado"/>
+    </Declaration>
+    <Declaration>
+        <NamedIndividual IRI="#InformaciónPago"/>
+    </Declaration>
+    <Declaration>
+        <NamedIndividual IRI="#InformaciónPedido"/>
+    </Declaration>
+    <Declaration>
+        <NamedIndividual IRI="#NuevoPedido"/>
+    </Declaration>
+    <Declaration>
+        <NamedIndividual IRI="#ProcesoFeedback"/>
+    </Declaration>
+    <Declaration>
+        <NamedIndividual IRI="#RejectedState"/>
+    </Declaration>
+    <Declaration>
+        <NamedIndividual IRI="#StartState"/>
+    </Declaration>
+    <Declaration>
+        <NamedIndividual IRI="#VerificarCompra"/>
+    </Declaration>
+    <Declaration>
+        <NamedIndividual IRI="#WaitingResponse"/>
+    </Declaration>
+    <SubClassOf>
+        <Class IRI="#AcceptProposal"/>
+        <Class IRI="#Performative"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#Ag.Comprador"/>
+        <Class IRI="#Agent"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#Ag.Devoluciones"/>
+        <Class IRI="#Agent"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#Ag.Experiencia"/>
+        <Class IRI="#Agent"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#Ag.GestorDePagos"/>
+        <Class IRI="#Agent"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#Ag.GestorDePedidos"/>
+        <Class IRI="#Agent"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#Ag.Logístico"/>
+        <Class IRI="#Agent"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#Agree"/>
+        <Class IRI="#Performative"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#Busqueda"/>
+        <Class IRI="#Content"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#CFP"/>
+        <Class IRI="#Performative"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#CobrarPedido"/>
+        <Class IRI="#Content"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#Content"/>
+        <Class IRI="#Communicacion"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#Conversation"/>
+        <Class IRI="#Communicacion"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#ConversationState"/>
+        <Class IRI="#Communicacion"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#ElegirEmpresaTransporte"/>
+        <Class IRI="#Content"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#Failure"/>
+        <Class IRI="#Performative"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#Inform"/>
+        <Class IRI="#Performative"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#InformarDesicion"/>
+        <Class IRI="#Content"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#InformarEmpresaTransporte"/>
+        <Class IRI="#Content"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#InformarFactura"/>
+        <Class IRI="#Content"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#InformarFecha"/>
+        <Class IRI="#Content"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#ListarProductos"/>
+        <Class IRI="#Content"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#ListarProductosAMedida"/>
+        <Class IRI="#Content"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#Message"/>
+        <Class IRI="#Communicacion"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#ObtenerDetallesPedido"/>
+        <Class IRI="#Content"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#ObtenerFeedback"/>
+        <Class IRI="#Content"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#ObtenerProveedorPago"/>
+        <Class IRI="#Content"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#PagarVendedor"/>
+        <Class IRI="#Content"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#PedirReembolso"/>
+        <Class IRI="#Content"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#Performative"/>
+        <Class IRI="#Communicacion"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#ProponerEnvio"/>
+        <Class IRI="#Content"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#Propose"/>
+        <Class IRI="#Performative"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#Protocol"/>
+        <Class IRI="#Communicacion"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#ReciboProveedorPago"/>
+        <Class IRI="#Content"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#ReembolsarCantidad"/>
+        <Class IRI="#Content"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#Refuse"/>
+        <Class IRI="#Performative"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#RejectProposal"/>
+        <Class IRI="#Performative"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#Request"/>
+        <Class IRI="#Performative"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#RestriccionBusqueda"/>
+        <Class IRI="#Content"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#CompraProducto(P)"/>
+        <Class IRI="#Content"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#Devolucion(P)"/>
+        <Class IRI="#Content"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#Feedback(P)"/>
+        <Class IRI="#Content"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#OfertaTransporte(P)"/>
+        <Class IRI="#Content"/>
+    </SubClassOf>
+    <ClassAssertion>
+        <Class IRI="#ConversationState"/>
+        <NamedIndividual IRI="#AcceptedState"/>
+    </ClassAssertion>
+    <ClassAssertion>
+        <Class IRI="#Protocol"/>
+        <NamedIndividual IRI="#BúsquedaRealizada"/>
+    </ClassAssertion>
+    <ClassAssertion>
+        <Class IRI="#ConversationState"/>
+        <NamedIndividual IRI="#DoneState"/>
+    </ClassAssertion>
+    <ClassAssertion>
+        <Class IRI="#Protocol"/>
+        <NamedIndividual IRI="#EnvíoRealizado"/>
+    </ClassAssertion>
+    <ClassAssertion>
+        <Class IRI="#Protocol"/>
+        <NamedIndividual IRI="#InformaciónPago"/>
+    </ClassAssertion>
+    <ClassAssertion>
+        <Class IRI="#Protocol"/>
+        <NamedIndividual IRI="#InformaciónPedido"/>
+    </ClassAssertion>
+    <ClassAssertion>
+        <Class IRI="#Protocol"/>
+        <NamedIndividual IRI="#NuevoPedido"/>
+    </ClassAssertion>
+    <ClassAssertion>
+        <Class IRI="#Protocol"/>
+        <NamedIndividual IRI="#ProcesoFeedback"/>
+    </ClassAssertion>
+    <ClassAssertion>
+        <Class IRI="#ConversationState"/>
+        <NamedIndividual IRI="#RejectedState"/>
+    </ClassAssertion>
+    <ClassAssertion>
+        <Class IRI="#ConversationState"/>
+        <NamedIndividual IRI="#StartState"/>
+    </ClassAssertion>
+    <ClassAssertion>
+        <Class IRI="#Protocol"/>
+        <NamedIndividual IRI="#VerificarCompra"/>
+    </ClassAssertion>
+    <ClassAssertion>
+        <Class IRI="#ConversationState"/>
+        <NamedIndividual IRI="#WaitingResponse"/>
+    </ClassAssertion>
+    <EquivalentObjectProperties>
+        <ObjectProperty IRI="#hacePedido"/>
+        <ObjectProperty IRI="#peticion"/>
+    </EquivalentObjectProperties>
+    <ObjectPropertyDomain>
+        <ObjectProperty IRI="#belongsToConversation"/>
+        <Class IRI="#Message"/>
+    </ObjectPropertyDomain>
+    <ObjectPropertyDomain>
+        <ObjectProperty IRI="#belongsToProtocol"/>
+        <Class IRI="#Conversation"/>
+    </ObjectPropertyDomain>
+    <ObjectPropertyDomain>
+        <ObjectProperty IRI="#belongsToProtocol"/>
+        <Class IRI="#Message"/>
+    </ObjectPropertyDomain>
+    <ObjectPropertyDomain>
+        <ObjectProperty IRI="#compra"/>
+        <Class IRI="#CompraProducto(P)"/>
+    </ObjectPropertyDomain>
+    <ObjectPropertyDomain>
+        <ObjectProperty IRI="#compuestoDe"/>
+        <Class IRI="#Pedido"/>
+    </ObjectPropertyDomain>
+    <ObjectPropertyDomain>
+        <ObjectProperty IRI="#direccionEntrega"/>
+        <Class IRI="#Pedido"/>
+    </ObjectPropertyDomain>
+    <ObjectPropertyDomain>
+        <ObjectProperty IRI="#empresa"/>
+        <Class IRI="#ElegirEmpresaTransporte"/>
+    </ObjectPropertyDomain>
+    <ObjectPropertyDomain>
+        <ObjectProperty IRI="#empresa"/>
+        <Class IRI="#InformarEmpresaTransporte"/>
+    </ObjectPropertyDomain>
+    <ObjectPropertyDomain>
+        <ObjectProperty IRI="#empresa"/>
+        <Class IRI="#ProponerEnvio"/>
+    </ObjectPropertyDomain>
+    <ObjectPropertyDomain>
+        <ObjectProperty IRI="#empresaTransporte"/>
+        <Class IRI="#Pedido"/>
+    </ObjectPropertyDomain>
+    <ObjectPropertyDomain>
+        <ObjectProperty IRI="#estaEn"/>
+        <Class IRI="#CentroLogistico"/>
+    </ObjectPropertyDomain>
+    <ObjectPropertyDomain>
+        <ObjectProperty IRI="#factura"/>
+        <Class IRI="#InformarFactura"/>
+    </ObjectPropertyDomain>
+    <ObjectPropertyDomain>
+        <ObjectProperty IRI="#fecha"/>
+        <Class IRI="#InformarFecha"/>
+    </ObjectPropertyDomain>
+    <ObjectPropertyDomain>
+        <ObjectProperty IRI="#feedback"/>
+        <Class IRI="#Feedback(P)"/>
+    </ObjectPropertyDomain>
+    <ObjectPropertyDomain>
+        <ObjectProperty IRI="#genera_una"/>
+        <Class IRI="#Devolucion(P)"/>
+    </ObjectPropertyDomain>
+    <ObjectPropertyDomain>
+        <ObjectProperty IRI="#hacePedido"/>
+        <Class IRI="#Usuario"/>
+    </ObjectPropertyDomain>
+    <ObjectPropertyDomain>
+        <ObjectProperty IRI="#hasContent"/>
+        <Class IRI="#Message"/>
+    </ObjectPropertyDomain>
+    <ObjectPropertyDomain>
+        <ObjectProperty IRI="#hasPerformative"/>
+        <Class IRI="#Message"/>
+    </ObjectPropertyDomain>
+    <ObjectPropertyDomain>
+        <ObjectProperty IRI="#hasReceiver"/>
+        <Class IRI="#Message"/>
+    </ObjectPropertyDomain>
+    <ObjectPropertyDomain>
+        <ObjectProperty IRI="#hasSender"/>
+        <Class IRI="#Message"/>
+    </ObjectPropertyDomain>
+    <ObjectPropertyDomain>
+        <ObjectProperty IRI="#hasState"/>
+        <Class IRI="#Conversation"/>
+    </ObjectPropertyDomain>
+    <ObjectPropertyDomain>
+        <ObjectProperty IRI="#listadoProductos"/>
+        <Class IRI="#ListarProductos"/>
+    </ObjectPropertyDomain>
+    <ObjectPropertyDomain>
+        <ObjectProperty IRI="#listadoProductos"/>
+        <Class IRI="#ListarProductosAMedida"/>
+    </ObjectPropertyDomain>
+    <ObjectPropertyDomain>
+        <ObjectProperty IRI="#lo_hace_un"/>
+        <Class IRI="#Feedback(P)"/>
+    </ObjectPropertyDomain>
+    <ObjectPropertyDomain>
+        <ObjectProperty IRI="#nextState"/>
+        <Class IRI="#ConversationState"/>
+    </ObjectPropertyDomain>
+    <ObjectPropertyDomain>
+        <ObjectProperty IRI="#ofrece"/>
+        <Class IRI="#EmpresaTransporte"/>
+    </ObjectPropertyDomain>
+    <ObjectPropertyDomain>
+        <ObjectProperty IRI="#pedido"/>
+        <Class IRI="#CobrarPedido"/>
+    </ObjectPropertyDomain>
+    <ObjectPropertyDomain>
+        <ObjectProperty IRI="#pedido"/>
+        <Class IRI="#PagarVendedor"/>
+    </ObjectPropertyDomain>
+    <ObjectPropertyDomain>
+        <ObjectProperty IRI="#pedido"/>
+        <Class IRI="#ProponerEnvio"/>
+    </ObjectPropertyDomain>
+    <ObjectPropertyDomain>
+        <ObjectProperty IRI="#perteneceA"/>
+        <Class IRI="#Producto"/>
+    </ObjectPropertyDomain>
+    <ObjectPropertyDomain>
+        <ObjectProperty IRI="#peticion"/>
+        <Class IRI="#Devolucion"/>
+    </ObjectPropertyDomain>
+    <ObjectPropertyDomain>
+        <ObjectProperty IRI="#peticion"/>
+        <Class IRI="#InformarDesicion"/>
+    </ObjectPropertyDomain>
+    <ObjectPropertyDomain>
+        <ObjectProperty IRI="#productoABuscar"/>
+        <Class IRI="#RestriccionBusqueda"/>
+    </ObjectPropertyDomain>
+    <ObjectPropertyDomain>
+        <ObjectProperty IRI="#productoADevolver"/>
+        <Class IRI="#PeticionDevolucion"/>
+    </ObjectPropertyDomain>
+    <ObjectPropertyDomain>
+        <ObjectProperty IRI="#reembolso"/>
+        <Class IRI="#PedirReembolso"/>
+    </ObjectPropertyDomain>
+    <ObjectPropertyDomain>
+        <ObjectProperty IRI="#reembolso"/>
+        <Class IRI="#ReembolsarCantidad"/>
+    </ObjectPropertyDomain>
+    <ObjectPropertyDomain>
+        <ObjectProperty IRI="#referenciaProducto"/>
+        <Class IRI="#CompraProducto"/>
+    </ObjectPropertyDomain>
+    <ObjectPropertyDomain>
+        <ObjectProperty IRI="#tiendaExterna"/>
+        <Class IRI="#ObtenerProveedorPago"/>
+    </ObjectPropertyDomain>
+    <ObjectPropertyDomain>
+        <ObjectProperty IRI="#tiendaExterna"/>
+        <Class IRI="#PedirReembolso"/>
+    </ObjectPropertyDomain>
+    <ObjectPropertyDomain>
+        <ObjectProperty IRI="#tieneFactura"/>
+        <Class IRI="#Pedido"/>
+    </ObjectPropertyDomain>
+    <ObjectPropertyDomain>
+        <ObjectProperty IRI="#tieneFeedback"/>
+        <Class IRI="#Producto"/>
+    </ObjectPropertyDomain>
+    <ObjectPropertyDomain>
+        <ObjectProperty IRI="#tieneUna"/>
+        <Class IRI="#Producto"/>
+    </ObjectPropertyDomain>
+    <ObjectPropertyDomain>
+        <ObjectProperty IRI="#tieneUna"/>
+        <Class IRI="#OfertaTransporte(P)"/>
+    </ObjectPropertyDomain>
+    <ObjectPropertyDomain>
+        <ObjectProperty IRI="#vendedor"/>
+        <Class IRI="#PagarVendedor"/>
+    </ObjectPropertyDomain>
+    <ObjectPropertyDomain>
+        <ObjectProperty IRI="#viveEn"/>
+        <Class IRI="#Usuario"/>
+    </ObjectPropertyDomain>
+    <ObjectPropertyRange>
+        <ObjectProperty IRI="#belongsToConversation"/>
+        <Class IRI="#Conversation"/>
+    </ObjectPropertyRange>
+    <ObjectPropertyRange>
+        <ObjectProperty IRI="#belongsToProtocol"/>
+        <Class IRI="#Protocol"/>
+    </ObjectPropertyRange>
+    <ObjectPropertyRange>
+        <ObjectProperty IRI="#compra"/>
+        <Class IRI="#Producto"/>
+    </ObjectPropertyRange>
+    <ObjectPropertyRange>
+        <ObjectProperty IRI="#compuestoDe"/>
+        <Class IRI="#CompraProducto"/>
+    </ObjectPropertyRange>
+    <ObjectPropertyRange>
+        <ObjectProperty IRI="#direccionEntrega"/>
+        <Class IRI="#Direccion"/>
+    </ObjectPropertyRange>
+    <ObjectPropertyRange>
+        <ObjectProperty IRI="#empresa"/>
+        <Class IRI="#EmpresaTransporte"/>
+    </ObjectPropertyRange>
+    <ObjectPropertyRange>
+        <ObjectProperty IRI="#empresaTransporte"/>
+        <Class IRI="#EmpresaTransporte"/>
+    </ObjectPropertyRange>
+    <ObjectPropertyRange>
+        <ObjectProperty IRI="#estaEn"/>
+        <Class IRI="#Direccion"/>
+    </ObjectPropertyRange>
+    <ObjectPropertyRange>
+        <ObjectProperty IRI="#factura"/>
+        <Class IRI="#Factura"/>
+    </ObjectPropertyRange>
+    <ObjectPropertyRange>
+        <ObjectProperty IRI="#fecha"/>
+        <Class IRI="#Pedido"/>
+    </ObjectPropertyRange>
+    <ObjectPropertyRange>
+        <ObjectProperty IRI="#feedback"/>
+        <Class IRI="#Feedback"/>
+    </ObjectPropertyRange>
+    <ObjectPropertyRange>
+        <ObjectProperty IRI="#genera_una"/>
+        <Class IRI="#PeticionDevolucion"/>
+    </ObjectPropertyRange>
+    <ObjectPropertyRange>
+        <ObjectProperty IRI="#hacePedido"/>
+        <Class IRI="#Pedido"/>
+    </ObjectPropertyRange>
+    <ObjectPropertyRange>
+        <ObjectProperty IRI="#hasContent"/>
+        <Class IRI="#Content"/>
+    </ObjectPropertyRange>
+    <ObjectPropertyRange>
+        <ObjectProperty IRI="#hasPerformative"/>
+        <Class IRI="#Performative"/>
+    </ObjectPropertyRange>
+    <ObjectPropertyRange>
+        <ObjectProperty IRI="#hasReceiver"/>
+        <Class IRI="#Agent"/>
+    </ObjectPropertyRange>
+    <ObjectPropertyRange>
+        <ObjectProperty IRI="#hasSender"/>
+        <Class IRI="#Agent"/>
+    </ObjectPropertyRange>
+    <ObjectPropertyRange>
+        <ObjectProperty IRI="#hasState"/>
+        <Class IRI="#ConversationState"/>
+    </ObjectPropertyRange>
+    <ObjectPropertyRange>
+        <ObjectProperty IRI="#listadoProductos"/>
+        <Class IRI="#Producto"/>
+    </ObjectPropertyRange>
+    <ObjectPropertyRange>
+        <ObjectProperty IRI="#lo_hace_un"/>
+        <Class IRI="#Usuario"/>
+    </ObjectPropertyRange>
+    <ObjectPropertyRange>
+        <ObjectProperty IRI="#nextState"/>
+        <Class IRI="#ConversationState"/>
+    </ObjectPropertyRange>
+    <ObjectPropertyRange>
+        <ObjectProperty IRI="#ofrece"/>
+        <Class IRI="#OfertaTransporte"/>
+    </ObjectPropertyRange>
+    <ObjectPropertyRange>
+        <ObjectProperty IRI="#pedido"/>
+        <Class IRI="#Pedido"/>
+    </ObjectPropertyRange>
+    <ObjectPropertyRange>
+        <ObjectProperty IRI="#perteneceA"/>
+        <Class IRI="#CategoriaProducto"/>
+    </ObjectPropertyRange>
+    <ObjectPropertyRange>
+        <ObjectProperty IRI="#peticion"/>
+        <Class IRI="#PeticionDevolucion"/>
+    </ObjectPropertyRange>
+    <ObjectPropertyRange>
+        <ObjectProperty IRI="#productoABuscar"/>
+        <Class IRI="#Producto"/>
+    </ObjectPropertyRange>
+    <ObjectPropertyRange>
+        <ObjectProperty IRI="#productoADevolver"/>
+        <Class IRI="#Producto"/>
+    </ObjectPropertyRange>
+    <ObjectPropertyRange>
+        <ObjectProperty IRI="#reembolso"/>
+        <Class IRI="#Devolucion"/>
+    </ObjectPropertyRange>
+    <ObjectPropertyRange>
+        <ObjectProperty IRI="#referenciaProducto"/>
+        <Class IRI="#Producto"/>
+    </ObjectPropertyRange>
+    <ObjectPropertyRange>
+        <ObjectProperty IRI="#tiendaExterna"/>
+        <Class IRI="#TiendaExterna"/>
+    </ObjectPropertyRange>
+    <ObjectPropertyRange>
+        <ObjectProperty IRI="#tieneFactura"/>
+        <Class IRI="#Factura"/>
+    </ObjectPropertyRange>
+    <ObjectPropertyRange>
+        <ObjectProperty IRI="#tieneFeedback"/>
+        <Class IRI="#Feedback"/>
+    </ObjectPropertyRange>
+    <ObjectPropertyRange>
+        <ObjectProperty IRI="#tieneUna"/>
+        <Class IRI="#Marca"/>
+    </ObjectPropertyRange>
+    <ObjectPropertyRange>
+        <ObjectProperty IRI="#tieneUna"/>
+        <Class IRI="#OfertaTransporte"/>
+    </ObjectPropertyRange>
+    <ObjectPropertyRange>
+        <ObjectProperty IRI="#vendedor"/>
+        <Class IRI="#TiendaExterna"/>
+    </ObjectPropertyRange>
+    <ObjectPropertyRange>
+        <ObjectProperty IRI="#viveEn"/>
+        <Class IRI="#Direccion"/>
+    </ObjectPropertyRange>
+    <EquivalentDataProperties>
+        <DataProperty IRI="#descripcion"/>
+        <DataProperty IRI="#informacion"/>
+    </EquivalentDataProperties>
+    <EquivalentDataProperties>
+        <DataProperty IRI="#fecha"/>
+        <DataProperty IRI="#fechaFactura"/>
+    </EquivalentDataProperties>
+    <EquivalentDataProperties>
+        <DataProperty IRI="#fecha"/>
+        <DataProperty IRI="#fechaPrivistaEntrega"/>
+    </EquivalentDataProperties>
+    <EquivalentDataProperties>
+        <DataProperty IRI="#fecha"/>
+        <DataProperty IRI="#fechaSalida"/>
+    </EquivalentDataProperties>
+    <SubDataPropertyOf>
+        <DataProperty IRI="#ciudad"/>
+        <DataProperty abbreviatedIRI="owl:topDataProperty"/>
+    </SubDataPropertyOf>
+    <SubDataPropertyOf>
+        <DataProperty IRI="#dineroDevuelto"/>
+        <DataProperty abbreviatedIRI="owl:topDataProperty"/>
+    </SubDataPropertyOf>
+    <DataPropertyDomain>
+        <DataProperty IRI="#calle"/>
+        <Class IRI="#Direccion"/>
+    </DataPropertyDomain>
+    <DataPropertyDomain>
+        <DataProperty IRI="#cantidad"/>
+        <Class IRI="#CompraProducto"/>
+    </DataPropertyDomain>
+    <DataPropertyDomain>
+        <DataProperty IRI="#ciudad"/>
+        <Class IRI="#Direccion"/>
+    </DataPropertyDomain>
+    <DataPropertyDomain>
+        <DataProperty IRI="#codigoPostal"/>
+        <Class IRI="#Direccion"/>
+    </DataPropertyDomain>
+    <DataPropertyDomain>
+        <DataProperty IRI="#datosProveedor"/>
+        <Class IRI="#ReciboProveedorPago"/>
+    </DataPropertyDomain>
+    <DataPropertyDomain>
+        <DataProperty IRI="#descripcion"/>
+        <Class IRI="#Feedback"/>
+    </DataPropertyDomain>
+    <DataPropertyDomain>
+        <DataProperty IRI="#descripcion"/>
+        <Class IRI="#Producto"/>
+    </DataPropertyDomain>
+    <DataPropertyDomain>
+        <DataProperty IRI="#dineroDevuelto"/>
+        <Class IRI="#Devolucion"/>
+    </DataPropertyDomain>
+    <DataPropertyDomain>
+        <DataProperty IRI="#email"/>
+        <ObjectExactCardinality cardinality="1">
+            <ObjectProperty abbreviatedIRI="owl:topObjectProperty"/>
+            <Class IRI="#Usuario"/>
+        </ObjectExactCardinality>
+    </DataPropertyDomain>
+    <DataPropertyDomain>
+        <DataProperty IRI="#fecha"/>
+        <Class IRI="#Pedido"/>
+    </DataPropertyDomain>
+    <DataPropertyDomain>
+        <DataProperty IRI="#fechaFactura"/>
+        <Class IRI="#Factura"/>
+    </DataPropertyDomain>
+    <DataPropertyDomain>
+        <DataProperty IRI="#fechaPrivistaEntrega"/>
+        <Class IRI="#OfertaTransporte"/>
+    </DataPropertyDomain>
+    <DataPropertyDomain>
+        <DataProperty IRI="#fechaSalida"/>
+        <Class IRI="#OfertaTransporte"/>
+    </DataPropertyDomain>
+    <DataPropertyDomain>
+        <DataProperty IRI="#formulario"/>
+        <Class IRI="#ObtenerDetallesPedido"/>
+    </DataPropertyDomain>
+    <DataPropertyDomain>
+        <DataProperty IRI="#importeTotal"/>
+        <Class IRI="#Factura"/>
+    </DataPropertyDomain>
+    <DataPropertyDomain>
+        <DataProperty IRI="#importeTotal"/>
+        <Class IRI="#Pedido"/>
+    </DataPropertyDomain>
+    <DataPropertyDomain>
+        <DataProperty IRI="#impuestos"/>
+        <Class IRI="#Factura"/>
+    </DataPropertyDomain>
+    <DataPropertyDomain>
+        <DataProperty IRI="#informacion"/>
+        <Class IRI="#Devolucion"/>
+    </DataPropertyDomain>
+    <DataPropertyDomain>
+        <DataProperty IRI="#mensajeAEnviar"/>
+        <Class IRI="#ObtenerFeedback"/>
+    </DataPropertyDomain>
+    <DataPropertyDomain>
+        <DataProperty IRI="#motivo"/>
+        <Class IRI="#PeticionDevolucion"/>
+    </DataPropertyDomain>
+    <DataPropertyDomain>
+        <DataProperty IRI="#nombre"/>
+        <Class IRI="#CategoriaProducto"/>
+    </DataPropertyDomain>
+    <DataPropertyDomain>
+        <DataProperty IRI="#nombre"/>
+        <Class IRI="#CentroLogistico"/>
+    </DataPropertyDomain>
+    <DataPropertyDomain>
+        <DataProperty IRI="#nombre"/>
+        <Class IRI="#EmpresaTransporte"/>
+    </DataPropertyDomain>
+    <DataPropertyDomain>
+        <DataProperty IRI="#nombre"/>
+        <Class IRI="#Marca"/>
+    </DataPropertyDomain>
+    <DataPropertyDomain>
+        <DataProperty IRI="#nombre"/>
+        <Class IRI="#Producto"/>
+    </DataPropertyDomain>
+    <DataPropertyDomain>
+        <DataProperty IRI="#nombre"/>
+        <Class IRI="#TiendaExterna"/>
+    </DataPropertyDomain>
+    <DataPropertyDomain>
+        <DataProperty IRI="#nombre"/>
+        <Class IRI="#Usuario"/>
+    </DataPropertyDomain>
+    <DataPropertyDomain>
+        <DataProperty IRI="#numero"/>
+        <Class IRI="#Direccion"/>
+    </DataPropertyDomain>
+    <DataPropertyDomain>
+        <DataProperty IRI="#numeroFactura"/>
+        <Class IRI="#Factura"/>
+    </DataPropertyDomain>
+    <DataPropertyDomain>
+        <DataProperty IRI="#numeroTarjeta"/>
+        <Class IRI="#Usuario"/>
+    </DataPropertyDomain>
+    <DataPropertyDomain>
+        <DataProperty IRI="#pais"/>
+        <Class IRI="#Direccion"/>
+    </DataPropertyDomain>
+    <DataPropertyDomain>
+        <DataProperty IRI="#peso"/>
+        <ObjectExactCardinality cardinality="1">
+            <ObjectProperty abbreviatedIRI="owl:topObjectProperty"/>
+            <Class IRI="#Producto"/>
+        </ObjectExactCardinality>
+    </DataPropertyDomain>
+    <DataPropertyDomain>
+        <DataProperty IRI="#precio"/>
+        <Class IRI="#OfertaTransporte"/>
+    </DataPropertyDomain>
+    <DataPropertyDomain>
+        <DataProperty IRI="#precio"/>
+        <Class IRI="#Producto"/>
+    </DataPropertyDomain>
+    <DataPropertyDomain>
+        <DataProperty IRI="#prioridad"/>
+        <Class IRI="#Pedido"/>
+    </DataPropertyDomain>
+    <DataPropertyDomain>
+        <DataProperty IRI="#puntuacion"/>
+        <Class IRI="#Feedback"/>
+    </DataPropertyDomain>
+    <DataPropertyDomain>
+        <DataProperty IRI="#valorMax"/>
+        <ObjectExactCardinality cardinality="1">
+            <ObjectProperty abbreviatedIRI="owl:topObjectProperty"/>
+            <Class IRI="#RestriccionBusqueda"/>
+        </ObjectExactCardinality>
+    </DataPropertyDomain>
+    <DataPropertyDomain>
+        <DataProperty IRI="#valorMin"/>
+        <ObjectExactCardinality cardinality="1">
+            <ObjectProperty abbreviatedIRI="owl:topObjectProperty"/>
+            <Class IRI="#RestriccionBusqueda"/>
+        </ObjectExactCardinality>
+    </DataPropertyDomain>
+    <DataPropertyRange>
+        <DataProperty IRI="#calle"/>
+        <Datatype abbreviatedIRI="xsd:string"/>
+    </DataPropertyRange>
+    <DataPropertyRange>
+        <DataProperty IRI="#cantidad"/>
+        <Datatype abbreviatedIRI="xsd:nonNegativeInteger"/>
+    </DataPropertyRange>
+    <DataPropertyRange>
+        <DataProperty IRI="#ciudad"/>
+        <Datatype abbreviatedIRI="xsd:string"/>
+    </DataPropertyRange>
+    <DataPropertyRange>
+        <DataProperty IRI="#codigoPostal"/>
+        <Datatype abbreviatedIRI="xsd:unsignedByte"/>
+    </DataPropertyRange>
+    <DataPropertyRange>
+        <DataProperty IRI="#datosProveedor"/>
+        <Datatype abbreviatedIRI="xsd:string"/>
+    </DataPropertyRange>
+    <DataPropertyRange>
+        <DataProperty IRI="#descripcion"/>
+        <Datatype abbreviatedIRI="xsd:string"/>
+    </DataPropertyRange>
+    <DataPropertyRange>
+        <DataProperty IRI="#dineroDevuelto"/>
+        <Datatype abbreviatedIRI="owl:real"/>
+    </DataPropertyRange>
+    <DataPropertyRange>
+        <DataProperty IRI="#email"/>
+        <Datatype abbreviatedIRI="xsd:string"/>
+    </DataPropertyRange>
+    <DataPropertyRange>
+        <DataProperty IRI="#fecha"/>
+        <Datatype abbreviatedIRI="xsd:dateTime"/>
+    </DataPropertyRange>
+    <DataPropertyRange>
+        <DataProperty IRI="#fechaFactura"/>
+        <Datatype abbreviatedIRI="xsd:dateTime"/>
+    </DataPropertyRange>
+    <DataPropertyRange>
+        <DataProperty IRI="#fechaPrivistaEntrega"/>
+        <Datatype abbreviatedIRI="xsd:dateTime"/>
+    </DataPropertyRange>
+    <DataPropertyRange>
+        <DataProperty IRI="#fechaSalida"/>
+        <Datatype abbreviatedIRI="xsd:dateTime"/>
+    </DataPropertyRange>
+    <DataPropertyRange>
+        <DataProperty IRI="#formulario"/>
+        <Datatype abbreviatedIRI="xsd:string"/>
+    </DataPropertyRange>
+    <DataPropertyRange>
+        <DataProperty IRI="#importeTotal"/>
+        <Datatype abbreviatedIRI="owl:real"/>
+    </DataPropertyRange>
+    <DataPropertyRange>
+        <DataProperty IRI="#impuestos"/>
+        <Datatype abbreviatedIRI="owl:real"/>
+    </DataPropertyRange>
+    <DataPropertyRange>
+        <DataProperty IRI="#informacion"/>
+        <Datatype abbreviatedIRI="xsd:string"/>
+    </DataPropertyRange>
+    <DataPropertyRange>
+        <DataProperty IRI="#mensajeAEnviar"/>
+        <Datatype abbreviatedIRI="xsd:string"/>
+    </DataPropertyRange>
+    <DataPropertyRange>
+        <DataProperty IRI="#nombre"/>
+        <Datatype abbreviatedIRI="xsd:string"/>
+    </DataPropertyRange>
+    <DataPropertyRange>
+        <DataProperty IRI="#numero"/>
+        <Datatype abbreviatedIRI="xsd:short"/>
+    </DataPropertyRange>
+    <DataPropertyRange>
+        <DataProperty IRI="#numeroFactura"/>
+        <Datatype abbreviatedIRI="xsd:unsignedInt"/>
+    </DataPropertyRange>
+    <DataPropertyRange>
+        <DataProperty IRI="#numeroTarjeta"/>
+        <Datatype abbreviatedIRI="xsd:string"/>
+    </DataPropertyRange>
+    <DataPropertyRange>
+        <DataProperty IRI="#pais"/>
+        <Datatype abbreviatedIRI="xsd:string"/>
+    </DataPropertyRange>
+    <DataPropertyRange>
+        <DataProperty IRI="#peso"/>
+        <Datatype abbreviatedIRI="owl:real"/>
+    </DataPropertyRange>
+    <DataPropertyRange>
+        <DataProperty IRI="#piso"/>
+        <Datatype abbreviatedIRI="xsd:string"/>
+    </DataPropertyRange>
+    <DataPropertyRange>
+        <DataProperty IRI="#precio"/>
+        <Datatype abbreviatedIRI="owl:real"/>
+    </DataPropertyRange>
+    <DataPropertyRange>
+        <DataProperty IRI="#prioridad"/>
+        <Datatype abbreviatedIRI="rdfs:Literal"/>
+    </DataPropertyRange>
+    <DataPropertyRange>
+        <DataProperty IRI="#puntuacion"/>
+        <Datatype abbreviatedIRI="xsd:int"/>
+    </DataPropertyRange>
+    <DataPropertyRange>
+        <DataProperty IRI="#subtotal"/>
+        <Datatype abbreviatedIRI="owl:real"/>
+    </DataPropertyRange>
+    <DataPropertyRange>
+        <DataProperty IRI="#tarifaBase"/>
+        <Datatype abbreviatedIRI="owl:real"/>
+    </DataPropertyRange>
+    <DataPropertyRange>
+        <DataProperty IRI="#textoConsulta"/>
+        <Datatype abbreviatedIRI="xsd:string"/>
+    </DataPropertyRange>
+    <DataPropertyRange>
+        <DataProperty IRI="#valorMax"/>
+        <Datatype abbreviatedIRI="xsd:integer"/>
+    </DataPropertyRange>
+    <DataPropertyRange>
+        <DataProperty IRI="#valorMin"/>
+        <Datatype abbreviatedIRI="xsd:integer"/>
+    </DataPropertyRange>
+</Ontology>
+
+
+
+<!-- Generated by the OWL API (version 4.5.29.2024-05-13T12:11:03Z) https://github.com/owlcs/owlapi -->
+
