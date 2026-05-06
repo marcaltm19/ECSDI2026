@@ -66,11 +66,6 @@ DirectoryAgent = Agent(
 
 cola1 = Queue()
 PRIORIDADES = {'urgente': 0, 'normal': 1, 'economica': 2}
-TRANSPORTISTAS = [
-    {'nombre': 'TransRapid', 'precio_kg': 2.5, 'dias': 1},
-    {'nombre': 'NormalPost', 'precio_kg': 1.8, 'dias': 3},
-    {'nombre': 'EcoShip',    'precio_kg': 1.2, 'dias': 5},
-]
 
 
 def register_message():
