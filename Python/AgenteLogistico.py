@@ -3,6 +3,7 @@ import json
 import logging
 import math
 import os
+import random
 import socket
 import sys
 import time
@@ -115,9 +116,9 @@ def elegir_centro(lat, lon):
     return min(centros, key=lambda c: haversine(lat, lon, c['lat'], c['lon']))
 
 
-def negociar_transporte(prioridad, direccion):
+def _buscar_transportistas():
+    """Consulta el DirectoryService y devuelve lista de direcciones de transportistas."""
     global mss_cnt
-
     gmess = Graph()
     gmess.bind('dso', DSO)
     search_obj = agn[f'Search-{mss_cnt}']
@@ -128,16 +129,14 @@ def negociar_transporte(prioridad, direccion):
     r = http_requests.get(DirectoryAgent.address,
                           params={'content': msg.serialize(format='xml')})
     mss_cnt += 1
-
     gr_ds = Graph()
     gr_ds.parse(data=r.text, format='xml')
-    transportistas_addr = [str(o) for s, p, o in gr_ds if p == DSO.Address]
+    return [str(o) for s, p, o in gr_ds if p == DSO.Address]
 
-    if not transportistas_addr:
-        logger.warning('[Logistico] No hay transportistas en el DS, usando fallback')
-        return 'Desconocido', (datetime.now() + timedelta(days=3)).strftime('%Y-%m-%d')
 
-    # Construir CFP
+def _enviar_cfp(t_addr, prioridad, direccion):
+    """Envia un CFP a un transportista y devuelve (precio, nombre, fecha) o None."""
+    global mss_cnt
     cfp_graph = Graph()
     cfp_graph.bind('ecsns', ECSNS)
     cfp_uri = agn[f'CFP-{mss_cnt}']
@@ -147,46 +146,156 @@ def negociar_transporte(prioridad, direccion):
     cfp_msg = build_message(cfp_graph, perf=ACL.request, sender=LogisticoAgent.uri,
                             content=cfp_uri, msgcnt=mss_cnt)
     mss_cnt += 1
+    try:
+        resp = http_requests.get(t_addr, params={'content': cfp_msg.serialize(format='xml')},
+                                 timeout=5)
+        gr_resp = Graph()
+        gr_resp.parse(data=resp.text, format='xml')
+        msgdic_t = get_message_properties(gr_resp)
+        if msgdic_t and msgdic_t.get('performative') == ACL.propose:
+            oferta = msgdic_t.get('content')
+            precio = float(gr_resp.value(oferta, ECSNS.tienePrecio) or 999)
+            nombre = str(gr_resp.value(oferta, ECSNS.tieneTransportista) or t_addr)
+            fecha  = str(gr_resp.value(oferta, ECSNS.tieneFechaEntrega) or '')
+            return precio, nombre, fecha
+    except Exception as e:
+        logger.warning(f'[Logistico] Error CFP a {t_addr}: {e}')
+    return None
 
-    # Recoger propuestas
-    mejor_precio = float('inf')
-    mejor_nombre = None
-    mejor_fecha = None
-    mejor_addr = None
 
+def _enviar_contraoferta(t_addr, contra_precio):
+    """
+    Envia una contra-oferta a un transportista.
+    Retorna:
+      ('acepta', contra_precio)  si el transportista acepta (ACL.inform)
+      ('propone', nuevo_precio)  si el transportista propone un precio intermedio (ACL.propose)
+      ('rechaza', None)          si el transportista rechaza (ACL.reject-proposal)
+      ('error', None)            si hay un problema de comunicacion
+    """
+    global mss_cnt
+    gr_counter = Graph()
+    gr_counter.bind('ecsns', ECSNS)
+    counter_uri = agn[f'Counter-{mss_cnt}']
+    gr_counter.add((counter_uri, RDF.type, ECSNS.ContraOferta))
+    gr_counter.add((counter_uri, ECSNS.tienePrecio, Literal(contra_precio)))
+    msg_counter = build_message(
+        gr_counter, perf=ACL['counter-proposal'],
+        sender=LogisticoAgent.uri, content=counter_uri, msgcnt=mss_cnt
+    )
+    mss_cnt += 1
+    try:
+        resp = http_requests.get(t_addr,
+                                 params={'content': msg_counter.serialize(format='xml')},
+                                 timeout=5)
+        gr_resp = Graph()
+        gr_resp.parse(data=resp.text, format='xml')
+        msgdic_r = get_message_properties(gr_resp)
+        if not msgdic_r:
+            return 'error', None
+        perf = msgdic_r.get('performative')
+        if perf == ACL.inform:
+            return 'acepta', contra_precio
+        elif perf == ACL.propose:
+            c = msgdic_r.get('content')
+            nuevo_precio = float(gr_resp.value(c, ECSNS.tienePrecio) or 999)
+            return 'propone', nuevo_precio
+        elif perf == ACL['reject-proposal']:
+            return 'rechaza', None
+    except Exception as e:
+        logger.warning(f'[Logistico] Error contra-oferta a {t_addr}: {e}')
+    return 'error', None
+
+
+def negociar_transporte(prioridad, direccion):
+    """
+    Negociacion compleja con los transportistas registrados en el DS:
+      Ronda 1 - CFP: recoge todas las propuestas iniciales.
+      Ronda 2 - Contra-oferta: envia precio_min * 0.9 a todos.
+        - Acepta  -> entra al pool final con el precio de contra-oferta.
+        - Propone -> entra al pool final si contra_precio < nuevo < precio_inicial.
+        - Rechaza -> queda fuera del pool final.
+      Si nadie acepta ni propone, el pool final es el de la ronda 1.
+      Ganador: precio mas bajo del pool final (empate -> azar).
+    """
+    global mss_cnt
+
+    transportistas_addr = _buscar_transportistas()
+
+    if not transportistas_addr:
+        logger.warning('[Logistico] No hay transportistas en el DS, usando fallback')
+        return 'Desconocido', (datetime.now() + timedelta(days=3)).strftime('%Y-%m-%d')
+
+    # --- RONDA 1: CFP inicial ---
+    ofertas_r1 = {}  # addr -> {'precio': float, 'nombre': str, 'fecha': str}
     for t_addr in transportistas_addr:
-        try:
-            resp = http_requests.get(t_addr,
-                                     params={'content': cfp_msg.serialize(format='xml')})
-            gr_resp = Graph()
-            gr_resp.parse(data=resp.text, format='xml')
-            msgdic_t = get_message_properties(gr_resp)
-            if msgdic_t and msgdic_t.get('performative') == ACL.propose:
-                oferta = msgdic_t.get('content')
-                precio = float(gr_resp.value(oferta, ECSNS.tienePrecio) or 999)
-                nombre = str(gr_resp.value(oferta, ECSNS.tieneTransportista) or '')
-                fecha  = str(gr_resp.value(oferta, ECSNS.tieneFechaEntrega) or '')
-                logger.info(f'[Logistico] Oferta de {nombre}: {precio}€ — {fecha}')
-                if precio < mejor_precio:
-                    mejor_precio = precio
-                    mejor_nombre = nombre
-                    mejor_fecha  = fecha
-                    mejor_addr   = t_addr
-        except Exception as e:
-            logger.warning(f'[Logistico] Error con transportista {t_addr}: {e}')
+        resultado = _enviar_cfp(t_addr, prioridad, direccion)
+        if resultado:
+            precio, nombre, fecha = resultado
+            ofertas_r1[t_addr] = {'precio': precio, 'nombre': nombre, 'fecha': fecha}
+            logger.info(f'[Logistico] Oferta R1 de {nombre}: {precio}€ — {fecha}')
 
-    # Aceptar ganador, rechazar resto
-    for t_addr in transportistas_addr:
-        perf = ACL['accept-proposal'] if t_addr == mejor_addr else ACL['reject-proposal']
+    if not ofertas_r1:
+        logger.warning('[Logistico] Ningun transportista respondio al CFP')
+        return 'Desconocido', (datetime.now() + timedelta(days=3)).strftime('%Y-%m-%d')
+
+    precio_min_r1 = min(o['precio'] for o in ofertas_r1.values())
+    contra_precio = round(precio_min_r1 * 0.9, 2)
+    logger.info(f'[Logistico] Precio minimo R1: {precio_min_r1}€ — Contra-oferta: {contra_precio}€')
+
+    # --- RONDA 2: contra-oferta ---
+    pool_final = {}  # addr -> {'precio': float, 'nombre': str, 'fecha': str}
+
+    for t_addr, oferta in ofertas_r1.items():
+        estado, nuevo_precio = _enviar_contraoferta(t_addr, contra_precio)
+
+        if estado == 'acepta':
+            logger.info(f'[Logistico] {oferta["nombre"]} ACEPTA contra-oferta: {contra_precio}€')
+            pool_final[t_addr] = {
+                'precio': contra_precio,
+                'nombre': oferta['nombre'],
+                'fecha':  oferta['fecha'],
+            }
+        elif estado == 'propone':
+            # Solo valida si esta estrictamente entre contra_precio y precio_inicial
+            if contra_precio < nuevo_precio < oferta['precio']:
+                logger.info(f'[Logistico] {oferta["nombre"]} PROPONE: {nuevo_precio}€')
+                pool_final[t_addr] = {
+                    'precio': nuevo_precio,
+                    'nombre': oferta['nombre'],
+                    'fecha':  oferta['fecha'],
+                }
+            else:
+                logger.info(f'[Logistico] {oferta["nombre"]} propuso {nuevo_precio}€ fuera de rango, ignorado')
+        elif estado == 'rechaza':
+            logger.info(f'[Logistico] {oferta["nombre"]} RECHAZA la contra-oferta')
+        # 'error' -> no entra en el pool
+
+    # Si nadie entro en el pool final, usamos las ofertas de la ronda 1
+    if not pool_final:
+        logger.info('[Logistico] Nadie acepto la contra-oferta, usando mejores ofertas R1')
+        pool_final = ofertas_r1
+
+    # Seleccionar ganador: precio mas bajo (empate -> azar)
+    precio_minimo = min(o['precio'] for o in pool_final.values())
+    candidatos = [addr for addr, o in pool_final.items() if o['precio'] == precio_minimo]
+    ganador_addr = random.choice(candidatos)
+    ganador = pool_final[ganador_addr]
+    logger.info(f'[Logistico] GANADOR: {ganador["nombre"]} — {ganador["precio"]}€ — {ganador["fecha"]}')
+
+    # Notificar a todos: aceptar al ganador, rechazar al resto
+    for t_addr in ofertas_r1:
+        perf = ACL['accept-proposal'] if t_addr == ganador_addr else ACL['reject-proposal']
         gr_dec = Graph()
         msg_dec = build_message(gr_dec, perf=perf,
                                 sender=LogisticoAgent.uri, msgcnt=mss_cnt)
-        http_requests.get(t_addr, params={'content': msg_dec.serialize(format='xml')})
         mss_cnt += 1
+        try:
+            http_requests.get(t_addr, params={'content': msg_dec.serialize(format='xml')},
+                              timeout=5)
+        except Exception as e:
+            logger.warning(f'[Logistico] Error notificando decision a {t_addr}: {e}')
 
-    logger.info(f'[Logistico] Elegido: {mejor_nombre} — {mejor_precio}€ — {mejor_fecha}')
-
-    return mejor_nombre, mejor_fecha
+    return ganador['nombre'], ganador['fecha']
 
 
 def juntar_productos():
@@ -229,7 +338,7 @@ def realizar_envios():
         envios.append(envio)
         with open(ENVIOS_PATH, 'w') as f:
             json.dump(envios, f, indent=2)
-        logger.info(f"[Logistico] Envío {envio['id']} — {nombre_t} — {fecha}")
+        logger.info(f"[Logistico] Envio {envio['id']} — {nombre_t} — {fecha}")
     guardar_pedidos([])
 
 
