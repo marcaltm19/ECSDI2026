@@ -1,49 +1,22 @@
 <?xml version="1.0"?>
 <Ontology xmlns="http://www.w3.org/2002/07/owl#"
-     xml:base="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#"
+     xml:base="http://www.semanticweb.org/christianclementegarcia/ontologies/2026/3/untitled-ontology-3"
      xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
      xmlns:xml="http://www.w3.org/XML/1998/namespace"
      xmlns:xsd="http://www.w3.org/2001/XMLSchema#"
      xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
-     ontologyIRI="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#">
-    <Prefix name="" IRI="http://www.semanticweb.org/ECSDI2026/ontologies/shop/"/>
+     ontologyIRI="http://www.semanticweb.org/christianclementegarcia/ontologies/2026/3/untitled-ontology-3">
+    <Prefix name="" IRI="http://www.semanticweb.org/christianclementegarcia/ontologies/2026/3/untitled-ontology-3/"/>
     <Prefix name="owl" IRI="http://www.w3.org/2002/07/owl#"/>
     <Prefix name="rdf" IRI="http://www.w3.org/1999/02/22-rdf-syntax-ns#"/>
     <Prefix name="xml" IRI="http://www.w3.org/XML/1998/namespace"/>
     <Prefix name="xsd" IRI="http://www.w3.org/2001/XMLSchema#"/>
     <Prefix name="rdfs" IRI="http://www.w3.org/2000/01/rdf-schema#"/>
     <Declaration>
-        <Class IRI="#AcceptProposal"/>
-    </Declaration>
-    <Declaration>
-        <Class IRI="#Ag.Comprador"/>
-    </Declaration>
-    <Declaration>
-        <Class IRI="#Ag.Devoluciones"/>
-    </Declaration>
-    <Declaration>
-        <Class IRI="#Ag.Experiencia"/>
-    </Declaration>
-    <Declaration>
-        <Class IRI="#Ag.GestorDePagos"/>
-    </Declaration>
-    <Declaration>
-        <Class IRI="#Ag.GestorDePedidos"/>
-    </Declaration>
-    <Declaration>
-        <Class IRI="#Ag.Logístico"/>
-    </Declaration>
-    <Declaration>
-        <Class IRI="#Agent"/>
-    </Declaration>
-    <Declaration>
-        <Class IRI="#Agree"/>
+        <Class IRI="#Accion"/>
     </Declaration>
     <Declaration>
         <Class IRI="#Busqueda"/>
-    </Declaration>
-    <Declaration>
-        <Class IRI="#CFP"/>
     </Declaration>
     <Declaration>
         <Class IRI="#CategoriaProducto"/>
@@ -52,28 +25,25 @@
         <Class IRI="#CentroLogistico"/>
     </Declaration>
     <Declaration>
-        <Class IRI="#CobrarPedido"/>
+        <Class IRI="#Cobrar"/>
     </Declaration>
     <Declaration>
-        <Class IRI="#Communicacion"/>
+        <Class IRI="#CobrarPedido"/>
     </Declaration>
     <Declaration>
         <Class IRI="#CompraProducto"/>
     </Declaration>
     <Declaration>
-        <Class IRI="#Content"/>
-    </Declaration>
-    <Declaration>
-        <Class IRI="#Conversation"/>
-    </Declaration>
-    <Declaration>
-        <Class IRI="#ConversationState"/>
+        <Class IRI="#Comunicacion"/>
     </Declaration>
     <Declaration>
         <Class IRI="#Devolucion"/>
     </Declaration>
     <Declaration>
         <Class IRI="#Direccion"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#Elegir"/>
     </Declaration>
     <Declaration>
         <Class IRI="#ElegirEmpresaTransporte"/>
@@ -85,13 +55,10 @@
         <Class IRI="#Factura"/>
     </Declaration>
     <Declaration>
-        <Class IRI="#Failure"/>
-    </Declaration>
-    <Declaration>
         <Class IRI="#Feedback"/>
     </Declaration>
     <Declaration>
-        <Class IRI="#Inform"/>
+        <Class IRI="#Informar"/>
     </Declaration>
     <Declaration>
         <Class IRI="#InformarDesicion"/>
@@ -106,6 +73,9 @@
         <Class IRI="#InformarFecha"/>
     </Declaration>
     <Declaration>
+        <Class IRI="#Listar"/>
+    </Declaration>
+    <Declaration>
         <Class IRI="#ListarProductos"/>
     </Declaration>
     <Declaration>
@@ -115,7 +85,7 @@
         <Class IRI="#Marca"/>
     </Declaration>
     <Declaration>
-        <Class IRI="#Message"/>
+        <Class IRI="#Obtener"/>
     </Declaration>
     <Declaration>
         <Class IRI="#ObtenerDetallesPedido"/>
@@ -130,16 +100,19 @@
         <Class IRI="#OfertaTransporte"/>
     </Declaration>
     <Declaration>
+        <Class IRI="#Pagar"/>
+    </Declaration>
+    <Declaration>
         <Class IRI="#PagarVendedor"/>
     </Declaration>
     <Declaration>
         <Class IRI="#Pedido"/>
     </Declaration>
     <Declaration>
-        <Class IRI="#PedirReembolso"/>
+        <Class IRI="#Pedir"/>
     </Declaration>
     <Declaration>
-        <Class IRI="#Performative"/>
+        <Class IRI="#PedirReembolso"/>
     </Declaration>
     <Declaration>
         <Class IRI="#PeticionDevolucion"/>
@@ -148,28 +121,22 @@
         <Class IRI="#Producto"/>
     </Declaration>
     <Declaration>
+        <Class IRI="#Proponer"/>
+    </Declaration>
+    <Declaration>
         <Class IRI="#ProponerEnvio"/>
-    </Declaration>
-    <Declaration>
-        <Class IRI="#Propose"/>
-    </Declaration>
-    <Declaration>
-        <Class IRI="#Protocol"/>
     </Declaration>
     <Declaration>
         <Class IRI="#ReciboProveedorPago"/>
     </Declaration>
     <Declaration>
+        <Class IRI="#Reembolsar"/>
+    </Declaration>
+    <Declaration>
         <Class IRI="#ReembolsarCantidad"/>
     </Declaration>
     <Declaration>
-        <Class IRI="#Refuse"/>
-    </Declaration>
-    <Declaration>
-        <Class IRI="#RejectProposal"/>
-    </Declaration>
-    <Declaration>
-        <Class IRI="#Request"/>
+        <Class IRI="#Respuesta"/>
     </Declaration>
     <Declaration>
         <Class IRI="#RestriccionBusqueda"/>
@@ -191,12 +158,6 @@
     </Declaration>
     <Declaration>
         <Class IRI="#OfertaTransporte(P)"/>
-    </Declaration>
-    <Declaration>
-        <ObjectProperty IRI="#belongsToConversation"/>
-    </Declaration>
-    <Declaration>
-        <ObjectProperty IRI="#belongsToProtocol"/>
     </Declaration>
     <Declaration>
         <ObjectProperty IRI="#compra"/>
@@ -232,28 +193,10 @@
         <ObjectProperty IRI="#hacePedido"/>
     </Declaration>
     <Declaration>
-        <ObjectProperty IRI="#hasContent"/>
-    </Declaration>
-    <Declaration>
-        <ObjectProperty IRI="#hasPerformative"/>
-    </Declaration>
-    <Declaration>
-        <ObjectProperty IRI="#hasReceiver"/>
-    </Declaration>
-    <Declaration>
-        <ObjectProperty IRI="#hasSender"/>
-    </Declaration>
-    <Declaration>
-        <ObjectProperty IRI="#hasState"/>
-    </Declaration>
-    <Declaration>
         <ObjectProperty IRI="#listadoProductos"/>
     </Declaration>
     <Declaration>
         <ObjectProperty IRI="#lo_hace_un"/>
-    </Declaration>
-    <Declaration>
-        <ObjectProperty IRI="#nextState"/>
     </Declaration>
     <Declaration>
         <ObjectProperty IRI="#ofrece"/>
@@ -262,7 +205,10 @@
         <ObjectProperty IRI="#pedido"/>
     </Declaration>
     <Declaration>
-        <ObjectProperty IRI="#perteneceA"/>
+        <ObjectProperty IRI="#perteneceACategoria"/>
+    </Declaration>
+    <Declaration>
+        <ObjectProperty IRI="#perteneceATienda"/>
     </Declaration>
     <Declaration>
         <ObjectProperty IRI="#peticion"/>
@@ -396,278 +342,142 @@
     <Declaration>
         <DataProperty IRI="#valorMin"/>
     </Declaration>
-    <Declaration>
-        <NamedIndividual IRI="#AcceptedState"/>
-    </Declaration>
-    <Declaration>
-        <NamedIndividual IRI="#BúsquedaRealizada"/>
-    </Declaration>
-    <Declaration>
-        <NamedIndividual IRI="#DoneState"/>
-    </Declaration>
-    <Declaration>
-        <NamedIndividual IRI="#EnvíoRealizado"/>
-    </Declaration>
-    <Declaration>
-        <NamedIndividual IRI="#InformaciónPago"/>
-    </Declaration>
-    <Declaration>
-        <NamedIndividual IRI="#InformaciónPedido"/>
-    </Declaration>
-    <Declaration>
-        <NamedIndividual IRI="#NuevoPedido"/>
-    </Declaration>
-    <Declaration>
-        <NamedIndividual IRI="#ProcesoFeedback"/>
-    </Declaration>
-    <Declaration>
-        <NamedIndividual IRI="#RejectedState"/>
-    </Declaration>
-    <Declaration>
-        <NamedIndividual IRI="#StartState"/>
-    </Declaration>
-    <Declaration>
-        <NamedIndividual IRI="#VerificarCompra"/>
-    </Declaration>
-    <Declaration>
-        <NamedIndividual IRI="#WaitingResponse"/>
-    </Declaration>
     <SubClassOf>
-        <Class IRI="#AcceptProposal"/>
-        <Class IRI="#Performative"/>
-    </SubClassOf>
-    <SubClassOf>
-        <Class IRI="#Ag.Comprador"/>
-        <Class IRI="#Agent"/>
-    </SubClassOf>
-    <SubClassOf>
-        <Class IRI="#Ag.Devoluciones"/>
-        <Class IRI="#Agent"/>
-    </SubClassOf>
-    <SubClassOf>
-        <Class IRI="#Ag.Experiencia"/>
-        <Class IRI="#Agent"/>
-    </SubClassOf>
-    <SubClassOf>
-        <Class IRI="#Ag.GestorDePagos"/>
-        <Class IRI="#Agent"/>
-    </SubClassOf>
-    <SubClassOf>
-        <Class IRI="#Ag.GestorDePedidos"/>
-        <Class IRI="#Agent"/>
-    </SubClassOf>
-    <SubClassOf>
-        <Class IRI="#Ag.Logístico"/>
-        <Class IRI="#Agent"/>
-    </SubClassOf>
-    <SubClassOf>
-        <Class IRI="#Agree"/>
-        <Class IRI="#Performative"/>
+        <Class IRI="#Accion"/>
+        <Class IRI="#Comunicacion"/>
     </SubClassOf>
     <SubClassOf>
         <Class IRI="#Busqueda"/>
-        <Class IRI="#Content"/>
+        <Class IRI="#Respuesta"/>
     </SubClassOf>
     <SubClassOf>
-        <Class IRI="#CFP"/>
-        <Class IRI="#Performative"/>
+        <Class IRI="#Cobrar"/>
+        <Class IRI="#Accion"/>
     </SubClassOf>
     <SubClassOf>
         <Class IRI="#CobrarPedido"/>
-        <Class IRI="#Content"/>
+        <Class IRI="#Cobrar"/>
     </SubClassOf>
     <SubClassOf>
-        <Class IRI="#Content"/>
-        <Class IRI="#Communicacion"/>
-    </SubClassOf>
-    <SubClassOf>
-        <Class IRI="#Conversation"/>
-        <Class IRI="#Communicacion"/>
-    </SubClassOf>
-    <SubClassOf>
-        <Class IRI="#ConversationState"/>
-        <Class IRI="#Communicacion"/>
+        <Class IRI="#Elegir"/>
+        <Class IRI="#Accion"/>
     </SubClassOf>
     <SubClassOf>
         <Class IRI="#ElegirEmpresaTransporte"/>
-        <Class IRI="#Content"/>
+        <Class IRI="#Elegir"/>
     </SubClassOf>
     <SubClassOf>
-        <Class IRI="#Failure"/>
-        <Class IRI="#Performative"/>
-    </SubClassOf>
-    <SubClassOf>
-        <Class IRI="#Inform"/>
-        <Class IRI="#Performative"/>
+        <Class IRI="#Informar"/>
+        <Class IRI="#Accion"/>
     </SubClassOf>
     <SubClassOf>
         <Class IRI="#InformarDesicion"/>
-        <Class IRI="#Content"/>
+        <Class IRI="#Informar"/>
     </SubClassOf>
     <SubClassOf>
         <Class IRI="#InformarEmpresaTransporte"/>
-        <Class IRI="#Content"/>
+        <Class IRI="#Informar"/>
     </SubClassOf>
     <SubClassOf>
         <Class IRI="#InformarFactura"/>
-        <Class IRI="#Content"/>
+        <Class IRI="#Informar"/>
     </SubClassOf>
     <SubClassOf>
         <Class IRI="#InformarFecha"/>
-        <Class IRI="#Content"/>
+        <Class IRI="#Informar"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#Listar"/>
+        <Class IRI="#Accion"/>
     </SubClassOf>
     <SubClassOf>
         <Class IRI="#ListarProductos"/>
-        <Class IRI="#Content"/>
+        <Class IRI="#Listar"/>
     </SubClassOf>
     <SubClassOf>
         <Class IRI="#ListarProductosAMedida"/>
-        <Class IRI="#Content"/>
+        <Class IRI="#Listar"/>
     </SubClassOf>
     <SubClassOf>
-        <Class IRI="#Message"/>
-        <Class IRI="#Communicacion"/>
+        <Class IRI="#Obtener"/>
+        <Class IRI="#Accion"/>
     </SubClassOf>
     <SubClassOf>
         <Class IRI="#ObtenerDetallesPedido"/>
-        <Class IRI="#Content"/>
+        <Class IRI="#Obtener"/>
     </SubClassOf>
     <SubClassOf>
         <Class IRI="#ObtenerFeedback"/>
-        <Class IRI="#Content"/>
+        <Class IRI="#Obtener"/>
     </SubClassOf>
     <SubClassOf>
         <Class IRI="#ObtenerProveedorPago"/>
-        <Class IRI="#Content"/>
+        <Class IRI="#Obtener"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#Pagar"/>
+        <Class IRI="#Accion"/>
     </SubClassOf>
     <SubClassOf>
         <Class IRI="#PagarVendedor"/>
-        <Class IRI="#Content"/>
+        <Class IRI="#Pagar"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#Pedir"/>
+        <Class IRI="#Accion"/>
     </SubClassOf>
     <SubClassOf>
         <Class IRI="#PedirReembolso"/>
-        <Class IRI="#Content"/>
+        <Class IRI="#Pedir"/>
     </SubClassOf>
     <SubClassOf>
-        <Class IRI="#Performative"/>
-        <Class IRI="#Communicacion"/>
+        <Class IRI="#Proponer"/>
+        <Class IRI="#Accion"/>
     </SubClassOf>
     <SubClassOf>
         <Class IRI="#ProponerEnvio"/>
-        <Class IRI="#Content"/>
-    </SubClassOf>
-    <SubClassOf>
-        <Class IRI="#Propose"/>
-        <Class IRI="#Performative"/>
-    </SubClassOf>
-    <SubClassOf>
-        <Class IRI="#Protocol"/>
-        <Class IRI="#Communicacion"/>
+        <Class IRI="#Proponer"/>
     </SubClassOf>
     <SubClassOf>
         <Class IRI="#ReciboProveedorPago"/>
-        <Class IRI="#Content"/>
+        <Class IRI="#Respuesta"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#Reembolsar"/>
+        <Class IRI="#Accion"/>
     </SubClassOf>
     <SubClassOf>
         <Class IRI="#ReembolsarCantidad"/>
-        <Class IRI="#Content"/>
+        <Class IRI="#Reembolsar"/>
     </SubClassOf>
     <SubClassOf>
-        <Class IRI="#Refuse"/>
-        <Class IRI="#Performative"/>
-    </SubClassOf>
-    <SubClassOf>
-        <Class IRI="#RejectProposal"/>
-        <Class IRI="#Performative"/>
-    </SubClassOf>
-    <SubClassOf>
-        <Class IRI="#Request"/>
-        <Class IRI="#Performative"/>
+        <Class IRI="#Respuesta"/>
+        <Class IRI="#Comunicacion"/>
     </SubClassOf>
     <SubClassOf>
         <Class IRI="#RestriccionBusqueda"/>
-        <Class IRI="#Content"/>
+        <Class IRI="#Respuesta"/>
     </SubClassOf>
     <SubClassOf>
         <Class IRI="#CompraProducto(P)"/>
-        <Class IRI="#Content"/>
+        <Class IRI="#Respuesta"/>
     </SubClassOf>
     <SubClassOf>
         <Class IRI="#Devolucion(P)"/>
-        <Class IRI="#Content"/>
+        <Class IRI="#Respuesta"/>
     </SubClassOf>
     <SubClassOf>
         <Class IRI="#Feedback(P)"/>
-        <Class IRI="#Content"/>
+        <Class IRI="#Respuesta"/>
     </SubClassOf>
     <SubClassOf>
         <Class IRI="#OfertaTransporte(P)"/>
-        <Class IRI="#Content"/>
+        <Class IRI="#Respuesta"/>
     </SubClassOf>
-    <ClassAssertion>
-        <Class IRI="#ConversationState"/>
-        <NamedIndividual IRI="#AcceptedState"/>
-    </ClassAssertion>
-    <ClassAssertion>
-        <Class IRI="#Protocol"/>
-        <NamedIndividual IRI="#BúsquedaRealizada"/>
-    </ClassAssertion>
-    <ClassAssertion>
-        <Class IRI="#ConversationState"/>
-        <NamedIndividual IRI="#DoneState"/>
-    </ClassAssertion>
-    <ClassAssertion>
-        <Class IRI="#Protocol"/>
-        <NamedIndividual IRI="#EnvíoRealizado"/>
-    </ClassAssertion>
-    <ClassAssertion>
-        <Class IRI="#Protocol"/>
-        <NamedIndividual IRI="#InformaciónPago"/>
-    </ClassAssertion>
-    <ClassAssertion>
-        <Class IRI="#Protocol"/>
-        <NamedIndividual IRI="#InformaciónPedido"/>
-    </ClassAssertion>
-    <ClassAssertion>
-        <Class IRI="#Protocol"/>
-        <NamedIndividual IRI="#NuevoPedido"/>
-    </ClassAssertion>
-    <ClassAssertion>
-        <Class IRI="#Protocol"/>
-        <NamedIndividual IRI="#ProcesoFeedback"/>
-    </ClassAssertion>
-    <ClassAssertion>
-        <Class IRI="#ConversationState"/>
-        <NamedIndividual IRI="#RejectedState"/>
-    </ClassAssertion>
-    <ClassAssertion>
-        <Class IRI="#ConversationState"/>
-        <NamedIndividual IRI="#StartState"/>
-    </ClassAssertion>
-    <ClassAssertion>
-        <Class IRI="#Protocol"/>
-        <NamedIndividual IRI="#VerificarCompra"/>
-    </ClassAssertion>
-    <ClassAssertion>
-        <Class IRI="#ConversationState"/>
-        <NamedIndividual IRI="#WaitingResponse"/>
-    </ClassAssertion>
     <EquivalentObjectProperties>
         <ObjectProperty IRI="#hacePedido"/>
         <ObjectProperty IRI="#peticion"/>
     </EquivalentObjectProperties>
-    <ObjectPropertyDomain>
-        <ObjectProperty IRI="#belongsToConversation"/>
-        <Class IRI="#Message"/>
-    </ObjectPropertyDomain>
-    <ObjectPropertyDomain>
-        <ObjectProperty IRI="#belongsToProtocol"/>
-        <Class IRI="#Conversation"/>
-    </ObjectPropertyDomain>
-    <ObjectPropertyDomain>
-        <ObjectProperty IRI="#belongsToProtocol"/>
-        <Class IRI="#Message"/>
-    </ObjectPropertyDomain>
     <ObjectPropertyDomain>
         <ObjectProperty IRI="#compra"/>
         <Class IRI="#CompraProducto(P)"/>
@@ -721,26 +531,6 @@
         <Class IRI="#Usuario"/>
     </ObjectPropertyDomain>
     <ObjectPropertyDomain>
-        <ObjectProperty IRI="#hasContent"/>
-        <Class IRI="#Message"/>
-    </ObjectPropertyDomain>
-    <ObjectPropertyDomain>
-        <ObjectProperty IRI="#hasPerformative"/>
-        <Class IRI="#Message"/>
-    </ObjectPropertyDomain>
-    <ObjectPropertyDomain>
-        <ObjectProperty IRI="#hasReceiver"/>
-        <Class IRI="#Message"/>
-    </ObjectPropertyDomain>
-    <ObjectPropertyDomain>
-        <ObjectProperty IRI="#hasSender"/>
-        <Class IRI="#Message"/>
-    </ObjectPropertyDomain>
-    <ObjectPropertyDomain>
-        <ObjectProperty IRI="#hasState"/>
-        <Class IRI="#Conversation"/>
-    </ObjectPropertyDomain>
-    <ObjectPropertyDomain>
         <ObjectProperty IRI="#listadoProductos"/>
         <Class IRI="#ListarProductos"/>
     </ObjectPropertyDomain>
@@ -751,10 +541,6 @@
     <ObjectPropertyDomain>
         <ObjectProperty IRI="#lo_hace_un"/>
         <Class IRI="#Feedback(P)"/>
-    </ObjectPropertyDomain>
-    <ObjectPropertyDomain>
-        <ObjectProperty IRI="#nextState"/>
-        <Class IRI="#ConversationState"/>
     </ObjectPropertyDomain>
     <ObjectPropertyDomain>
         <ObjectProperty IRI="#ofrece"/>
@@ -773,7 +559,11 @@
         <Class IRI="#ProponerEnvio"/>
     </ObjectPropertyDomain>
     <ObjectPropertyDomain>
-        <ObjectProperty IRI="#perteneceA"/>
+        <ObjectProperty IRI="#perteneceACategoria"/>
+        <Class IRI="#Producto"/>
+    </ObjectPropertyDomain>
+    <ObjectPropertyDomain>
+        <ObjectProperty IRI="#perteneceATienda"/>
         <Class IRI="#Producto"/>
     </ObjectPropertyDomain>
     <ObjectPropertyDomain>
@@ -837,14 +627,6 @@
         <Class IRI="#Usuario"/>
     </ObjectPropertyDomain>
     <ObjectPropertyRange>
-        <ObjectProperty IRI="#belongsToConversation"/>
-        <Class IRI="#Conversation"/>
-    </ObjectPropertyRange>
-    <ObjectPropertyRange>
-        <ObjectProperty IRI="#belongsToProtocol"/>
-        <Class IRI="#Protocol"/>
-    </ObjectPropertyRange>
-    <ObjectPropertyRange>
         <ObjectProperty IRI="#compra"/>
         <Class IRI="#Producto"/>
     </ObjectPropertyRange>
@@ -889,36 +671,12 @@
         <Class IRI="#Pedido"/>
     </ObjectPropertyRange>
     <ObjectPropertyRange>
-        <ObjectProperty IRI="#hasContent"/>
-        <Class IRI="#Content"/>
-    </ObjectPropertyRange>
-    <ObjectPropertyRange>
-        <ObjectProperty IRI="#hasPerformative"/>
-        <Class IRI="#Performative"/>
-    </ObjectPropertyRange>
-    <ObjectPropertyRange>
-        <ObjectProperty IRI="#hasReceiver"/>
-        <Class IRI="#Agent"/>
-    </ObjectPropertyRange>
-    <ObjectPropertyRange>
-        <ObjectProperty IRI="#hasSender"/>
-        <Class IRI="#Agent"/>
-    </ObjectPropertyRange>
-    <ObjectPropertyRange>
-        <ObjectProperty IRI="#hasState"/>
-        <Class IRI="#ConversationState"/>
-    </ObjectPropertyRange>
-    <ObjectPropertyRange>
         <ObjectProperty IRI="#listadoProductos"/>
         <Class IRI="#Producto"/>
     </ObjectPropertyRange>
     <ObjectPropertyRange>
         <ObjectProperty IRI="#lo_hace_un"/>
         <Class IRI="#Usuario"/>
-    </ObjectPropertyRange>
-    <ObjectPropertyRange>
-        <ObjectProperty IRI="#nextState"/>
-        <Class IRI="#ConversationState"/>
     </ObjectPropertyRange>
     <ObjectPropertyRange>
         <ObjectProperty IRI="#ofrece"/>
@@ -929,8 +687,12 @@
         <Class IRI="#Pedido"/>
     </ObjectPropertyRange>
     <ObjectPropertyRange>
-        <ObjectProperty IRI="#perteneceA"/>
+        <ObjectProperty IRI="#perteneceACategoria"/>
         <Class IRI="#CategoriaProducto"/>
+    </ObjectPropertyRange>
+    <ObjectPropertyRange>
+        <ObjectProperty IRI="#perteneceATienda"/>
+        <Class IRI="#TiendaExterna"/>
     </ObjectPropertyRange>
     <ObjectPropertyRange>
         <ObjectProperty IRI="#peticion"/>
@@ -1296,6 +1058,16 @@
         <DataProperty IRI="#valorMin"/>
         <Datatype abbreviatedIRI="xsd:integer"/>
     </DataPropertyRange>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#perteneceACategoria</IRI>
+        <Literal>Propiedad de un producto en pertenecer a una categoría.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#perteneceATienda</IRI>
+        <Literal>Propiedad de un producto que describe la tienda externa a la que pertenece. El valor será nulo en caso que el producto sea propio.</Literal>
+    </AnnotationAssertion>
 </Ontology>
 
 
