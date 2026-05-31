@@ -92,16 +92,13 @@ def get_agent_address(agent_type):
     search_obj = agn['Search-' + str(mss_cnt)]
     gmess.add((search_obj, RDF.type, DSO.Search))
     gmess.add((search_obj, DSO.AgentType, agent_type))
-
     msg = build_message(gmess, perf=ACL.request, sender=GestorAgent.uri,
                         receiver=DirectoryAgent.uri, content=search_obj, msgcnt=mss_cnt)
-
     response = http_requests.get(
         DirectoryAgent.address,
         params={'content': msg.serialize(format='xml')}
     )
     mss_cnt += 1
-
     gr = Graph()
     gr.parse(data=response.text, format='xml')
     for s, p, o in gr:
@@ -114,12 +111,12 @@ def generar_factura(productos, comprador, direccion, metodo_pago):
     factura_id = 'FAC-' + str(uuid.uuid4())[:8].upper()
     total = sum(p['precio'] * p.get('cantidad', 1) for p in productos)
     factura = {
-        'id': factura_id,
-        'comprador': comprador,
-        'fecha': datetime.now().isoformat(),
-        'productos': productos,
-        'total': round(total, 2),
-        'direccion': direccion,
+        'id':          factura_id,
+        'comprador':   comprador,
+        'fecha':       datetime.now().isoformat(),
+        'productos':   productos,
+        'total':       round(total, 2),
+        'direccion':   direccion,
         'metodo_pago': metodo_pago,
     }
     if os.path.exists(FACTURAS_PATH):
@@ -130,7 +127,7 @@ def generar_factura(productos, comprador, direccion, metodo_pago):
     facturas.append(factura)
     with open(FACTURAS_PATH, 'w') as f:
         json.dump(facturas, f, indent=2)
-    logger.info(f'[GestorPedidos] Factura {factura_id} generada — Total: {total}€')
+    logger.info(f'[GestorPedidos] Factura {factura_id} generada -- Total: {total}EUR')
     return factura
 
 
@@ -145,14 +142,15 @@ def notificar_logistico(pedido):
     gmess = Graph()
     gmess.bind('ecsns', ECSNS)
     ped_obj = ECSNS['pedido-' + pedido['id']]
-    gmess.add((ped_obj, RDF.type,           ECSNS.Pedido))
-    gmess.add((ped_obj, ECSNS.idPedido,     Literal(pedido['id'])))
-    gmess.add((ped_obj, ECSNS.direccion,    Literal(pedido['direccion'])))
-    gmess.add((ped_obj, ECSNS.prioridad,    Literal(pedido['prioridad'])))
+    gmess.add((ped_obj, RDF.type,        ECSNS.Pedido))
+    gmess.add((ped_obj, ECSNS.idPedido,  Literal(pedido['id'])))
+    gmess.add((ped_obj, ECSNS.direccion, Literal(pedido['direccion'])))
+    gmess.add((ped_obj, ECSNS.prioridad, Literal(pedido['prioridad'])))
     for i, p in enumerate(pedido['productos']):
         prod_node = ECSNS['ped-prod-' + str(i)]
         gmess.add((ped_obj,   ECSNS.tieneProducto, prod_node))
         gmess.add((prod_node, ECSNS.idProducto,    Literal(p['id'])))
+        gmess.add((prod_node, ECSNS.nombre,        Literal(p.get('nombre', ''))))
         gmess.add((prod_node, ECSNS.cantidad,      Literal(p.get('cantidad', 1))))
         gmess.add((prod_node, ECSNS.peso,          Literal(p.get('peso', 0))))
         gmess.add((prod_node, ECSNS.precio,        Literal(p.get('precio', 0))))
@@ -184,18 +182,54 @@ def procesar_compra(gm, content):
     factura = generar_factura(productos, comprador, direccion, metodo_pago)
 
     pedido_id = 'PED-' + str(uuid.uuid4())[:8].upper()
-    pedido = {'id': pedido_id, 'productos': productos,
-              'direccion': direccion, 'prioridad': prioridad}
+    pedido = {
+        'id':        pedido_id,
+        'productos': productos,
+        'direccion': direccion,
+        'prioridad': prioridad,
+    }
     notificar_logistico(pedido)
 
     gr = Graph()
     gr.bind('ecsns', ECSNS)
     fac_node = ECSNS['factura-' + factura['id']]
-    gr.add((fac_node, RDF.type,         ECSNS.Factura))
-    gr.add((fac_node, ECSNS.idFactura,  Literal(factura['id'])))
-    gr.add((fac_node, ECSNS.total,      Literal(factura['total'])))
-    gr.add((fac_node, ECSNS.fecha,      Literal(factura['fecha'])))
+    gr.add((fac_node, RDF.type,        ECSNS.Factura))
+    gr.add((fac_node, ECSNS.idFactura, Literal(factura['id'])))
+    gr.add((fac_node, ECSNS.total,     Literal(factura['total'])))
+    gr.add((fac_node, ECSNS.fecha,     Literal(factura['fecha'])))
     return gr
+
+
+def procesar_resultado_envio(gm, content):
+    """
+    Recibe el mensaje ACL.inform del AgenteLogistico con los sub-envios del pedido.
+    Registra la informacion y la presenta al usuario (log).
+    """
+    pedido_id  = str(gm.value(content, ECSNS.idPedido) or 'DESCONOCIDO')
+    num_envios = int(gm.value(content, ECSNS.numEnvios) or 0)
+    logger.info(f'[GestorPedidos] Pedido {pedido_id} gestionado con {num_envios} envio/s:')
+
+    sub_envios = []
+    for envio_node in gm.objects(content, ECSNS.tieneSubEnvio):
+        envio_id     = str(gm.value(envio_node, ECSNS.idEnvio)            or '')
+        centro       = str(gm.value(envio_node, ECSNS.tieneCentro)        or '')
+        transportista = str(gm.value(envio_node, ECSNS.tieneTransportista) or '')
+        fecha        = str(gm.value(envio_node, ECSNS.tieneFechaEntrega)  or '')
+        productos    = [str(o) for o in gm.objects(envio_node, ECSNS.tieneProductoId)]
+        sub_envios.append({
+            'id': envio_id, 'centro': centro,
+            'transportista': transportista, 'fecha': fecha,
+            'productos': productos,
+        })
+        logger.info(
+            f'  [{envio_id}] Centro: {centro} | '
+            f'Transportista: {transportista} | Entrega: {fecha} | '
+            f'Productos: {productos}'
+        )
+
+    # Aqui se podria notificar al AgenteUsuario con los detalles del envio multiple
+    # notificar_usuario_envios(pedido_id, sub_envios)
+    return sub_envios
 
 
 @app.route('/stop')
@@ -213,23 +247,35 @@ def comunicacion():
     gm = Graph()
     gm.parse(data=message, format='xml')
     msgdic = get_message_properties(gm)
-    
-    if msgdic is None or msgdic.get('performative') != ACL.request:
+
+    if msgdic is None:
         gr = build_message(Graph(), ACL['not-understood'],
                            sender=GestorAgent.uri, msgcnt=mss_cnt)
-    else:
-        content = msgdic.get('content')
-        accion  = gm.value(subject=content, predicate=RDF.type)
+        mss_cnt += 1
+        return gr.serialize(format='xml')
 
-        if accion == ECSNS.Pedido:
-            resp_graph = procesar_compra(gm, content)
-            gr = build_message(resp_graph, ACL.inform,
-                               sender=GestorAgent.uri,
-                               receiver=msgdic['sender'],
-                               msgcnt=mss_cnt)
-        else:
-            gr = build_message(Graph(), ACL['not-understood'],
-                               sender=GestorAgent.uri, msgcnt=mss_cnt)
+    perf    = msgdic.get('performative')
+    content = msgdic.get('content')
+    accion  = gm.value(subject=content, predicate=RDF.type) if content else None
+
+    if perf == ACL.request and accion == ECSNS.Pedido:
+        resp_graph = procesar_compra(gm, content)
+        gr = build_message(resp_graph, ACL.inform,
+                           sender=GestorAgent.uri,
+                           receiver=msgdic['sender'],
+                           msgcnt=mss_cnt)
+
+    elif perf == ACL.inform and accion == ECSNS.ResultadoEnvio:
+        # Mensaje de retorno del AgenteLogistico con los sub-envios
+        procesar_resultado_envio(gm, content)
+        gr = build_message(Graph(), ACL.inform,
+                           sender=GestorAgent.uri,
+                           receiver=msgdic['sender'],
+                           msgcnt=mss_cnt)
+
+    else:
+        gr = build_message(Graph(), ACL['not-understood'],
+                           sender=GestorAgent.uri, msgcnt=mss_cnt)
 
     mss_cnt += 1
     return gr.serialize(format='xml')

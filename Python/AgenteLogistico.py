@@ -48,9 +48,10 @@ if not args.verbose:
 
 agn = Namespace('http://www.agentes.org#')
 mss_cnt = 0
-PEDIDOS_PATH = os.path.join(os.path.dirname(__file__), 'data', 'pedidos.json')
-ENVIOS_PATH  = os.path.join(os.path.dirname(__file__), 'data', 'envios.json')
-CENTROS_PATH = os.path.join(os.path.dirname(__file__), 'data', 'centros_logisticos.json')
+PEDIDOS_PATH  = os.path.join(os.path.dirname(__file__), 'data', 'pedidos.json')
+ENVIOS_PATH   = os.path.join(os.path.dirname(__file__), 'data', 'envios.json')
+CENTROS_PATH  = os.path.join(os.path.dirname(__file__), 'data', 'centros_logisticos.json')
+PRODUCTOS_PATH = os.path.join(os.path.dirname(__file__), 'data', 'productos.json')
 
 LogisticoAgent = Agent(
     'AgenteLogistico',
@@ -68,6 +69,10 @@ DirectoryAgent = Agent(
 cola1 = Queue()
 PRIORIDADES = {'urgente': 0, 'normal': 1, 'economica': 2}
 
+
+# ---------------------------------------------------------------------------
+# Registro en el DirectoryService
+# ---------------------------------------------------------------------------
 
 def register_message():
     global mss_cnt
@@ -89,6 +94,10 @@ def register_message():
     return gr
 
 
+# ---------------------------------------------------------------------------
+# Utilidades de datos
+# ---------------------------------------------------------------------------
+
 def cargar_pedidos():
     if os.path.exists(PEDIDOS_PATH):
         with open(PEDIDOS_PATH) as f:
@@ -101,6 +110,20 @@ def guardar_pedidos(pedidos):
         json.dump(pedidos, f, indent=2)
 
 
+def cargar_centros():
+    with open(CENTROS_PATH) as f:
+        return json.load(f)
+
+
+def cargar_productos_catalogo():
+    """Devuelve un dict {id_producto: datos_producto} con centro_logistico_id incluido."""
+    if not os.path.exists(PRODUCTOS_PATH):
+        return {}
+    with open(PRODUCTOS_PATH) as f:
+        productos = json.load(f)
+    return {p['id']: p for p in productos}
+
+
 def haversine(lat1, lon1, lat2, lon2):
     R = 6371
     d_lat = math.radians(lat2 - lat1)
@@ -110,14 +133,49 @@ def haversine(lat1, lon1, lat2, lon2):
     return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 
-def elegir_centro(lat, lon):
-    with open(CENTROS_PATH) as f:
-        centros = json.load(f)
+def elegir_centro_por_coords(lat, lon):
+    """Devuelve el centro logistico mas cercano a las coordenadas dadas."""
+    centros = cargar_centros()
     return min(centros, key=lambda c: haversine(lat, lon, c['lat'], c['lon']))
 
 
+def obtener_centro_de_producto(producto_id):
+    """
+    Devuelve el dict del centro logistico donde esta almacenado el producto.
+    Si el producto no tiene centro asignado en el catalogo, elige el CL-001 por defecto.
+    """
+    catalogo = cargar_productos_catalogo()
+    centros   = {c['id']: c for c in cargar_centros()}
+    prod = catalogo.get(producto_id)
+    if prod and 'centro_logistico_id' in prod:
+        centro_id = prod['centro_logistico_id']
+        if centro_id in centros:
+            return centros[centro_id]
+    # fallback: centro mas cercano al origen (Madrid)
+    logger.warning(f'[Logistico] Producto {producto_id} sin centro asignado, usando CL-001')
+    return centros.get('CL-001', list(centros.values())[0])
+
+
+def agrupar_productos_por_centro(productos):
+    """
+    Agrupa una lista de productos del pedido por su centro logistico.
+    Devuelve: {centro_id: {'centro': {...}, 'productos': [...]}}
+    """
+    grupos = {}
+    for prod in productos:
+        centro = obtener_centro_de_producto(prod['id'])
+        cid = centro['id']
+        if cid not in grupos:
+            grupos[cid] = {'centro': centro, 'productos': []}
+        grupos[cid]['productos'].append(prod)
+    return grupos
+
+
+# ---------------------------------------------------------------------------
+# Negociacion compleja con transportistas (ronda 1 CFP + ronda 2 contra-oferta)
+# ---------------------------------------------------------------------------
+
 def _buscar_transportistas():
-    """Consulta el DirectoryService y devuelve lista de direcciones de transportistas."""
     global mss_cnt
     gmess = Graph()
     gmess.bind('dso', DSO)
@@ -135,7 +193,6 @@ def _buscar_transportistas():
 
 
 def _enviar_cfp(t_addr, prioridad, direccion):
-    """Envia un CFP a un transportista y devuelve (precio, nombre, fecha) o None."""
     global mss_cnt
     cfp_graph = Graph()
     cfp_graph.bind('ecsns', ECSNS)
@@ -164,14 +221,6 @@ def _enviar_cfp(t_addr, prioridad, direccion):
 
 
 def _enviar_contraoferta(t_addr, contra_precio):
-    """
-    Envia una contra-oferta a un transportista.
-    Retorna:
-      ('acepta', contra_precio)  si el transportista acepta (ACL.inform)
-      ('propone', nuevo_precio)  si el transportista propone un precio intermedio (ACL.propose)
-      ('rechaza', None)          si el transportista rechaza (ACL.reject-proposal)
-      ('error', None)            si hay un problema de comunicacion
-    """
     global mss_cnt
     gr_counter = Graph()
     gr_counter.bind('ecsns', ECSNS)
@@ -208,31 +257,23 @@ def _enviar_contraoferta(t_addr, contra_precio):
 
 def negociar_transporte(prioridad, direccion):
     """
-    Negociacion compleja con los transportistas registrados en el DS:
-      Ronda 1 - CFP: recoge todas las propuestas iniciales.
-      Ronda 2 - Contra-oferta: envia precio_min * 0.9 a todos.
-        - Acepta  -> entra al pool final con el precio de contra-oferta.
-        - Propone -> entra al pool final si contra_precio < nuevo < precio_inicial.
-        - Rechaza -> queda fuera del pool final.
-      Si nadie acepta ni propone, el pool final es el de la ronda 1.
-      Ganador: precio mas bajo del pool final (empate -> azar).
+    Ronda 1 (CFP) + Ronda 2 (contra-oferta al 90% del minimo).
+    Retorna (nombre_transportista, fecha_entrega).
     """
     global mss_cnt
-
     transportistas_addr = _buscar_transportistas()
-
     if not transportistas_addr:
         logger.warning('[Logistico] No hay transportistas en el DS, usando fallback')
         return 'Desconocido', (datetime.now() + timedelta(days=3)).strftime('%Y-%m-%d')
 
-    # --- RONDA 1: CFP inicial ---
-    ofertas_r1 = {}  # addr -> {'precio': float, 'nombre': str, 'fecha': str}
+    # Ronda 1
+    ofertas_r1 = {}
     for t_addr in transportistas_addr:
         resultado = _enviar_cfp(t_addr, prioridad, direccion)
         if resultado:
             precio, nombre, fecha = resultado
             ofertas_r1[t_addr] = {'precio': precio, 'nombre': nombre, 'fecha': fecha}
-            logger.info(f'[Logistico] Oferta R1 de {nombre}: {precio}€ — {fecha}')
+            logger.info(f'[Logistico] Oferta R1 de {nombre}: {precio}EUR -- {fecha}')
 
     if not ofertas_r1:
         logger.warning('[Logistico] Ningun transportista respondio al CFP')
@@ -240,65 +281,53 @@ def negociar_transporte(prioridad, direccion):
 
     precio_min_r1 = min(o['precio'] for o in ofertas_r1.values())
     contra_precio = round(precio_min_r1 * 0.9, 2)
-    logger.info(f'[Logistico] Precio minimo R1: {precio_min_r1}€ — Contra-oferta: {contra_precio}€')
+    logger.info(f'[Logistico] Precio min R1: {precio_min_r1}EUR -- Contra-oferta: {contra_precio}EUR')
 
-    # --- RONDA 2: contra-oferta ---
-    pool_final = {}  # addr -> {'precio': float, 'nombre': str, 'fecha': str}
-
+    # Ronda 2
+    pool_final = {}
     for t_addr, oferta in ofertas_r1.items():
         estado, nuevo_precio = _enviar_contraoferta(t_addr, contra_precio)
-
         if estado == 'acepta':
-            logger.info(f'[Logistico] {oferta["nombre"]} ACEPTA contra-oferta: {contra_precio}€')
-            pool_final[t_addr] = {
-                'precio': contra_precio,
-                'nombre': oferta['nombre'],
-                'fecha':  oferta['fecha'],
-            }
+            logger.info(f'[Logistico] {oferta["nombre"]} ACEPTA: {contra_precio}EUR')
+            pool_final[t_addr] = {'precio': contra_precio, 'nombre': oferta['nombre'], 'fecha': oferta['fecha']}
         elif estado == 'propone':
-            # Solo valida si esta estrictamente entre contra_precio y precio_inicial
             if contra_precio < nuevo_precio < oferta['precio']:
-                logger.info(f'[Logistico] {oferta["nombre"]} PROPONE: {nuevo_precio}€')
-                pool_final[t_addr] = {
-                    'precio': nuevo_precio,
-                    'nombre': oferta['nombre'],
-                    'fecha':  oferta['fecha'],
-                }
+                logger.info(f'[Logistico] {oferta["nombre"]} PROPONE: {nuevo_precio}EUR')
+                pool_final[t_addr] = {'precio': nuevo_precio, 'nombre': oferta['nombre'], 'fecha': oferta['fecha']}
             else:
-                logger.info(f'[Logistico] {oferta["nombre"]} propuso {nuevo_precio}€ fuera de rango, ignorado')
+                logger.info(f'[Logistico] {oferta["nombre"]} propuso {nuevo_precio}EUR fuera de rango, ignorado')
         elif estado == 'rechaza':
-            logger.info(f'[Logistico] {oferta["nombre"]} RECHAZA la contra-oferta')
-        # 'error' -> no entra en el pool
+            logger.info(f'[Logistico] {oferta["nombre"]} RECHAZA')
 
-    # Si nadie entro en el pool final, usamos las ofertas de la ronda 1
     if not pool_final:
-        logger.info('[Logistico] Nadie acepto la contra-oferta, usando mejores ofertas R1')
+        logger.info('[Logistico] Nadie acepto contra-oferta, usando ofertas R1')
         pool_final = ofertas_r1
 
-    # Seleccionar ganador: precio mas bajo (empate -> azar)
     precio_minimo = min(o['precio'] for o in pool_final.values())
-    candidatos = [addr for addr, o in pool_final.items() if o['precio'] == precio_minimo]
+    candidatos   = [addr for addr, o in pool_final.items() if o['precio'] == precio_minimo]
     ganador_addr = random.choice(candidatos)
-    ganador = pool_final[ganador_addr]
-    logger.info(f'[Logistico] GANADOR: {ganador["nombre"]} — {ganador["precio"]}€ — {ganador["fecha"]}')
+    ganador      = pool_final[ganador_addr]
+    logger.info(f'[Logistico] GANADOR: {ganador["nombre"]} -- {ganador["precio"]}EUR -- {ganador["fecha"]}')
 
-    # Notificar a todos: aceptar al ganador, rechazar al resto
     for t_addr in ofertas_r1:
         perf = ACL['accept-proposal'] if t_addr == ganador_addr else ACL['reject-proposal']
         gr_dec = Graph()
-        msg_dec = build_message(gr_dec, perf=perf,
-                                sender=LogisticoAgent.uri, msgcnt=mss_cnt)
+        msg_dec = build_message(gr_dec, perf=perf, sender=LogisticoAgent.uri, msgcnt=mss_cnt)
         mss_cnt += 1
         try:
-            http_requests.get(t_addr, params={'content': msg_dec.serialize(format='xml')},
-                              timeout=5)
+            http_requests.get(t_addr, params={'content': msg_dec.serialize(format='xml')}, timeout=5)
         except Exception as e:
             logger.warning(f'[Logistico] Error notificando decision a {t_addr}: {e}')
 
     return ganador['nombre'], ganador['fecha']
 
 
+# ---------------------------------------------------------------------------
+# Logica de pedidos y envios
+# ---------------------------------------------------------------------------
+
 def juntar_productos():
+    """Agrupa productos duplicados dentro de cada pedido sumando cantidades."""
     pedidos = cargar_pedidos()
     for pedido in pedidos:
         agrupados = {}
@@ -314,32 +343,136 @@ def juntar_productos():
 
 
 def realizar_envios():
+    """
+    Para cada pedido pendiente:
+      1. Agrupa sus productos por centro logistico.
+      2. Lanza una negociacion independiente por cada grupo.
+      3. Guarda un envio separado por centro (con su transportista y fecha).
+      4. Notifica al GestorPedidos con los resultados de todos los sub-envios.
+    """
     pedidos = cargar_pedidos()
     if not pedidos:
         return
-    for pedido in pedidos:
-        nombre_t, fecha = negociar_transporte(
-            pedido.get('prioridad', 'normal'),
-            pedido.get('direccion', '')
-        )
 
-        envio = {
-            'id': 'ENV-' + str(uuid.uuid4())[:8].upper(),
-            'pedido_id': pedido['id'],
-            'transportista': nombre_t,
-            'fecha_prevista': fecha,
-            'estado': 'enviado',
-        }
-        if os.path.exists(ENVIOS_PATH):
-            with open(ENVIOS_PATH) as f:
-                envios = json.load(f)
-        else:
-            envios = []
-        envios.append(envio)
-        with open(ENVIOS_PATH, 'w') as f:
-            json.dump(envios, f, indent=2)
-        logger.info(f"[Logistico] Envio {envio['id']} — {nombre_t} — {fecha}")
+    if os.path.exists(ENVIOS_PATH):
+        with open(ENVIOS_PATH) as f:
+            envios = json.load(f)
+    else:
+        envios = []
+
+    for pedido in pedidos:
+        logger.info(f'[Logistico] Procesando pedido {pedido["id"]}')
+        grupos = agrupar_productos_por_centro(pedido.get('productos', []))
+        n_grupos = len(grupos)
+
+        if n_grupos == 0:
+            logger.warning(f'[Logistico] Pedido {pedido["id"]} sin productos, saltando')
+            continue
+
+        sub_envios = []
+        for centro_id, grupo in grupos.items():
+            centro = grupo['centro']
+            productos_grupo = grupo['productos']
+            nombres_productos = [p.get('nombre', p['id']) for p in productos_grupo]
+
+            logger.info(
+                f'[Logistico] Sub-envio desde {centro["nombre"]} '
+                f'({len(productos_grupo)} producto/s: {nombres_productos})'
+            )
+
+            nombre_t, fecha = negociar_transporte(
+                pedido.get('prioridad', 'normal'),
+                pedido.get('direccion', '')
+            )
+
+            envio_id = 'ENV-' + str(uuid.uuid4())[:8].upper()
+            envio = {
+                'id':               envio_id,
+                'pedido_id':        pedido['id'],
+                'centro_logistico': centro['nombre'],
+                'transportista':    nombre_t,
+                'fecha_prevista':   fecha,
+                'productos':        [p['id'] for p in productos_grupo],
+                'estado':           'enviado',
+            }
+            envios.append(envio)
+            sub_envios.append(envio)
+
+            logger.info(
+                f'[Logistico] Envio {envio_id} | Centro: {centro["nombre"]} | '
+                f'Transportista: {nombre_t} | Entrega: {fecha}'
+            )
+
+        # Notificar al GestorPedidos con TODOS los sub-envios del pedido
+        notificar_gestor_multiples_envios(pedido, sub_envios)
+
+    with open(ENVIOS_PATH, 'w') as f:
+        json.dump(envios, f, indent=2)
+
     guardar_pedidos([])
+
+
+def notificar_gestor_multiples_envios(pedido, sub_envios):
+    """
+    Envia un mensaje ACL.inform al AgenteGestorPedidos con la lista de sub-envios
+    del pedido (uno por cada centro logistico involucrado).
+    El mensaje incluye: pedido_id, y por cada sub-envio: centro, transportista, fecha, productos.
+    """
+    global mss_cnt
+
+    # Buscar al GestorPedidos en el DS
+    gmess = Graph()
+    gmess.bind('dso', DSO)
+    search_obj = agn[f'SearchGestor-{mss_cnt}']
+    gmess.add((search_obj, RDF.type, DSO.Search))
+    gmess.add((search_obj, DSO.AgentType, ECSNS['Ag.GestorDePedidos']))
+    msg = build_message(gmess, perf=ACL.request, sender=LogisticoAgent.uri,
+                        receiver=DirectoryAgent.uri, content=search_obj, msgcnt=mss_cnt)
+    mss_cnt += 1
+    try:
+        r = http_requests.get(DirectoryAgent.address,
+                              params={'content': msg.serialize(format='xml')}, timeout=5)
+        gr_ds = Graph()
+        gr_ds.parse(data=r.text, format='xml')
+        gestor_addrs = [str(o) for s, p, o in gr_ds if p == DSO.Address]
+    except Exception as e:
+        logger.warning(f'[Logistico] No se pudo encontrar GestorPedidos: {e}')
+        return
+
+    if not gestor_addrs:
+        logger.warning('[Logistico] GestorPedidos no registrado en DS, no se notifica')
+        return
+
+    gestor_addr = gestor_addrs[0]
+
+    gr = Graph()
+    gr.bind('ecsns', ECSNS)
+    resultado_uri = ECSNS[f'ResultadoEnvio-{pedido["id"]}']
+    gr.add((resultado_uri, RDF.type,        ECSNS.ResultadoEnvio))
+    gr.add((resultado_uri, ECSNS.idPedido,  Literal(pedido['id'])))
+    gr.add((resultado_uri, ECSNS.numEnvios, Literal(len(sub_envios))))
+
+    for i, envio in enumerate(sub_envios):
+        envio_node = ECSNS[f'SubEnvio-{pedido["id"]}-{i}']
+        gr.add((resultado_uri,  ECSNS.tieneSubEnvio,      envio_node))
+        gr.add((envio_node,     ECSNS.idEnvio,            Literal(envio['id'])))
+        gr.add((envio_node,     ECSNS.tieneCentro,        Literal(envio['centro_logistico'])))
+        gr.add((envio_node,     ECSNS.tieneTransportista, Literal(envio['transportista'])))
+        gr.add((envio_node,     ECSNS.tieneFechaEntrega,  Literal(envio['fecha_prevista'])))
+        for pid in envio.get('productos', []):
+            gr.add((envio_node, ECSNS.tieneProductoId,    Literal(pid)))
+
+    try:
+        send_message(
+            build_message(gr, perf=ACL.inform, sender=LogisticoAgent.uri,
+                          receiver=agn.AgenteGestorPedidos, content=resultado_uri,
+                          msgcnt=mss_cnt),
+            gestor_addr,
+        )
+        mss_cnt += 1
+        logger.info(f'[Logistico] Notificados {len(sub_envios)} sub-envio/s al GestorPedidos')
+    except Exception as e:
+        logger.warning(f'[Logistico] Error notificando GestorPedidos: {e}')
 
 
 def procesar_pedido(gm, content):
@@ -352,6 +485,7 @@ def procesar_pedido(gm, content):
     for prod_node in gm.objects(content, ECSNS.tieneProducto):
         productos.append({
             'id':       str(gm.value(prod_node, ECSNS.idProducto)),
+            'nombre':   str(gm.value(prod_node, ECSNS.nombre) or ''),
             'cantidad': int(gm.value(prod_node, ECSNS.cantidad) or 1),
             'peso':     float(gm.value(prod_node, ECSNS.peso) or 0),
         })
@@ -361,8 +495,18 @@ def procesar_pedido(gm, content):
                     'direccion': direccion, 'prioridad': prioridad})
     pedidos.sort(key=lambda p: PRIORIDADES.get(p.get('prioridad', 'normal'), 1))
     guardar_pedidos(pedidos)
-    logger.info(f'[Logistico] Pedido {pedido_id} recibido y ordenado')
+    logger.info(f'[Logistico] Pedido {pedido_id} recibido ({len(productos)} productos)')
 
+    # Log de distribucion por centro para visibilidad inmediata
+    grupos = agrupar_productos_por_centro(productos)
+    for cid, grupo in grupos.items():
+        names = [p.get('nombre', p['id']) for p in grupo['productos']]
+        logger.info(f'  -> {grupo["centro"]["nombre"]}: {names}')
+
+
+# ---------------------------------------------------------------------------
+# Flask endpoints
+# ---------------------------------------------------------------------------
 
 @app.route('/stop')
 def stop():
@@ -400,6 +544,10 @@ def comunicacion():
     mss_cnt += 1
     return gr.serialize(format='xml')
 
+
+# ---------------------------------------------------------------------------
+# Comportamiento periodico del agente
+# ---------------------------------------------------------------------------
 
 def agentbehavior1(cola):
     register_message()
