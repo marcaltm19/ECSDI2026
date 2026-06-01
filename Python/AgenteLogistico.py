@@ -115,21 +115,6 @@ def elegir_centro(lat, lon):
     return min(centros, key=lambda c: haversine(lat, lon, c['lat'], c['lon']))
 
 
-def escoger_mejor_oferta(ofertas, prioridad):
-    """
-    Selecciona la mejor oferta segun la prioridad del pedido:
-      - urgente:   minimiza dias de entrega (rapidez)
-      - economica: minimiza precio
-      - normal:    minimiza precio (comportamiento por defecto)
-    """
-    if not ofertas:
-        return None
-    if prioridad == 'urgente':
-        return min(ofertas, key=lambda o: o['dias'])
-    else:  # normal o economica
-        return min(ofertas, key=lambda o: o['precio'])
-
-
 def negociar_transporte(prioridad, direccion):
     global mss_cnt
 
@@ -149,7 +134,7 @@ def negociar_transporte(prioridad, direccion):
     transportistas_addr = [str(o) for s, p, o in gr_ds if p == DSO.Address]
 
     if not transportistas_addr:
-        logger.warning('[Logistico] No hay transportistas en el DS')
+        logger.warning('[Logistico] No hay transportistas en el DS, usando fallback')
         return 'Desconocido', (datetime.now() + timedelta(days=3)).strftime('%Y-%m-%d')
 
     # Construir CFP
@@ -164,7 +149,11 @@ def negociar_transporte(prioridad, direccion):
     mss_cnt += 1
 
     # Recoger propuestas
-    ofertas = []
+    mejor_precio = float('inf')
+    mejor_nombre = None
+    mejor_fecha = None
+    mejor_addr = None
+
     for t_addr in transportistas_addr:
         try:
             resp = http_requests.get(t_addr,
@@ -177,40 +166,27 @@ def negociar_transporte(prioridad, direccion):
                 precio = float(gr_resp.value(oferta, ECSNS.tienePrecio) or 999)
                 nombre = str(gr_resp.value(oferta, ECSNS.tieneTransportista) or '')
                 fecha  = str(gr_resp.value(oferta, ECSNS.tieneFechaEntrega) or '')
-                # Calcular dias a partir de la fecha para criterio urgente
-                try:
-                    dias = (datetime.strptime(fecha, '%Y-%m-%d') - datetime.now()).days
-                except Exception:
-                    dias = 99
-                logger.info(f'[Logistico] Oferta de {nombre}: {precio}€ — {fecha} ({dias} dias)')
-                ofertas.append({
-                    'precio': precio,
-                    'nombre': nombre,
-                    'fecha':  fecha,
-                    'dias':   dias,
-                    'addr':   t_addr,
-                })
+                logger.info(f'[Logistico] Oferta de {nombre}: {precio}€ — {fecha}')
+                if precio < mejor_precio:
+                    mejor_precio = precio
+                    mejor_nombre = nombre
+                    mejor_fecha  = fecha
+                    mejor_addr   = t_addr
         except Exception as e:
             logger.warning(f'[Logistico] Error con transportista {t_addr}: {e}')
 
-    if not ofertas:
-        logger.warning('[Logistico] Ninguna propuesta recibida')
-        return 'Desconocido', (datetime.now() + timedelta(days=3)).strftime('%Y-%m-%d')
-
-    # Seleccionar mejor oferta segun prioridad
-    mejor = escoger_mejor_oferta(ofertas, prioridad)
-    logger.info(f'[Logistico] GANADOR ({prioridad}): {mejor["nombre"]} — {mejor["precio"]}€ — {mejor["fecha"]}')
-
     # Aceptar ganador, rechazar resto
-    for oferta in ofertas:
-        perf = ACL['accept-proposal'] if oferta['addr'] == mejor['addr'] else ACL['reject-proposal']
+    for t_addr in transportistas_addr:
+        perf = ACL['accept-proposal'] if t_addr == mejor_addr else ACL['reject-proposal']
         gr_dec = Graph()
         msg_dec = build_message(gr_dec, perf=perf,
                                 sender=LogisticoAgent.uri, msgcnt=mss_cnt)
-        http_requests.get(oferta['addr'], params={'content': msg_dec.serialize(format='xml')})
+        http_requests.get(t_addr, params={'content': msg_dec.serialize(format='xml')})
         mss_cnt += 1
 
-    return mejor['nombre'], mejor['fecha']
+    logger.info(f'[Logistico] Elegido: {mejor_nombre} — {mejor_precio}€ — {mejor_fecha}')
+
+    return mejor_nombre, mejor_fecha
 
 
 def juntar_productos():
@@ -253,7 +229,7 @@ def realizar_envios():
         envios.append(envio)
         with open(ENVIOS_PATH, 'w') as f:
             json.dump(envios, f, indent=2)
-        logger.info(f"[Logistico] Envio {envio['id']} — {nombre_t} — {fecha}")
+        logger.info(f"[Logistico] Envío {envio['id']} — {nombre_t} — {fecha}")
     guardar_pedidos([])
 
 
@@ -276,7 +252,7 @@ def procesar_pedido(gm, content):
                     'direccion': direccion, 'prioridad': prioridad})
     pedidos.sort(key=lambda p: PRIORIDADES.get(p.get('prioridad', 'normal'), 1))
     guardar_pedidos(pedidos)
-    logger.info(f'[Logistico] Pedido {pedido_id} recibido — prioridad: {prioridad}')
+    logger.info(f'[Logistico] Pedido {pedido_id} recibido y ordenado')
 
 
 @app.route('/stop')
