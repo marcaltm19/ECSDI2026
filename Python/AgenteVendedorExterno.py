@@ -1,0 +1,365 @@
+import argparse
+import json
+import logging
+import os
+import socket
+import sys
+import time
+import uuid
+from datetime import datetime, timedelta
+from multiprocessing import Process, Queue
+
+from flask import Flask, request
+from rdflib import Graph, Literal, Namespace
+from rdflib.namespace import FOAF, RDF
+
+import requests as http_requests
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
+from AgentUtil.ACL import ACL
+from AgentUtil.ACLMessages import build_message, get_message_properties, send_message
+from AgentUtil.Agent import Agent
+from AgentUtil.DSO import DSO
+from AgentUtil.FlaskServer import shutdown_server
+from AgentUtil.Logging import config_logger
+from ontologia import ECSNS
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--open', action='store_true', default=False)
+parser.add_argument('--verbose', action='store_true', default=False)
+parser.add_argument('--port', type=int, default=9007)
+parser.add_argument('--dhost', default=None)
+parser.add_argument('--dport', type=int, default=9000)
+parser.add_argument('--nombre', type=str, default='VendedorExterno1')
+args = parser.parse_args()
+
+logger = config_logger(level=1)
+port = args.port
+hostname = socket.gethostname()
+hostaddr = hostname if not args.open else '0.0.0.0'
+dport = args.dport
+dhostname = args.dhost if args.dhost else socket.gethostname()
+nombre_vendedor = args.nombre
+
+app = Flask(__name__)
+if not args.verbose:
+    logging.getLogger('werkzeug').setLevel(logging.ERROR)
+
+agn = Namespace('http://www.agentes.org#')
+mss_cnt = 0
+
+CATA_PATH = os.path.join(os.path.dirname(__file__), 'data', f'catalogo_{nombre_vendedor}.json')
+PEDIDOS_EXT_PATH = os.path.join(os.path.dirname(__file__), 'data', f'pedidos_{nombre_vendedor}.json')
+
+VendedorAgent = Agent(
+    nombre_vendedor,
+    agn[nombre_vendedor],
+    'http://%s:%d/comm' % (hostaddr, port),
+    'http://%s:%d/Stop' % (hostaddr, port),
+)
+DirectoryAgent = Agent(
+    'DirectoryAgent',
+    agn.Directory,
+    'http://%s:%d/Register' % (dhostname, dport),
+    'http://%s:%d/Stop' % (dhostname, dport),
+)
+
+cola1 = Queue()
+compr_address = None
+
+CATALOGO_INICIAL = [
+    {
+        'id': f'EXT-{nombre_vendedor}-001',
+        'nombre': 'Auriculares Premium BT',
+        'categoria': 'Electronica',
+        'precio': 89.99,
+        'peso': 0.3,
+        'stock': 15,
+        'valoracion': 4.3,
+        'vendedor': nombre_vendedor,
+        'gestion_envio': 'tienda',
+    },
+    {
+        'id': f'EXT-{nombre_vendedor}-002',
+        'nombre': 'Mochila Urbana 30L',
+        'categoria': 'Hogar',
+        'precio': 45.50,
+        'peso': 0.8,
+        'stock': 30,
+        'valoracion': 4.1,
+        'vendedor': nombre_vendedor,
+        'gestion_envio': 'vendedor',
+    },
+    {
+        'id': f'EXT-{nombre_vendedor}-003',
+        'nombre': 'Libro: Sistemas Distribuidos',
+        'categoria': 'Libros',
+        'precio': 32.00,
+        'peso': 0.5,
+        'stock': 50,
+        'valoracion': 4.8,
+        'vendedor': nombre_vendedor,
+        'gestion_envio': 'tienda',
+    },
+]
+
+
+def register_message():
+    global mss_cnt
+    gmess = Graph()
+    gmess.bind('foaf', FOAF)
+    gmess.bind('dso', DSO)
+    reg_obj = agn[VendedorAgent.name + '-Register']
+    gmess.add((reg_obj, RDF.type, DSO.Register))
+    gmess.add((reg_obj, DSO.Uri, VendedorAgent.uri))
+    gmess.add((reg_obj, FOAF.name, Literal(VendedorAgent.name)))
+    gmess.add((reg_obj, DSO.Address, Literal(VendedorAgent.address)))
+    gmess.add((reg_obj, DSO.AgentType, ECSNS['Ag.VendedorExterno']))
+    gr = send_message(
+        build_message(gmess, perf=ACL.request, sender=VendedorAgent.uri,
+                      receiver=DirectoryAgent.uri, content=reg_obj, msgcnt=mss_cnt),
+        DirectoryAgent.address,
+    )
+    mss_cnt += 1
+    return gr
+
+
+def cargar_catalogo():
+    if os.path.exists(CATA_PATH):
+        with open(CATA_PATH) as f:
+            return json.load(f)
+    return CATALOGO_INICIAL
+
+
+def guardar_catalogo(catalogo):
+    with open(CATA_PATH, 'w') as f:
+        json.dump(catalogo, f, indent=2)
+
+
+def cargar_pedidos_ext():
+    if os.path.exists(PEDIDOS_EXT_PATH):
+        with open(PEDIDOS_EXT_PATH) as f:
+            return json.load(f)
+    return []
+
+
+def guardar_pedidos_ext(pedidos):
+    with open(PEDIDOS_EXT_PATH, 'w') as f:
+        json.dump(pedidos, f, indent=2)
+
+
+def get_comprador_address():
+    global mss_cnt
+    gmess = Graph()
+    gmess.bind('dso', DSO)
+    search_obj = agn['Search-' + str(mss_cnt)]
+    gmess.add((search_obj, RDF.type, DSO.Search))
+    gmess.add((search_obj, DSO.AgentType, ECSNS['Ag.Comprador']))
+    msg = build_message(gmess, perf=ACL.request, sender=VendedorAgent.uri,
+                        receiver=DirectoryAgent.uri, content=search_obj, msgcnt=mss_cnt)
+    try:
+        response = http_requests.get(
+            DirectoryAgent.address,
+            params={'content': msg.serialize(format='xml')},
+            timeout=5
+        )
+        mss_cnt += 1
+        gr = Graph()
+        gr.parse(data=response.text, format='xml')
+        for s, p, o in gr:
+            if p == DSO.Address:
+                return str(o)
+    except Exception as e:
+        logger.warning(f'[{nombre_vendedor}] Error buscando AgenteComprador: {e}')
+    return None
+
+
+def anunciar_catalogo():
+    global mss_cnt, compr_address
+    if compr_address is None:
+        compr_address = get_comprador_address()
+    if compr_address is None:
+        logger.warning(f'[{nombre_vendedor}] AgenteComprador no encontrado, reintentando en 60s')
+        return
+
+    catalogo = cargar_catalogo()
+    productos_activos = [p for p in catalogo if p.get('stock', 0) > 0]
+
+    gmess = Graph()
+    gmess.bind('ecsns', ECSNS)
+    cat_node = ECSNS[f'catalogo-{nombre_vendedor}']
+    gmess.add((cat_node, RDF.type, ECSNS.CatalogoExterno))
+    gmess.add((cat_node, ECSNS.nombreVendedor, Literal(nombre_vendedor)))
+
+    for prod in productos_activos:
+        p_node = ECSNS[prod['id']]
+        gmess.add((cat_node, ECSNS.tieneProducto, p_node))
+        gmess.add((p_node, RDF.type, ECSNS.ProductoExterno))
+        gmess.add((p_node, ECSNS.idProducto, Literal(prod['id'])))
+        gmess.add((p_node, ECSNS.nombre, Literal(prod['nombre'])))
+        gmess.add((p_node, ECSNS.categoria, Literal(prod['categoria'])))
+        gmess.add((p_node, ECSNS.precio, Literal(prod['precio'])))
+        gmess.add((p_node, ECSNS.peso, Literal(prod['peso'])))
+        gmess.add((p_node, ECSNS.valoracion, Literal(prod['valoracion'])))
+        gmess.add((p_node, ECSNS.vendedor, Literal(nombre_vendedor)))
+        gmess.add((p_node, ECSNS.gestionEnvio, Literal(prod['gestion_envio'])))
+
+    try:
+        send_message(
+            build_message(gmess, perf=ACL.inform, sender=VendedorAgent.uri,
+                          receiver=agn.AgenteComprador, content=cat_node, msgcnt=mss_cnt),
+            compr_address,
+        )
+        mss_cnt += 1
+        logger.info(f'[{nombre_vendedor}] Catalogo anunciado ({len(productos_activos)} productos)')
+    except Exception as e:
+        logger.warning(f'[{nombre_vendedor}] Error anunciando catalogo: {e}')
+        compr_address = None
+
+
+def procesar_pedido_externo(gm, content):
+    pedido_id = str(gm.value(content, ECSNS.idPedido) or 'PED-EXT-' + str(uuid.uuid4())[:8].upper())
+    comprador = str(gm.value(content, ECSNS.comprador) or 'Anonimo')
+    direccion = str(gm.value(content, ECSNS.direccion) or '')
+    prioridad = str(gm.value(content, ECSNS.prioridad) or 'normal')
+
+    productos = []
+    for prod_node in gm.objects(content, ECSNS.tieneProducto):
+        productos.append({
+            'id': str(gm.value(prod_node, ECSNS.idProducto)),
+            'cantidad': int(gm.value(prod_node, ECSNS.cantidad) or 1),
+        })
+
+    if prioridad == 'urgente':
+        dias = 1
+    elif prioridad == 'economica':
+        dias = 7
+    else:
+        dias = 4
+
+    fecha_entrega = (datetime.now() + timedelta(days=dias)).strftime('%Y-%m-%d')
+
+    registro = {
+        'pedido_id': pedido_id,
+        'comprador': comprador,
+        'direccion': direccion,
+        'prioridad': prioridad,
+        'productos': productos,
+        'fecha_entrega': fecha_entrega,
+        'fecha_registro': datetime.now().isoformat(),
+        'estado': 'en_proceso',
+    }
+    pedidos = cargar_pedidos_ext()
+    pedidos.append(registro)
+    guardar_pedidos_ext(pedidos)
+    logger.info(f'[{nombre_vendedor}] Pedido {pedido_id} recibido — entrega: {fecha_entrega}')
+
+    gr = Graph()
+    gr.bind('ecsns', ECSNS)
+    resp_node = ECSNS['respuesta-' + pedido_id]
+    gr.add((resp_node, RDF.type, ECSNS.RespuestaPedidoExterno))
+    gr.add((resp_node, ECSNS.idPedido, Literal(pedido_id)))
+    gr.add((resp_node, ECSNS.fechaEntrega, Literal(fecha_entrega)))
+    gr.add((resp_node, ECSNS.transportista, Literal(f'Mensajeria {nombre_vendedor}')))
+    gr.add((resp_node, ECSNS.estado, Literal('confirmado')))
+    return gr
+
+
+def procesar_actualizacion_catalogo(gm, content):
+    catalogo = cargar_catalogo()
+    prod_id = str(gm.value(content, ECSNS.idProducto) or '')
+    nuevo_stock = gm.value(content, ECSNS.stock)
+    nuevo_precio = gm.value(content, ECSNS.precio)
+
+    actualizado = False
+    for prod in catalogo:
+        if prod['id'] == prod_id:
+            if nuevo_stock is not None:
+                prod['stock'] = int(nuevo_stock)
+            if nuevo_precio is not None:
+                prod['precio'] = float(nuevo_precio)
+            actualizado = True
+            break
+
+    guardar_catalogo(catalogo)
+    logger.info(f'[{nombre_vendedor}] Catalogo actualizado — producto {prod_id}: ok={actualizado}')
+
+    gr = Graph()
+    gr.bind('ecsns', ECSNS)
+    resp_node = ECSNS['ack-catalogo-' + prod_id]
+    gr.add((resp_node, RDF.type, ECSNS.AckActualizacion))
+    gr.add((resp_node, ECSNS.idProducto, Literal(prod_id)))
+    gr.add((resp_node, ECSNS.actualizado, Literal(actualizado)))
+    return gr
+
+
+@app.route('/stop')
+def stop():
+    cola1.put(0)
+    shutdown_server()
+    return f'Parando {nombre_vendedor}'
+
+
+@app.route('/comm', methods=['GET', 'POST'])
+def comunicacion():
+    global mss_cnt
+    logger.info(f'[{nombre_vendedor}] Mensaje recibido')
+    message = request.args.get('content') or request.form.get('content')
+    gm = Graph()
+    gm.parse(data=message, format='xml')
+    msgdic = get_message_properties(gm)
+
+    if msgdic is None:
+        gr = build_message(Graph(), ACL['not-understood'],
+                           sender=VendedorAgent.uri, msgcnt=mss_cnt)
+    else:
+        content = msgdic.get('content')
+        accion = gm.value(subject=content, predicate=RDF.type)
+        perf = msgdic.get('performative')
+
+        if perf == ACL.request and accion == ECSNS.PedidoExterno:
+            resp_graph = procesar_pedido_externo(gm, content)
+            gr = build_message(resp_graph, ACL.inform,
+                               sender=VendedorAgent.uri,
+                               receiver=msgdic['sender'],
+                               msgcnt=mss_cnt)
+        elif perf == ACL.request and accion == ECSNS.ActualizarCatalogo:
+            resp_graph = procesar_actualizacion_catalogo(gm, content)
+            gr = build_message(resp_graph, ACL.inform,
+                               sender=VendedorAgent.uri,
+                               receiver=msgdic['sender'],
+                               msgcnt=mss_cnt)
+        else:
+            gr = build_message(Graph(), ACL['not-understood'],
+                               sender=VendedorAgent.uri, msgcnt=mss_cnt)
+
+    mss_cnt += 1
+    return gr.serialize(format='xml')
+
+
+def agentbehavior1(cola):
+    register_message()
+    logger.info(f'[{nombre_vendedor}] Registrado en DS — anunciando catalogo...')
+    anunciar_catalogo()
+    tiempo = 0
+    fin = False
+    while not fin:
+        time.sleep(1)
+        tiempo += 1
+        if tiempo >= 60:
+            anunciar_catalogo()
+            tiempo = 0
+        if not cola.empty() and cola.get() == 0:
+            fin = True
+
+
+if __name__ == '__main__':
+    os.makedirs(os.path.join(os.path.dirname(__file__), 'data'), exist_ok=True)
+    if not os.path.exists(CATA_PATH):
+        guardar_catalogo(CATALOGO_INICIAL)
+    ab1 = Process(target=agentbehavior1, args=(cola1,))
+    ab1.start()
+    app.run(host=hostname, port=port)
+    ab1.join()
+    logger.info(f'[{nombre_vendedor}] Fin')
