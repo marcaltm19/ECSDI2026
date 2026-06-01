@@ -38,7 +38,10 @@ args = parser.parse_args()
 logger = config_logger(level=1)
 port = args.port
 hostname = socket.gethostname()
-hostaddr = hostname if not args.open else '0.0.0.0'
+# flask_host: donde escucha Flask (0.0.0.0 si --open para aceptar conexiones externas)
+flask_host = '0.0.0.0' if args.open else hostname
+# hostaddr: direccion publica que se registra en el DS (siempre el hostname real)
+hostaddr = hostname
 dport = args.dport
 dhostname = args.dhost if args.dhost else socket.gethostname()
 
@@ -70,10 +73,6 @@ cola1 = Queue()
 PRIORIDADES = {'urgente': 0, 'normal': 1, 'economica': 2}
 
 
-# ---------------------------------------------------------------------------
-# Registro en el DirectoryService
-# ---------------------------------------------------------------------------
-
 def register_message():
     global mss_cnt
     gmess = Graph()
@@ -94,10 +93,6 @@ def register_message():
     return gr
 
 
-# ---------------------------------------------------------------------------
-# Utilidades de datos
-# ---------------------------------------------------------------------------
-
 def cargar_pedidos():
     if os.path.exists(PEDIDOS_PATH):
         with open(PEDIDOS_PATH) as f:
@@ -116,7 +111,6 @@ def cargar_centros():
 
 
 def cargar_productos_catalogo():
-    """Devuelve un dict {id_producto: datos_producto} con centro_logistico_id incluido."""
     if not os.path.exists(PRODUCTOS_PATH):
         return {}
     with open(PRODUCTOS_PATH) as f:
@@ -134,16 +128,11 @@ def haversine(lat1, lon1, lat2, lon2):
 
 
 def elegir_centro_por_coords(lat, lon):
-    """Devuelve el centro logistico mas cercano a las coordenadas dadas."""
     centros = cargar_centros()
     return min(centros, key=lambda c: haversine(lat, lon, c['lat'], c['lon']))
 
 
 def obtener_centro_de_producto(producto_id):
-    """
-    Devuelve el dict del centro logistico donde esta almacenado el producto.
-    Si el producto no tiene centro asignado en el catalogo, elige el CL-001 por defecto.
-    """
     catalogo = cargar_productos_catalogo()
     centros   = {c['id']: c for c in cargar_centros()}
     prod = catalogo.get(producto_id)
@@ -156,10 +145,6 @@ def obtener_centro_de_producto(producto_id):
 
 
 def agrupar_productos_por_centro(productos):
-    """
-    Agrupa una lista de productos del pedido por su centro logistico.
-    Devuelve: {centro_id: {'centro': {...}, 'productos': [...]}}
-    """
     grupos = {}
     for prod in productos:
         centro = obtener_centro_de_producto(prod['id'])
@@ -169,10 +154,6 @@ def agrupar_productos_por_centro(productos):
         grupos[cid]['productos'].append(prod)
     return grupos
 
-
-# ---------------------------------------------------------------------------
-# Negociacion compleja con transportistas (ronda 1 CFP + ronda 2 contra-oferta)
-# ---------------------------------------------------------------------------
 
 def _buscar_transportistas():
     global mss_cnt
@@ -256,15 +237,9 @@ def _enviar_contraoferta(t_addr, contra_precio):
 
 
 def escoger_mejor_oferta(pool, prioridad):
-    """
-    Selecciona el ganador del pool de ofertas segun la prioridad:
-    - urgente: menor numero de dias de entrega (desempate por precio)
-    - normal/economica: menor precio
-    """
     if prioridad == 'urgente':
         min_dias = min(o['dias'] for o in pool.values())
         candidatos = [addr for addr, o in pool.items() if o['dias'] == min_dias]
-        # desempate por precio
         ganador_addr = min(candidatos, key=lambda a: pool[a]['precio'])
         logger.info(f'[Logistico] GANADOR (urgente): {pool[ganador_addr]["nombre"]} '
                     f'-- {min_dias} dias -- {pool[ganador_addr]["precio"]}EUR')
@@ -278,17 +253,12 @@ def escoger_mejor_oferta(pool, prioridad):
 
 
 def negociar_transporte(prioridad, direccion):
-    """
-    Ronda 1 (CFP) + Ronda 2 (contra-oferta al 90% del minimo).
-    Retorna (nombre_transportista, fecha_entrega).
-    """
     global mss_cnt
     transportistas_addr = _buscar_transportistas()
     if not transportistas_addr:
         logger.warning('[Logistico] No hay transportistas en el DS, usando fallback')
         return 'Desconocido', (datetime.now() + timedelta(days=3)).strftime('%Y-%m-%d')
 
-    # Ronda 1
     ofertas_r1 = {}
     for t_addr in transportistas_addr:
         resultado = _enviar_cfp(t_addr, prioridad, direccion)
@@ -305,7 +275,6 @@ def negociar_transporte(prioridad, direccion):
     contra_precio = round(precio_min_r1 * 0.9, 2)
     logger.info(f'[Logistico] Precio min R1: {precio_min_r1}EUR -- Contra-oferta: {contra_precio}EUR')
 
-    # Ronda 2
     pool_final = {}
     for t_addr, oferta in ofertas_r1.items():
         estado, nuevo_precio = _enviar_contraoferta(t_addr, contra_precio)
@@ -342,10 +311,6 @@ def negociar_transporte(prioridad, direccion):
 
     return ganador['nombre'], ganador['fecha']
 
-
-# ---------------------------------------------------------------------------
-# Logica de pedidos y envios
-# ---------------------------------------------------------------------------
 
 def juntar_productos():
     pedidos = cargar_pedidos()
@@ -509,10 +474,6 @@ def procesar_pedido(gm, content):
         logger.info(f'  -> {grupo["centro"]["nombre"]}: {names}')
 
 
-# ---------------------------------------------------------------------------
-# Flask endpoints
-# ---------------------------------------------------------------------------
-
 @app.route('/stop')
 def stop():
     cola1.put(0)
@@ -550,10 +511,6 @@ def comunicacion():
     return gr.serialize(format='xml')
 
 
-# ---------------------------------------------------------------------------
-# Comportamiento periodico del agente
-# ---------------------------------------------------------------------------
-
 def agentbehavior1(cola):
     register_message()
     logger.info('[Logistico] Registrado y escuchando')
@@ -573,6 +530,6 @@ if __name__ == '__main__':
     os.makedirs(os.path.join(os.path.dirname(__file__), 'data'), exist_ok=True)
     ab1 = Process(target=agentbehavior1, args=(cola1,))
     ab1.start()
-    app.run(host=hostname, port=port)
+    app.run(host=flask_host, port=port)
     ab1.join()
     logger.info('[Logistico] Fin')

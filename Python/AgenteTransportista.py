@@ -27,8 +27,6 @@ parser.add_argument('--port', type=int, default=9010)
 parser.add_argument('--dhost', default=None)
 parser.add_argument('--dport', type=int, default=9000)
 parser.add_argument('--nombre', type=str, default='Transportista')
-# Modificador de precio: permite dar un perfil diferente a cada instancia del agente.
-# Un valor > 1.0 hace al transportista mas caro, < 1.0 mas barato.
 parser.add_argument('--precio-factor', type=float, default=1.0,
                     help='Factor multiplicador sobre el precio base (default: 1.0)')
 args = parser.parse_args()
@@ -36,7 +34,10 @@ args = parser.parse_args()
 logger = config_logger(level=1)
 port = args.port
 hostname = socket.gethostname()
-hostaddr = hostname if not args.open else '0.0.0.0'
+# flask_host: donde escucha Flask (0.0.0.0 si --open para aceptar conexiones externas)
+flask_host = '0.0.0.0' if args.open else hostname
+# hostaddr: direccion publica que se registra en el DS (siempre el hostname real)
+hostaddr = hostname
 dport = args.dport
 dhostname = args.dhost if args.dhost else socket.gethostname()
 NOMBRE = args.nombre
@@ -49,8 +50,6 @@ if not args.verbose:
 agn = Namespace('http://www.agentes.org#')
 mss_cnt = 0
 
-# Estado por sesion de negociacion: guardamos el precio de la oferta inicial
-# para poder validar la contra-oferta en la ronda 2.
 _ultima_oferta_precio = None
 
 TransportistaAgent = Agent(
@@ -84,19 +83,18 @@ def register_message():
         DirectoryAgent.address,
     )
     mss_cnt += 1
-    logger.info(f'[{NOMBRE}] Registrado en DS')
+    logger.info(f'[{NOMBRE}] Registrado en DS como {TransportistaAgent.address}')
     return gr
 
 
 def _calcular_oferta_inicial(prioridad):
-    """Calcula precio y fecha de entrega segun prioridad y precio_factor."""
     if prioridad == 'urgente':
         precio_base = random.uniform(15, 30)
         dias = random.randint(1, 2)
     elif prioridad == 'economica':
         precio_base = random.uniform(3, 8)
         dias = random.randint(4, 6)
-    else:  # normal
+    else:
         precio_base = random.uniform(8, 15)
         dias = random.randint(2, 4)
 
@@ -117,14 +115,9 @@ def comunicacion():
     content = msgdic.get('content') if msgdic else None
     accion  = gm.value(subject=content, predicate=RDF.type) if content else None
 
-    # ---------------------------------------------------------------
-    # RONDA 1: CFP — el logistico pide una oferta inicial
-    # ---------------------------------------------------------------
     if perf == ACL.request and accion == ECSNS.CFP:
         prioridad = str(gm.value(content, ECSNS.tienePrioridad) or 'normal')
         precio, fecha = _calcular_oferta_inicial(prioridad)
-
-        # Guardamos el precio para la ronda 2
         _ultima_oferta_precio = precio
 
         gr = Graph()
@@ -135,39 +128,28 @@ def comunicacion():
         gr.add((oferta_uri, ECSNS.tienePrecio, Literal(precio)))
         gr.add((oferta_uri, ECSNS.tieneFechaEntrega, Literal(fecha)))
 
-        logger.info(f'[{NOMBRE}] R1 — Oferta enviada: {precio}€ — {fecha}')
+        logger.info(f'[{NOMBRE}] R1 -- Oferta enviada: {precio}EUR -- {fecha}')
         resp = build_message(gr, ACL.propose, sender=TransportistaAgent.uri,
                              receiver=msgdic['sender'], content=oferta_uri, msgcnt=mss_cnt)
 
-    # ---------------------------------------------------------------
-    # RONDA 2: counter-proposal — el logistico envia una contra-oferta
-    # ---------------------------------------------------------------
     elif perf == ACL['counter-proposal']:
         contra_precio = float(gm.value(content, ECSNS.tienePrecio) or 0)
         oferta_inicial = _ultima_oferta_precio or 999
-
-        # Estrategia aleatoria con tres posibles respuestas
         dado = random.random()
 
         if dado < 0.33:
-            # --- ACEPTA la contra-oferta ---
-            logger.info(f'[{NOMBRE}] R2 — ACEPTA contra-oferta: {contra_precio}€')
+            logger.info(f'[{NOMBRE}] R2 -- ACEPTA contra-oferta: {contra_precio}EUR')
             resp = build_message(Graph(), ACL.inform,
                                  sender=TransportistaAgent.uri,
                                  receiver=msgdic['sender'],
                                  msgcnt=mss_cnt)
-
         elif dado < 0.66:
-            # --- PROPONE un precio intermedio ---
-            # Debe ser estrictamente mayor que contra_precio y menor que la oferta inicial
             if contra_precio < oferta_inicial:
                 nuevo_precio = round(random.uniform(contra_precio, oferta_inicial), 2)
-                # Aseguramos que sea estrictamente mayor que contra_precio
                 if nuevo_precio <= contra_precio:
                     nuevo_precio = round(contra_precio + 0.01, 2)
             else:
-                # Caso degenrado: aceptamos directamente
-                logger.info(f'[{NOMBRE}] R2 — rango invalido, ACEPTA: {contra_precio}€')
+                logger.info(f'[{NOMBRE}] R2 -- rango invalido, ACEPTA: {contra_precio}EUR')
                 resp = build_message(Graph(), ACL.inform,
                                      sender=TransportistaAgent.uri,
                                      receiver=msgdic['sender'],
@@ -181,31 +163,26 @@ def comunicacion():
             gr.add((nueva_oferta_uri, RDF.type, ECSNS.Oferta))
             gr.add((nueva_oferta_uri, ECSNS.tieneTransportista, Literal(NOMBRE)))
             gr.add((nueva_oferta_uri, ECSNS.tienePrecio, Literal(nuevo_precio)))
-            logger.info(f'[{NOMBRE}] R2 — PROPONE nuevo precio: {nuevo_precio}€')
+            logger.info(f'[{NOMBRE}] R2 -- PROPONE nuevo precio: {nuevo_precio}EUR')
             resp = build_message(gr, ACL.propose,
                                  sender=TransportistaAgent.uri,
                                  receiver=msgdic['sender'],
                                  content=nueva_oferta_uri,
                                  msgcnt=mss_cnt)
-
         else:
-            # --- RECHAZA la contra-oferta ---
-            logger.info(f'[{NOMBRE}] R2 — RECHAZA la contra-oferta')
+            logger.info(f'[{NOMBRE}] R2 -- RECHAZA la contra-oferta')
             resp = build_message(Graph(), ACL['reject-proposal'],
                                  sender=TransportistaAgent.uri,
                                  receiver=msgdic['sender'],
                                  msgcnt=mss_cnt)
 
-    # ---------------------------------------------------------------
-    # Decision final del logistico
-    # ---------------------------------------------------------------
     elif perf == ACL['accept-proposal']:
-        logger.info(f'[{NOMBRE}] DECISION FINAL — Oferta ACEPTADA ✅')
+        logger.info(f'[{NOMBRE}] DECISION FINAL -- Oferta ACEPTADA')
         resp = build_message(Graph(), ACL.inform, sender=TransportistaAgent.uri,
                              receiver=msgdic['sender'], msgcnt=mss_cnt)
 
     elif perf == ACL['reject-proposal']:
-        logger.info(f'[{NOMBRE}] DECISION FINAL — Oferta rechazada')
+        logger.info(f'[{NOMBRE}] DECISION FINAL -- Oferta rechazada')
         resp = build_message(Graph(), ACL.inform, sender=TransportistaAgent.uri,
                              receiver=msgdic['sender'], msgcnt=mss_cnt)
 
@@ -225,5 +202,5 @@ def stop():
 
 if __name__ == '__main__':
     register_message()
-    logger.info(f'[{NOMBRE}] Escuchando en puerto {port} (factor precio: {PRECIO_FACTOR}x)')
-    app.run(host=hostname, port=port)
+    logger.info(f'[{NOMBRE}] Escuchando en {flask_host}:{port} (factor precio: {PRECIO_FACTOR}x)')
+    app.run(host=flask_host, port=port)
