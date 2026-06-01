@@ -151,7 +151,6 @@ def obtener_centro_de_producto(producto_id):
         centro_id = prod['centro_logistico_id']
         if centro_id in centros:
             return centros[centro_id]
-    # fallback: centro mas cercano al origen (Madrid)
     logger.warning(f'[Logistico] Producto {producto_id} sin centro asignado, usando CL-001')
     return centros.get('CL-001', list(centros.values())[0])
 
@@ -214,7 +213,8 @@ def _enviar_cfp(t_addr, prioridad, direccion):
             precio = float(gr_resp.value(oferta, ECSNS.tienePrecio) or 999)
             nombre = str(gr_resp.value(oferta, ECSNS.tieneTransportista) or t_addr)
             fecha  = str(gr_resp.value(oferta, ECSNS.tieneFechaEntrega) or '')
-            return precio, nombre, fecha
+            dias   = (datetime.strptime(fecha, '%Y-%m-%d') - datetime.now()).days if fecha else 999
+            return precio, nombre, fecha, dias
     except Exception as e:
         logger.warning(f'[Logistico] Error CFP a {t_addr}: {e}')
     return None
@@ -255,6 +255,28 @@ def _enviar_contraoferta(t_addr, contra_precio):
     return 'error', None
 
 
+def escoger_mejor_oferta(pool, prioridad):
+    """
+    Selecciona el ganador del pool de ofertas segun la prioridad:
+    - urgente: menor numero de dias de entrega (desempate por precio)
+    - normal/economica: menor precio
+    """
+    if prioridad == 'urgente':
+        min_dias = min(o['dias'] for o in pool.values())
+        candidatos = [addr for addr, o in pool.items() if o['dias'] == min_dias]
+        # desempate por precio
+        ganador_addr = min(candidatos, key=lambda a: pool[a]['precio'])
+        logger.info(f'[Logistico] GANADOR (urgente): {pool[ganador_addr]["nombre"]} '
+                    f'-- {min_dias} dias -- {pool[ganador_addr]["precio"]}EUR')
+    else:
+        precio_min = min(o['precio'] for o in pool.values())
+        candidatos  = [addr for addr, o in pool.items() if o['precio'] == precio_min]
+        ganador_addr = random.choice(candidatos)
+        logger.info(f'[Logistico] GANADOR: {pool[ganador_addr]["nombre"]} '
+                    f'-- {pool[ganador_addr]["precio"]}EUR -- {pool[ganador_addr]["fecha"]}')
+    return ganador_addr
+
+
 def negociar_transporte(prioridad, direccion):
     """
     Ronda 1 (CFP) + Ronda 2 (contra-oferta al 90% del minimo).
@@ -271,9 +293,9 @@ def negociar_transporte(prioridad, direccion):
     for t_addr in transportistas_addr:
         resultado = _enviar_cfp(t_addr, prioridad, direccion)
         if resultado:
-            precio, nombre, fecha = resultado
-            ofertas_r1[t_addr] = {'precio': precio, 'nombre': nombre, 'fecha': fecha}
-            logger.info(f'[Logistico] Oferta R1 de {nombre}: {precio}EUR -- {fecha}')
+            precio, nombre, fecha, dias = resultado
+            ofertas_r1[t_addr] = {'precio': precio, 'nombre': nombre, 'fecha': fecha, 'dias': dias}
+            logger.info(f'[Logistico] Oferta R1 de {nombre}: {precio}EUR -- {fecha} ({dias} dias)')
 
     if not ofertas_r1:
         logger.warning('[Logistico] Ningun transportista respondio al CFP')
@@ -289,11 +311,13 @@ def negociar_transporte(prioridad, direccion):
         estado, nuevo_precio = _enviar_contraoferta(t_addr, contra_precio)
         if estado == 'acepta':
             logger.info(f'[Logistico] {oferta["nombre"]} ACEPTA: {contra_precio}EUR')
-            pool_final[t_addr] = {'precio': contra_precio, 'nombre': oferta['nombre'], 'fecha': oferta['fecha']}
+            pool_final[t_addr] = {'precio': contra_precio, 'nombre': oferta['nombre'],
+                                  'fecha': oferta['fecha'], 'dias': oferta['dias']}
         elif estado == 'propone':
             if contra_precio < nuevo_precio < oferta['precio']:
                 logger.info(f'[Logistico] {oferta["nombre"]} PROPONE: {nuevo_precio}EUR')
-                pool_final[t_addr] = {'precio': nuevo_precio, 'nombre': oferta['nombre'], 'fecha': oferta['fecha']}
+                pool_final[t_addr] = {'precio': nuevo_precio, 'nombre': oferta['nombre'],
+                                      'fecha': oferta['fecha'], 'dias': oferta['dias']}
             else:
                 logger.info(f'[Logistico] {oferta["nombre"]} propuso {nuevo_precio}EUR fuera de rango, ignorado')
         elif estado == 'rechaza':
@@ -303,11 +327,8 @@ def negociar_transporte(prioridad, direccion):
         logger.info('[Logistico] Nadie acepto contra-oferta, usando ofertas R1')
         pool_final = ofertas_r1
 
-    precio_minimo = min(o['precio'] for o in pool_final.values())
-    candidatos   = [addr for addr, o in pool_final.items() if o['precio'] == precio_minimo]
-    ganador_addr = random.choice(candidatos)
-    ganador      = pool_final[ganador_addr]
-    logger.info(f'[Logistico] GANADOR: {ganador["nombre"]} -- {ganador["precio"]}EUR -- {ganador["fecha"]}')
+    ganador_addr = escoger_mejor_oferta(pool_final, prioridad)
+    ganador = pool_final[ganador_addr]
 
     for t_addr in ofertas_r1:
         perf = ACL['accept-proposal'] if t_addr == ganador_addr else ACL['reject-proposal']
@@ -327,7 +348,6 @@ def negociar_transporte(prioridad, direccion):
 # ---------------------------------------------------------------------------
 
 def juntar_productos():
-    """Agrupa productos duplicados dentro de cada pedido sumando cantidades."""
     pedidos = cargar_pedidos()
     for pedido in pedidos:
         agrupados = {}
@@ -343,13 +363,6 @@ def juntar_productos():
 
 
 def realizar_envios():
-    """
-    Para cada pedido pendiente:
-      1. Agrupa sus productos por centro logistico.
-      2. Lanza una negociacion independiente por cada grupo.
-      3. Guarda un envio separado por centro (con su transportista y fecha).
-      4. Notifica al GestorPedidos con los resultados de todos los sub-envios.
-    """
     pedidos = cargar_pedidos()
     if not pedidos:
         return
@@ -403,7 +416,6 @@ def realizar_envios():
                 f'Transportista: {nombre_t} | Entrega: {fecha}'
             )
 
-        # Notificar al GestorPedidos con TODOS los sub-envios del pedido
         notificar_gestor_multiples_envios(pedido, sub_envios)
 
     with open(ENVIOS_PATH, 'w') as f:
@@ -413,14 +425,8 @@ def realizar_envios():
 
 
 def notificar_gestor_multiples_envios(pedido, sub_envios):
-    """
-    Envia un mensaje ACL.inform al AgenteGestorPedidos con la lista de sub-envios
-    del pedido (uno por cada centro logistico involucrado).
-    El mensaje incluye: pedido_id, y por cada sub-envio: centro, transportista, fecha, productos.
-    """
     global mss_cnt
 
-    # Buscar al GestorPedidos en el DS
     gmess = Graph()
     gmess.bind('dso', DSO)
     search_obj = agn[f'SearchGestor-{mss_cnt}']
@@ -497,7 +503,6 @@ def procesar_pedido(gm, content):
     guardar_pedidos(pedidos)
     logger.info(f'[Logistico] Pedido {pedido_id} recibido ({len(productos)} productos)')
 
-    # Log de distribucion por centro para visibilidad inmediata
     grupos = agrupar_productos_por_centro(productos)
     for cid, grupo in grupos.items():
         names = [p.get('nombre', p['id']) for p in grupo['productos']]
