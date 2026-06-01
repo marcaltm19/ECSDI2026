@@ -49,8 +49,8 @@ if not args.verbose:
 agn = Namespace('http://www.agentes.org#')
 mss_cnt = 0
 
-CATA_PATH = os.path.join(os.path.dirname(__file__), 'data', f'catalogo_{nombre_vendedor}.json')
-PEDIDOS_EXT_PATH = os.path.join(os.path.dirname(__file__), 'data', f'pedidos_{nombre_vendedor}.json')
+CATA_PATH    = os.path.join(os.path.dirname(__file__), 'data', f'catalogo_{nombre_vendedor}.json')
+PEDIDOS_PATH = os.path.join(os.path.dirname(__file__), 'data', f'pedidos_{nombre_vendedor}.json')
 
 VendedorAgent = Agent(
     nombre_vendedor,
@@ -69,39 +69,15 @@ cola1 = Queue()
 compr_address = None
 
 CATALOGO_INICIAL = [
-    {
-        'id': f'EXT-{nombre_vendedor}-001',
-        'nombre': 'Auriculares Premium BT',
-        'categoria': 'Electronica',
-        'precio': 89.99,
-        'peso': 0.3,
-        'stock': 15,
-        'valoracion': 4.3,
-        'vendedor': nombre_vendedor,
-        'gestion_envio': 'tienda',
-    },
-    {
-        'id': f'EXT-{nombre_vendedor}-002',
-        'nombre': 'Mochila Urbana 30L',
-        'categoria': 'Hogar',
-        'precio': 45.50,
-        'peso': 0.8,
-        'stock': 30,
-        'valoracion': 4.1,
-        'vendedor': nombre_vendedor,
-        'gestion_envio': 'vendedor',
-    },
-    {
-        'id': f'EXT-{nombre_vendedor}-003',
-        'nombre': 'Libro: Sistemas Distribuidos',
-        'categoria': 'Libros',
-        'precio': 32.00,
-        'peso': 0.5,
-        'stock': 50,
-        'valoracion': 4.8,
-        'vendedor': nombre_vendedor,
-        'gestion_envio': 'tienda',
-    },
+    {'id': f'EXT-{nombre_vendedor}-001', 'nombre': 'Auriculares Premium BT',
+     'categoria': 'electronica', 'precio': 89.99, 'peso': 0.3, 'stock': 15,
+     'valoracion': 4.3, 'vendedor': nombre_vendedor, 'gestion_envio': 'tienda'},
+    {'id': f'EXT-{nombre_vendedor}-002', 'nombre': 'Mochila Urbana 30L',
+     'categoria': 'hogar', 'precio': 45.50, 'peso': 0.8, 'stock': 30,
+     'valoracion': 4.1, 'vendedor': nombre_vendedor, 'gestion_envio': 'vendedor'},
+    {'id': f'EXT-{nombre_vendedor}-003', 'nombre': 'Libro Sistemas Distribuidos',
+     'categoria': 'libros', 'precio': 32.00, 'peso': 0.5, 'stock': 50,
+     'valoracion': 4.8, 'vendedor': nombre_vendedor, 'gestion_envio': 'tienda'},
 ]
 
 
@@ -111,11 +87,11 @@ def register_message():
     gmess.bind('foaf', FOAF)
     gmess.bind('dso', DSO)
     reg_obj = agn[VendedorAgent.name + '-Register']
-    gmess.add((reg_obj, RDF.type, DSO.Register))
-    gmess.add((reg_obj, DSO.Uri, VendedorAgent.uri))
-    gmess.add((reg_obj, FOAF.name, Literal(VendedorAgent.name)))
-    gmess.add((reg_obj, DSO.Address, Literal(VendedorAgent.address)))
-    gmess.add((reg_obj, DSO.AgentType, ECSNS['Ag.VendedorExterno']))
+    gmess.add((reg_obj, RDF.type,       DSO.Register))
+    gmess.add((reg_obj, DSO.Uri,        VendedorAgent.uri))
+    gmess.add((reg_obj, FOAF.name,      Literal(VendedorAgent.name)))
+    gmess.add((reg_obj, DSO.Address,    Literal(VendedorAgent.address)))
+    gmess.add((reg_obj, DSO.AgentType,  ECSNS['Ag.VendedorExterno']))
     gr = send_message(
         build_message(gmess, perf=ACL.request, sender=VendedorAgent.uri,
                       receiver=DirectoryAgent.uri, content=reg_obj, msgcnt=mss_cnt),
@@ -129,24 +105,24 @@ def cargar_catalogo():
     if os.path.exists(CATA_PATH):
         with open(CATA_PATH) as f:
             return json.load(f)
-    return CATALOGO_INICIAL
+    return list(CATALOGO_INICIAL)
 
 
-def guardar_catalogo(catalogo):
+def guardar_catalogo(cat):
     with open(CATA_PATH, 'w') as f:
-        json.dump(catalogo, f, indent=2)
+        json.dump(cat, f, indent=2)
 
 
-def cargar_pedidos_ext():
-    if os.path.exists(PEDIDOS_EXT_PATH):
-        with open(PEDIDOS_EXT_PATH) as f:
+def cargar_pedidos():
+    if os.path.exists(PEDIDOS_PATH):
+        with open(PEDIDOS_PATH) as f:
             return json.load(f)
     return []
 
 
-def guardar_pedidos_ext(pedidos):
-    with open(PEDIDOS_EXT_PATH, 'w') as f:
-        json.dump(pedidos, f, indent=2)
+def guardar_pedidos(peds):
+    with open(PEDIDOS_PATH, 'w') as f:
+        json.dump(peds, f, indent=2)
 
 
 def get_comprador_address():
@@ -154,24 +130,18 @@ def get_comprador_address():
     gmess = Graph()
     gmess.bind('dso', DSO)
     search_obj = agn['Search-' + str(mss_cnt)]
-    gmess.add((search_obj, RDF.type, DSO.Search))
+    gmess.add((search_obj, RDF.type,      DSO.Search))
     gmess.add((search_obj, DSO.AgentType, ECSNS['Ag.Comprador']))
     msg = build_message(gmess, perf=ACL.request, sender=VendedorAgent.uri,
                         receiver=DirectoryAgent.uri, content=search_obj, msgcnt=mss_cnt)
-    try:
-        response = http_requests.get(
-            DirectoryAgent.address,
-            params={'content': msg.serialize(format='xml')},
-            timeout=5
-        )
-        mss_cnt += 1
-        gr = Graph()
-        gr.parse(data=response.text, format='xml')
-        for s, p, o in gr:
-            if p == DSO.Address:
-                return str(o)
-    except Exception as e:
-        logger.warning(f'[{nombre_vendedor}] Error buscando AgenteComprador: {e}')
+    r = http_requests.get(DirectoryAgent.address,
+                          params={'content': msg.serialize(format='xml')})
+    mss_cnt += 1
+    gr = Graph()
+    gr.parse(data=r.text, format='xml')
+    for s, p, o in gr:
+        if p == DSO.Address:
+            return str(o)
     return None
 
 
@@ -180,117 +150,101 @@ def anunciar_catalogo():
     if compr_address is None:
         compr_address = get_comprador_address()
     if compr_address is None:
-        logger.warning(f'[{nombre_vendedor}] AgenteComprador no encontrado, reintentando en 60s')
+        logger.warning(f'[{nombre_vendedor}] AgenteComprador no encontrado en DS')
         return
 
     catalogo = cargar_catalogo()
-    productos_activos = [p for p in catalogo if p.get('stock', 0) > 0]
-
     gmess = Graph()
     gmess.bind('ecsns', ECSNS)
     cat_node = ECSNS[f'catalogo-{nombre_vendedor}']
-    gmess.add((cat_node, RDF.type, ECSNS.CatalogoExterno))
-    gmess.add((cat_node, ECSNS.nombreVendedor, Literal(nombre_vendedor)))
+    gmess.add((cat_node, RDF.type,              ECSNS.CatalogoExterno))
+    gmess.add((cat_node, ECSNS.nombreVendedor,  Literal(nombre_vendedor)))
 
-    for prod in productos_activos:
+    activos = 0
+    for prod in catalogo:
+        if prod.get('stock', 0) <= 0:
+            continue
         p_node = ECSNS[prod['id']]
         gmess.add((cat_node, ECSNS.tieneProducto, p_node))
-        gmess.add((p_node, RDF.type, ECSNS.ProductoExterno))
-        gmess.add((p_node, ECSNS.idProducto, Literal(prod['id'])))
-        gmess.add((p_node, ECSNS.nombre, Literal(prod['nombre'])))
-        gmess.add((p_node, ECSNS.categoria, Literal(prod['categoria'])))
-        gmess.add((p_node, ECSNS.precio, Literal(prod['precio'])))
-        gmess.add((p_node, ECSNS.peso, Literal(prod['peso'])))
-        gmess.add((p_node, ECSNS.valoracion, Literal(prod['valoracion'])))
-        gmess.add((p_node, ECSNS.vendedor, Literal(nombre_vendedor)))
-        gmess.add((p_node, ECSNS.gestionEnvio, Literal(prod['gestion_envio'])))
+        gmess.add((p_node, RDF.type,              ECSNS.ProductoExterno))
+        gmess.add((p_node, ECSNS.idProducto,      Literal(prod['id'])))
+        gmess.add((p_node, ECSNS.nombre,          Literal(prod['nombre'])))
+        gmess.add((p_node, ECSNS.categoria,       Literal(prod['categoria'])))
+        gmess.add((p_node, ECSNS.precio,          Literal(prod['precio'])))
+        gmess.add((p_node, ECSNS.peso,            Literal(prod['peso'])))
+        gmess.add((p_node, ECSNS.valoracion,      Literal(prod['valoracion'])))
+        gmess.add((p_node, ECSNS.vendedor,        Literal(nombre_vendedor)))
+        gmess.add((p_node, ECSNS.gestionEnvio,    Literal(prod['gestion_envio'])))
+        activos += 1
 
-    try:
-        send_message(
-            build_message(gmess, perf=ACL.inform, sender=VendedorAgent.uri,
-                          receiver=agn.AgenteComprador, content=cat_node, msgcnt=mss_cnt),
-            compr_address,
-        )
-        mss_cnt += 1
-        logger.info(f'[{nombre_vendedor}] Catalogo anunciado ({len(productos_activos)} productos)')
-    except Exception as e:
-        logger.warning(f'[{nombre_vendedor}] Error anunciando catalogo: {e}')
-        compr_address = None
+    send_message(
+        build_message(gmess, perf=ACL.inform, sender=VendedorAgent.uri,
+                      receiver=agn.AgenteComprador, content=cat_node, msgcnt=mss_cnt),
+        compr_address,
+    )
+    mss_cnt += 1
+    logger.info(f'[{nombre_vendedor}] Catálogo anunciado ({activos} productos activos)')
 
 
 def procesar_pedido_externo(gm, content):
-    pedido_id = str(gm.value(content, ECSNS.idPedido) or 'PED-EXT-' + str(uuid.uuid4())[:8].upper())
-    comprador = str(gm.value(content, ECSNS.comprador) or 'Anonimo')
-    direccion = str(gm.value(content, ECSNS.direccion) or '')
-    prioridad = str(gm.value(content, ECSNS.prioridad) or 'normal')
+    pedido_id = str(gm.value(content, ECSNS.idPedido)   or 'SIN-ID')
+    comprador = str(gm.value(content, ECSNS.comprador)   or 'Anonimo')
+    direccion = str(gm.value(content, ECSNS.direccion)   or '')
+    prioridad = str(gm.value(content, ECSNS.prioridad)   or 'normal')
 
     productos = []
     for prod_node in gm.objects(content, ECSNS.tieneProducto):
         productos.append({
-            'id': str(gm.value(prod_node, ECSNS.idProducto)),
+            'id':       str(gm.value(prod_node, ECSNS.idProducto)),
             'cantidad': int(gm.value(prod_node, ECSNS.cantidad) or 1),
         })
 
-    if prioridad == 'urgente':
-        dias = 1
-    elif prioridad == 'economica':
-        dias = 7
-    else:
-        dias = 4
-
+    dias_map = {'urgente': 1, 'normal': 4, 'economica': 10}
+    dias = dias_map.get(prioridad, 4)
     fecha_entrega = (datetime.now() + timedelta(days=dias)).strftime('%Y-%m-%d')
 
-    registro = {
-        'pedido_id': pedido_id,
-        'comprador': comprador,
-        'direccion': direccion,
-        'prioridad': prioridad,
-        'productos': productos,
-        'fecha_entrega': fecha_entrega,
-        'fecha_registro': datetime.now().isoformat(),
+    pedidos = cargar_pedidos()
+    pedidos.append({
+        'pedido_id': pedido_id, 'comprador': comprador, 'direccion': direccion,
+        'prioridad': prioridad, 'productos': productos,
+        'fecha_entrega': fecha_entrega, 'fecha_registro': datetime.now().isoformat(),
         'estado': 'en_proceso',
-    }
-    pedidos = cargar_pedidos_ext()
-    pedidos.append(registro)
-    guardar_pedidos_ext(pedidos)
-    logger.info(f'[{nombre_vendedor}] Pedido {pedido_id} recibido — entrega: {fecha_entrega}')
+    })
+    guardar_pedidos(pedidos)
+    logger.info(f'[{nombre_vendedor}] Pedido {pedido_id} — entrega: {fecha_entrega}')
 
     gr = Graph()
     gr.bind('ecsns', ECSNS)
-    resp_node = ECSNS['respuesta-' + pedido_id]
-    gr.add((resp_node, RDF.type, ECSNS.RespuestaPedidoExterno))
-    gr.add((resp_node, ECSNS.idPedido, Literal(pedido_id)))
-    gr.add((resp_node, ECSNS.fechaEntrega, Literal(fecha_entrega)))
-    gr.add((resp_node, ECSNS.transportista, Literal(f'Mensajeria {nombre_vendedor}')))
-    gr.add((resp_node, ECSNS.estado, Literal('confirmado')))
+    resp = ECSNS['resp-' + pedido_id]
+    gr.add((resp, RDF.type,             ECSNS.RespuestaPedidoExterno))
+    gr.add((resp, ECSNS.idPedido,       Literal(pedido_id)))
+    gr.add((resp, ECSNS.fechaEntrega,   Literal(fecha_entrega)))
+    gr.add((resp, ECSNS.transportista,  Literal(f'Mensajería {nombre_vendedor}')))
+    gr.add((resp, ECSNS.estado,         Literal('confirmado')))
     return gr
 
 
-def procesar_actualizacion_catalogo(gm, content):
-    catalogo = cargar_catalogo()
-    prod_id = str(gm.value(content, ECSNS.idProducto) or '')
-    nuevo_stock = gm.value(content, ECSNS.stock)
-    nuevo_precio = gm.value(content, ECSNS.precio)
-
+def procesar_actualizacion(gm, content):
+    catalogo  = cargar_catalogo()
+    prod_id   = str(gm.value(content, ECSNS.idProducto) or '')
+    new_stock  = gm.value(content, ECSNS.stock)
+    new_precio = gm.value(content, ECSNS.precio)
     actualizado = False
     for prod in catalogo:
         if prod['id'] == prod_id:
-            if nuevo_stock is not None:
-                prod['stock'] = int(nuevo_stock)
-            if nuevo_precio is not None:
-                prod['precio'] = float(nuevo_precio)
+            if new_stock  is not None: prod['stock']  = int(new_stock)
+            if new_precio is not None: prod['precio'] = float(new_precio)
             actualizado = True
             break
-
     guardar_catalogo(catalogo)
-    logger.info(f'[{nombre_vendedor}] Catalogo actualizado — producto {prod_id}: ok={actualizado}')
+    logger.info(f'[{nombre_vendedor}] Catálogo actualizado — {prod_id}: ok={actualizado}')
 
     gr = Graph()
     gr.bind('ecsns', ECSNS)
-    resp_node = ECSNS['ack-catalogo-' + prod_id]
-    gr.add((resp_node, RDF.type, ECSNS.AckActualizacion))
-    gr.add((resp_node, ECSNS.idProducto, Literal(prod_id)))
-    gr.add((resp_node, ECSNS.actualizado, Literal(actualizado)))
+    ack = ECSNS['ack-catalogo']
+    gr.add((ack, RDF.type,          ECSNS.AckActualizacion))
+    gr.add((ack, ECSNS.idProducto,  Literal(prod_id)))
+    gr.add((ack, ECSNS.actualizado, Literal(actualizado)))
     return gr
 
 
@@ -315,21 +269,17 @@ def comunicacion():
                            sender=VendedorAgent.uri, msgcnt=mss_cnt)
     else:
         content = msgdic.get('content')
-        accion = gm.value(subject=content, predicate=RDF.type)
-        perf = msgdic.get('performative')
+        accion  = gm.value(subject=content, predicate=RDF.type)
+        perf    = msgdic.get('performative')
 
         if perf == ACL.request and accion == ECSNS.PedidoExterno:
-            resp_graph = procesar_pedido_externo(gm, content)
-            gr = build_message(resp_graph, ACL.inform,
-                               sender=VendedorAgent.uri,
-                               receiver=msgdic['sender'],
-                               msgcnt=mss_cnt)
+            resp = procesar_pedido_externo(gm, content)
+            gr   = build_message(resp, ACL.inform, sender=VendedorAgent.uri,
+                                 receiver=msgdic['sender'], msgcnt=mss_cnt)
         elif perf == ACL.request and accion == ECSNS.ActualizarCatalogo:
-            resp_graph = procesar_actualizacion_catalogo(gm, content)
-            gr = build_message(resp_graph, ACL.inform,
-                               sender=VendedorAgent.uri,
-                               receiver=msgdic['sender'],
-                               msgcnt=mss_cnt)
+            resp = procesar_actualizacion(gm, content)
+            gr   = build_message(resp, ACL.inform, sender=VendedorAgent.uri,
+                                 receiver=msgdic['sender'], msgcnt=mss_cnt)
         else:
             gr = build_message(Graph(), ACL['not-understood'],
                                sender=VendedorAgent.uri, msgcnt=mss_cnt)
@@ -340,16 +290,16 @@ def comunicacion():
 
 def agentbehavior1(cola):
     register_message()
-    logger.info(f'[{nombre_vendedor}] Registrado en DS — anunciando catalogo...')
+    logger.info(f'[{nombre_vendedor}] Registrado — anunciando catálogo...')
     anunciar_catalogo()
-    tiempo = 0
-    fin = False
+    tick = 0
+    fin  = False
     while not fin:
         time.sleep(1)
-        tiempo += 1
-        if tiempo >= 60:
+        tick += 1
+        if tick >= 60:
             anunciar_catalogo()
-            tiempo = 0
+            tick = 0
         if not cola.empty() and cola.get() == 0:
             fin = True
 

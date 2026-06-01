@@ -48,8 +48,8 @@ agn = Namespace('http://www.agentes.org#')
 mss_cnt = 0
 
 DEVOLUCIONES_PATH = os.path.join(os.path.dirname(__file__), 'data', 'devoluciones.json')
-FACTURAS_PATH = os.path.join(os.path.dirname(__file__), 'data', 'facturas.json')
-PLAZO_INSATISFACCION = 15
+FACTURAS_PATH     = os.path.join(os.path.dirname(__file__), 'data', 'facturas.json')
+PLAZO_DIAS        = 15
 
 DevolucionAgent = Agent(
     'AgenteDevolucion',
@@ -73,11 +73,11 @@ def register_message():
     gmess.bind('foaf', FOAF)
     gmess.bind('dso', DSO)
     reg_obj = agn[DevolucionAgent.name + '-Register']
-    gmess.add((reg_obj, RDF.type, DSO.Register))
-    gmess.add((reg_obj, DSO.Uri, DevolucionAgent.uri))
-    gmess.add((reg_obj, FOAF.name, Literal(DevolucionAgent.name)))
-    gmess.add((reg_obj, DSO.Address, Literal(DevolucionAgent.address)))
-    gmess.add((reg_obj, DSO.AgentType, ECSNS['Ag.Devolucion']))
+    gmess.add((reg_obj, RDF.type,        DSO.Register))
+    gmess.add((reg_obj, DSO.Uri,         DevolucionAgent.uri))
+    gmess.add((reg_obj, FOAF.name,       Literal(DevolucionAgent.name)))
+    gmess.add((reg_obj, DSO.Address,     Literal(DevolucionAgent.address)))
+    gmess.add((reg_obj, DSO.AgentType,   ECSNS['Ag.Devolucion']))
     gr = send_message(
         build_message(gmess, perf=ACL.request, sender=DevolucionAgent.uri,
                       receiver=DirectoryAgent.uri, content=reg_obj, msgcnt=mss_cnt),
@@ -94,9 +94,9 @@ def cargar_devoluciones():
     return []
 
 
-def guardar_devoluciones(devoluciones):
+def guardar_devoluciones(devs):
     with open(DEVOLUCIONES_PATH, 'w') as f:
-        json.dump(devoluciones, f, indent=2)
+        json.dump(devs, f, indent=2)
 
 
 def buscar_factura(factura_id):
@@ -116,76 +116,70 @@ def evaluar_devolucion(factura_id, razon, fecha_recepcion_str):
         return False, 'Factura no encontrada', None
 
     razon_lower = razon.lower()
-    razones_siempre = ['defectuoso', 'defecto', 'equivocado', 'incorrecto', 'roto', 'danado', 'daniado']
-    if any(r in razon_lower for r in razones_siempre):
-        return True, 'Devolucion aceptada: producto defectuoso o equivocado', 'MensajeriaRapida S.L.'
+    siempre = ['defectuoso', 'defecto', 'equivocado', 'incorrecto', 'roto', 'danado', 'dañado']
+    if any(r in razon_lower for r in siempre):
+        return True, 'Devolución aceptada: producto defectuoso o equivocado', 'MensajeriaRapida S.L.'
 
     try:
-        fecha_recepcion = datetime.fromisoformat(fecha_recepcion_str)
-        dias_transcurridos = (datetime.now() - fecha_recepcion).days
-        if dias_transcurridos <= PLAZO_INSATISFACCION:
-            return True, f'Devolucion aceptada: dentro del plazo ({dias_transcurridos} dias)', 'MensajeriaEstandar S.A.'
+        fecha_rec = datetime.fromisoformat(fecha_recepcion_str)
+        dias = (datetime.now() - fecha_rec).days
+        if dias <= PLAZO_DIAS:
+            return True, f'Devolución aceptada: dentro del plazo ({dias} días)', 'MensajeriaEstandar S.A.'
         else:
-            return False, f'Devolucion rechazada: fuera del plazo de {PLAZO_INSATISFACCION} dias ({dias_transcurridos} dias transcurridos)', None
+            return False, f'Devolución rechazada: fuera del plazo de {PLAZO_DIAS} días ({dias} días transcurridos)', None
     except Exception:
-        return False, 'Fecha de recepcion invalida', None
+        return False, 'Fecha de recepción inválida', None
 
 
-def procesar_solicitud_devolucion(gm, content):
-    comprador = str(gm.value(content, ECSNS.comprador) or 'Anonimo')
-    factura_id = str(gm.value(content, ECSNS.idFactura) or '')
-    razon = str(gm.value(content, ECSNS.razonDevolucion) or 'insatisfaccion')
-    fecha_recepcion = str(gm.value(content, ECSNS.fechaRecepcion) or datetime.now().isoformat())
+def procesar_solicitud(gm, content):
+    comprador       = str(gm.value(content, ECSNS.comprador)       or 'Anonimo')
+    factura_id      = str(gm.value(content, ECSNS.idFactura)        or '')
+    razon           = str(gm.value(content, ECSNS.razonDevolucion)  or 'insatisfaccion')
+    fecha_recepcion = str(gm.value(content, ECSNS.fechaRecepcion)   or datetime.now().isoformat())
 
-    aceptada, motivo, empresa_mensajeria = evaluar_devolucion(factura_id, razon, fecha_recepcion)
+    aceptada, motivo, empresa = evaluar_devolucion(factura_id, razon, fecha_recepcion)
 
     dev_id = 'DEV-' + str(uuid.uuid4())[:8].upper()
-    registro = {
-        'id': dev_id,
-        'comprador': comprador,
-        'factura_id': factura_id,
-        'razon': razon,
-        'fecha_solicitud': datetime.now().isoformat(),
-        'fecha_recepcion': fecha_recepcion,
-        'aceptada': aceptada,
-        'motivo': motivo,
-        'empresa_mensajeria': empresa_mensajeria,
-    }
-    devoluciones = cargar_devoluciones()
-    devoluciones.append(registro)
-    guardar_devoluciones(devoluciones)
-    logger.info(f'[Devolucion] {dev_id} — Aceptada: {aceptada} — {motivo}')
+    devs   = cargar_devoluciones()
+    devs.append({
+        'id': dev_id, 'comprador': comprador, 'factura_id': factura_id,
+        'razon': razon, 'fecha_solicitud': datetime.now().isoformat(),
+        'fecha_recepcion': fecha_recepcion, 'aceptada': aceptada,
+        'motivo': motivo, 'empresa_mensajeria': empresa,
+    })
+    guardar_devoluciones(devs)
+    logger.info(f'[Devolucion] {dev_id} — aceptada={aceptada} — {motivo}')
 
     gr = Graph()
     gr.bind('ecsns', ECSNS)
-    dev_node = ECSNS['devolucion-' + dev_id]
-    gr.add((dev_node, RDF.type, ECSNS.Devolucion))
-    gr.add((dev_node, ECSNS.idDevolucion, Literal(dev_id)))
-    gr.add((dev_node, ECSNS.aceptada, Literal(aceptada)))
-    gr.add((dev_node, ECSNS.motivoDevolucion, Literal(motivo)))
-    if empresa_mensajeria:
-        gr.add((dev_node, ECSNS.empresaMensajeria, Literal(empresa_mensajeria)))
+    node = ECSNS['devolucion-' + dev_id]
+    gr.add((node, RDF.type,               ECSNS.Devolucion))
+    gr.add((node, ECSNS.idDevolucion,     Literal(dev_id)))
+    gr.add((node, ECSNS.aceptada,         Literal(aceptada)))
+    gr.add((node, ECSNS.motivoDevolucion, Literal(motivo)))
+    if empresa:
+        gr.add((node, ECSNS.empresaMensajeria, Literal(empresa)))
     return gr
 
 
-def procesar_consulta_devoluciones(gm, content):
+def procesar_consulta(gm, content):
     comprador = str(gm.value(content, ECSNS.comprador) or '')
-    devoluciones = cargar_devoluciones()
+    devs = cargar_devoluciones()
     if comprador:
-        devoluciones = [d for d in devoluciones if d.get('comprador') == comprador]
+        devs = [d for d in devs if d.get('comprador') == comprador]
 
     gr = Graph()
     gr.bind('ecsns', ECSNS)
-    lista_node = ECSNS['listaDevoluciones']
-    gr.add((lista_node, RDF.type, ECSNS.ListaDevoluciones))
-    for d in devoluciones:
-        dev_node = ECSNS['devolucion-' + d['id']]
-        gr.add((lista_node, ECSNS.tieneDevolucion, dev_node))
-        gr.add((dev_node, ECSNS.idDevolucion, Literal(d['id'])))
-        gr.add((dev_node, ECSNS.aceptada, Literal(d['aceptada'])))
-        gr.add((dev_node, ECSNS.motivoDevolucion, Literal(d['motivo'])))
+    lista = ECSNS['listaDevoluciones']
+    gr.add((lista, RDF.type, ECSNS.ListaDevoluciones))
+    for d in devs:
+        node = ECSNS['devolucion-' + d['id']]
+        gr.add((lista, ECSNS.tieneDevolucion,  node))
+        gr.add((node, ECSNS.idDevolucion,      Literal(d['id'])))
+        gr.add((node, ECSNS.aceptada,          Literal(d['aceptada'])))
+        gr.add((node, ECSNS.motivoDevolucion,  Literal(d['motivo'])))
         if d.get('empresa_mensajeria'):
-            gr.add((dev_node, ECSNS.empresaMensajeria, Literal(d['empresa_mensajeria'])))
+            gr.add((node, ECSNS.empresaMensajeria, Literal(d['empresa_mensajeria'])))
     return gr
 
 
@@ -210,20 +204,16 @@ def comunicacion():
                            sender=DevolucionAgent.uri, msgcnt=mss_cnt)
     else:
         content = msgdic.get('content')
-        accion = gm.value(subject=content, predicate=RDF.type)
+        accion  = gm.value(subject=content, predicate=RDF.type)
 
         if accion == ECSNS.SolicitudDevolucion:
-            resp_graph = procesar_solicitud_devolucion(gm, content)
-            gr = build_message(resp_graph, ACL.inform,
-                               sender=DevolucionAgent.uri,
-                               receiver=msgdic['sender'],
-                               msgcnt=mss_cnt)
+            resp = procesar_solicitud(gm, content)
+            gr   = build_message(resp, ACL.inform, sender=DevolucionAgent.uri,
+                                 receiver=msgdic['sender'], msgcnt=mss_cnt)
         elif accion == ECSNS.ConsultaDevoluciones:
-            resp_graph = procesar_consulta_devoluciones(gm, content)
-            gr = build_message(resp_graph, ACL.inform,
-                               sender=DevolucionAgent.uri,
-                               receiver=msgdic['sender'],
-                               msgcnt=mss_cnt)
+            resp = procesar_consulta(gm, content)
+            gr   = build_message(resp, ACL.inform, sender=DevolucionAgent.uri,
+                                 receiver=msgdic['sender'], msgcnt=mss_cnt)
         else:
             gr = build_message(Graph(), ACL['not-understood'],
                                sender=DevolucionAgent.uri, msgcnt=mss_cnt)
@@ -234,7 +224,7 @@ def comunicacion():
 
 def agentbehavior1(cola):
     register_message()
-    logger.info('[Devolucion] Registrado y escuchando en puerto %d' % port)
+    logger.info(f'[Devolucion] Registrado en puerto {port}')
     fin = False
     while not fin:
         time.sleep(1)

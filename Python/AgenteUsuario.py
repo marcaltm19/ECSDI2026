@@ -1,11 +1,13 @@
 import argparse
 import json
+import logging
+import os
 import socket
 import sys
-import os
-import logging
+import uuid
+from datetime import datetime
 
-from flask import Flask, request, render_template_string, redirect, url_for
+from flask import Flask, request, redirect, url_for
 from rdflib import Graph, Literal, Namespace
 from rdflib.namespace import RDF
 
@@ -23,7 +25,7 @@ from ontologia import ECSNS
 parser = argparse.ArgumentParser()
 parser.add_argument('--open', action='store_true', default=False)
 parser.add_argument('--verbose', action='store_true', default=False)
-parser.add_argument('--port', type=int, default=9009)
+parser.add_argument('--port', type=int, default=9010)
 parser.add_argument('--dhost', default=None)
 parser.add_argument('--dport', type=int, default=9000)
 args = parser.parse_args()
@@ -42,17 +44,17 @@ if not args.verbose:
 
 agn = Namespace('http://www.agentes.org#')
 
-DirectoryAgent = Agent(
-    'DirectoryAgent',
-    agn.Directory,
-    'http://%s:%d/Register' % (dhostname, dport),
-    'http://%s:%d/Stop' % (dhostname, dport),
-)
 UsuarioAgent = Agent(
     'AgenteUsuario',
     agn.AgenteUsuario,
     'http://%s:%d/comm' % (hostaddr, port),
     'http://%s:%d/Stop' % (hostaddr, port),
+)
+DirectoryAgent = Agent(
+    'DirectoryAgent',
+    agn.Directory,
+    'http://%s:%d/Register' % (dhostname, dport),
+    'http://%s:%d/Stop' % (dhostname, dport),
 )
 
 
@@ -61,413 +63,334 @@ def get_agent_address(agent_type):
     gmess = Graph()
     gmess.bind('dso', DSO)
     search_obj = agn['Search-' + str(mss_cnt)]
-    gmess.add((search_obj, RDF.type, DSO.Search))
+    gmess.add((search_obj, RDF.type,      DSO.Search))
     gmess.add((search_obj, DSO.AgentType, agent_type))
     msg = build_message(gmess, perf=ACL.request, sender=UsuarioAgent.uri,
                         receiver=DirectoryAgent.uri, content=search_obj, msgcnt=mss_cnt)
-    try:
-        response = http_requests.get(
-            DirectoryAgent.address,
-            params={'content': msg.serialize(format='xml')},
-            timeout=5
-        )
-        mss_cnt += 1
-        gr = Graph()
-        gr.parse(data=response.text, format='xml')
-        for s, p, o in gr:
-            if p == DSO.Address:
-                return str(o)
-    except Exception as e:
-        logger.warning(f'[Usuario] Error buscando agente {agent_type}: {e}')
+    r = http_requests.get(DirectoryAgent.address,
+                          params={'content': msg.serialize(format='xml')})
+    mss_cnt += 1
+    gr = Graph()
+    gr.parse(data=r.text, format='xml')
+    for s, p, o in gr:
+        if p == DSO.Address:
+            return str(o)
     return None
 
 
-# ──────────────────────────────────────────
-# HTML base compartido
-# ──────────────────────────────────────────
-BASE_HTML = '''
-<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
+STYLE = '''
+<meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ECSDI Shop 2026</title>
 <style>
-  * {{ box-sizing: border-box; margin: 0; padding: 0; }}
-  body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-          background: #f5f5f5; color: #222; }}
-  nav {{ background: #1a1a2e; color: white; padding: 1rem 2rem;
-         display: flex; align-items: center; gap: 2rem; }}
-  nav h1 {{ font-size: 1.3rem; font-weight: 700; }}
-  nav a {{ color: #a8b2d8; text-decoration: none; font-size: 0.9rem; }}
-  nav a:hover {{ color: white; }}
-  .container {{ max-width: 960px; margin: 2rem auto; padding: 0 1rem; }}
-  h2 {{ font-size: 1.4rem; margin-bottom: 1.5rem; color: #1a1a2e; }}
-  .card {{ background: white; border-radius: 8px; padding: 1.5rem;
-           box-shadow: 0 1px 4px rgba(0,0,0,.08); margin-bottom: 1rem; }}
-  .grid {{ display: grid; grid-template-columns: repeat(auto-fill, minmax(220px,1fr)); gap: 1rem; }}
-  .prod-card {{ background: white; border-radius: 8px; padding: 1rem;
-                box-shadow: 0 1px 4px rgba(0,0,0,.08); }}
-  .prod-card h3 {{ font-size: 1rem; margin-bottom: .4rem; }}
-  .prod-card .price {{ color: #e63946; font-weight: 700; font-size: 1.1rem; }}
-  .prod-card .meta {{ font-size: 0.8rem; color: #666; margin-top: .3rem; }}
-  .badge {{ display: inline-block; background: #e8f4fd; color: #1a6fa8;
-            font-size: 0.7rem; padding: 2px 8px; border-radius: 99px; margin-top: .4rem; }}
-  .badge.ext {{ background: #fef3e2; color: #c07000; }}
-  form label {{ display: block; font-size: 0.85rem; color: #555; margin-bottom: .2rem; margin-top: .8rem; }}
-  form input, form select, form textarea {{
-    width: 100%; padding: .5rem .75rem; border: 1px solid #ddd;
-    border-radius: 6px; font-size: 0.9rem; }}
-  form textarea {{ min-height: 80px; resize: vertical; }}
-  .btn {{ display: inline-block; padding: .55rem 1.4rem; border-radius: 6px;
-          border: none; cursor: pointer; font-size: 0.9rem; font-weight: 600; }}
-  .btn-primary {{ background: #1a1a2e; color: white; }}
-  .btn-primary:hover {{ background: #16213e; }}
-  .btn-danger  {{ background: #e63946; color: white; margin-top: 1rem; }}
-  .alert {{ padding: .75rem 1rem; border-radius: 6px; margin-bottom: 1rem; font-size: .9rem; }}
-  .alert-ok  {{ background: #d1fae5; color: #065f46; border: 1px solid #6ee7b7; }}
-  .alert-err {{ background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }}
-  .alert-info {{ background: #e0f2fe; color: #075985; border: 1px solid #7dd3fc; }}
-  table {{ width: 100%; border-collapse: collapse; font-size: .88rem; }}
-  th {{ background: #f0f0f5; text-align: left; padding: .6rem .8rem; }}
-  td {{ padding: .55rem .8rem; border-bottom: 1px solid #eee; }}
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, sans-serif; background: #f5f5f5; color: #222; }
+  header { background: #1a1a2e; color: #fff; padding: 1rem 2rem;
+           display: flex; align-items: center; gap: 1rem; }
+  header h1 { font-size: 1.3rem; }
+  nav a { color: #aad4f5; text-decoration: none; margin-left: 1.5rem; font-size: 0.95rem; }
+  nav a:hover { color: #fff; }
+  main { max-width: 900px; margin: 2rem auto; padding: 0 1rem; }
+  h2 { font-size: 1.2rem; margin-bottom: 1rem; color: #1a1a2e; }
+  .card { background: #fff; border-radius: 8px; padding: 1.5rem;
+          box-shadow: 0 1px 6px rgba(0,0,0,0.08); margin-bottom: 1.5rem; }
+  label { display: block; margin-bottom: 0.3rem; font-size: 0.9rem;
+          font-weight: 600; color: #444; }
+  input, select, textarea { width: 100%; padding: 0.5rem 0.75rem; border: 1px solid #ccc;
+                            border-radius: 5px; font-size: 0.95rem; margin-bottom: 0.9rem; }
+  button, .btn { background: #1a1a2e; color: #fff; border: none; padding: 0.6rem 1.4rem;
+                 border-radius: 5px; cursor: pointer; font-size: 0.95rem; }
+  button:hover, .btn:hover { background: #16213e; }
+  .success { background: #d4edda; border: 1px solid #c3e6cb; padding: 0.8rem;
+             border-radius: 5px; margin-bottom: 1rem; color: #155724; }
+  .error   { background: #f8d7da; border: 1px solid #f5c6cb; padding: 0.8rem;
+             border-radius: 5px; margin-bottom: 1rem; color: #721c24; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  th { background: #1a1a2e; color: #fff; padding: 0.5rem 0.75rem; text-align: left; }
+  td { padding: 0.5rem 0.75rem; border-bottom: 1px solid #eee; }
+  tr:hover td { background: #f9f9f9; }
+  .tag { display: inline-block; padding: 0.2rem 0.5rem; border-radius: 3px;
+         font-size: 0.8rem; font-weight: 600; }
+  .tag-ext { background: #fff3cd; color: #856404; }
+  .tag-ok  { background: #d4edda; color: #155724; }
+  .tag-ko  { background: #f8d7da; color: #721c24; }
 </style>
-</head>
-<body>
-<nav>
-  <h1>&#128722; ECSDI Shop</h1>
-  <a href="/">Inicio</a>
-  <a href="/buscar">Buscar</a>
-  <a href="/pedido">Nuevo pedido</a>
-  <a href="/devolucion">Devoluciones</a>
-</nav>
-<div class="container">
-  {content}
-</div>
-</body>
-</html>
+'''
+
+NAV = '''
+<header>
+  <h1>🛒 ECSDI Shop</h1>
+  <nav>
+    <a href="/">Inicio</a>
+    <a href="/buscar">Buscar</a>
+    <a href="/pedido">Pedido</a>
+    <a href="/devolucion">Devolución</a>
+    <a href="/facturas">Facturas</a>
+  </nav>
+</header>
 '''
 
 
-def render(content):
-    return BASE_HTML.format(content=content)
-
-
-# ──────────────────────────────────────────
-# RUTAS
-# ──────────────────────────────────────────
-
 @app.route('/')
 def index():
-    html = '''
+    return STYLE + NAV + '''
+<main>
+  <div class="card">
     <h2>Bienvenido a ECSDI Shop</h2>
-    <div class="card">
-      <p style="margin-bottom:1rem">Sistema multi-agente de e-commerce.</p>
-      <a href="/buscar" class="btn btn-primary">&#128269; Buscar productos</a>
-      &nbsp;
-      <a href="/pedido" class="btn btn-primary" style="margin-left:.5rem">&#128666; Nuevo pedido</a>
-      &nbsp;
-      <a href="/devolucion" class="btn btn-danger" style="margin-left:.5rem">&#8617; Solicitar devolucion</a>
+    <p style="margin-top:0.5rem;color:#555">Sistema multi-agente de e-commerce.</p>
+    <div style="margin-top:1.5rem;display:flex;gap:1rem;flex-wrap:wrap">
+      <a href="/buscar" class="btn">🔍 Buscar productos</a>
+      <a href="/pedido" class="btn">📦 Hacer pedido</a>
+      <a href="/devolucion" class="btn">↩ Solicitar devolución</a>
+      <a href="/facturas" class="btn">🧾 Ver facturas</a>
     </div>
-    '''
-    return render(html)
+  </div>
+</main>'''
 
 
 @app.route('/buscar', methods=['GET', 'POST'])
 def buscar():
-    global mss_cnt
     resultados = []
-    error = None
-    buscado = False
-
+    error = ''
     if request.method == 'POST':
-        buscado = True
-        addr = get_agent_address(ECSNS['Ag.Comprador'])
-        if not addr:
-            error = 'AgenteComprador no disponible. Asegurate de que esta en marcha.'
-        else:
+        try:
+            addr = get_agent_address(ECSNS['Ag.Comprador'])
+            if not addr:
+                raise Exception('AgenteComprador no encontrado en el DS')
             gmess = Graph()
             gmess.bind('ecsns', ECSNS)
-            busq = ECSNS['busqueda-ui']
+            busq = ECSNS['busqueda-' + str(uuid.uuid4())[:6]]
             gmess.add((busq, RDF.type, ECSNS.Busqueda))
-
             precio_max = request.form.get('precio_max', '').strip()
             categoria  = request.form.get('categoria', '').strip()
-            val_min    = request.form.get('valoracion', '').strip()
-            texto      = request.form.get('texto', '').strip()
-
+            val_min    = request.form.get('val_min', '').strip()
             if precio_max:
-                gmess.add((busq, ECSNS.precioMaximo, Literal(float(precio_max))))
-            if categoria and categoria != 'todas':
-                gmess.add((busq, ECSNS.categoria, Literal(categoria)))
+                gmess.add((busq, ECSNS.precioMaximo,     Literal(float(precio_max))))
+            if categoria:
+                gmess.add((busq, ECSNS.categoria,        Literal(categoria)))
             if val_min:
                 gmess.add((busq, ECSNS.valoracionMinima, Literal(float(val_min))))
-            if texto:
-                gmess.add((busq, ECSNS.textoBusqueda, Literal(texto)))
+            global mss_cnt
+            gr = send_message(
+                build_message(gmess, perf=ACL.request, sender=UsuarioAgent.uri,
+                              receiver=agn.AgenteComprador, content=busq, msgcnt=mss_cnt),
+                addr)
+            mss_cnt += 1
+            productos_dict = {}
+            for s, p, o in gr:
+                if p == RDF.type and str(o).endswith('Producto'):
+                    if str(s) not in productos_dict:
+                        productos_dict[str(s)] = {'uri': str(s)}
+            for s, p, o in gr:
+                uri = str(s)
+                if uri in productos_dict:
+                    pred = str(p).split('#')[-1]
+                    productos_dict[uri][pred] = str(o)
+            resultados = list(productos_dict.values())
+        except Exception as e:
+            error = str(e)
 
-            try:
-                gr = send_message(
-                    build_message(gmess, perf=ACL.request, sender=UsuarioAgent.uri,
-                                  receiver=agn.AgenteComprador, content=busq, msgcnt=mss_cnt),
-                    addr,
-                )
-                mss_cnt += 1
-                for s, p, o in gr:
-                    if p == ECSNS.nombre:
-                        resultados.append({
-                            'id':        str(gr.value(s, ECSNS.idProducto) or ''),
-                            'nombre':    str(o),
-                            'precio':    str(gr.value(s, ECSNS.precio) or ''),
-                            'categoria': str(gr.value(s, ECSNS.categoria) or ''),
-                            'valoracion':str(gr.value(s, ECSNS.valoracion) or ''),
-                            'vendedor':  str(gr.value(s, ECSNS.vendedor) or ''),
-                            'externo':   bool(gr.value(s, RDF.type) == ECSNS.ProductoExterno),
-                        })
-            except Exception as e:
-                error = f'Error al buscar: {e}'
-
-    form_html = '''
-    <h2>&#128269; Buscar productos</h2>
-    <div class="card">
-      <form method="POST">
-        <label>Texto libre</label>
-        <input type="text" name="texto" placeholder="p.ej. auriculares">
-        <label>Categoria</label>
-        <select name="categoria">
-          <option value="todas">Todas</option>
-          <option>Electronica</option>
-          <option>Hogar</option>
-          <option>Libros</option>
-          <option>Ropa</option>
-          <option>Deporte</option>
-        </select>
-        <label>Precio maximo (EUR)</label>
-        <input type="number" step="0.01" name="precio_max" placeholder="200">
-        <label>Valoracion minima (1-5)</label>
-        <input type="number" step="0.1" min="1" max="5" name="valoracion" placeholder="4.0">
-        <br><br>
-        <button type="submit" class="btn btn-primary">Buscar</button>
-      </form>
-    </div>
-    '''
-
-    result_html = ''
+    html = STYLE + NAV + '<main><div class="card"><h2>🔍 Buscar Productos</h2>'
     if error:
-        result_html = f'<div class="alert alert-err">{error}</div>'
-    elif buscado:
-        if resultados:
-            cards = ''
-            for p in resultados:
-                badge = '<span class="badge ext">Vendedor externo: ' + p["vendedor"] + '</span>' if p['externo'] else '<span class="badge">Tienda propia</span>'
-                cards += f'''
-                <div class="prod-card">
-                  <h3>{p["nombre"]}</h3>
-                  <div class="price">{p["precio"]} EUR</div>
-                  <div class="meta">Categoria: {p["categoria"]}</div>
-                  <div class="meta">Valoracion: {p["valoracion"]} / 5</div>
-                  {badge}
-                </div>'''
-            result_html = f'<h3 style="margin:1rem 0 .5rem">Resultados ({len(resultados)})</h3><div class="grid">{cards}</div>'
-        else:
-            result_html = '<div class="alert alert-info">No se encontraron productos con esos filtros.</div>'
-
-    return render(form_html + result_html)
+        html += f'<div class="error">{error}</div>'
+    html += '''
+    <form method="post">
+      <label>Precio máximo (€)</label>
+      <input type="number" name="precio_max" step="0.01" placeholder="Ej: 100">
+      <label>Categoría</label>
+      <select name="categoria">
+        <option value="">Todas</option>
+        <option>electronica</option><option>hogar</option>
+        <option>libros</option><option>ropa</option>
+      </select>
+      <label>Valoración mínima</label>
+      <input type="number" name="val_min" step="0.1" min="0" max="5" placeholder="Ej: 4.0">
+      <button type="submit">Buscar</button>
+    </form>'''
+    if resultados:
+        html += f'<p style="margin:1rem 0;color:#555">{len(resultados)} producto(s) encontrado(s)</p>'
+        html += '<table><tr><th>Nombre</th><th>Precio</th><th>Categoría</th><th>Valoración</th><th>Vendedor</th></tr>'
+        for p in resultados:
+            vendedor = p.get('vendedor', 'tienda')
+            tag = '<span class="tag tag-ext">externo</span>' if vendedor != 'tienda' else ''
+            html += f"<tr><td>{p.get('nombre','')}</td><td>{p.get('precio','')}€</td>"
+            html += f"<td>{p.get('categoria','')}</td><td>⭐ {p.get('valoracion','')}</td>"
+            html += f"<td>{vendedor} {tag}</td></tr>"
+        html += '</table>'
+    html += '</div></main>'
+    return html
 
 
 @app.route('/pedido', methods=['GET', 'POST'])
 def pedido():
-    global mss_cnt
-    resultado = None
-    error = None
-
+    mensaje = ''
+    error   = ''
     if request.method == 'POST':
-        addr = get_agent_address(ECSNS['Ag.GestorDePedidos'])
-        if not addr:
-            error = 'AgenteGestorPedidos no disponible.'
-        else:
-            try:
-                # Parsear productos del formulario (formato: id|nombre|precio|cantidad|peso)
-                productos_raw = request.form.get('productos', '').strip().splitlines()
-                productos = []
-                for linea in productos_raw:
-                    partes = [x.strip() for x in linea.split('|')]
-                    if len(partes) >= 3:
-                        productos.append({
-                            'id':       partes[0],
-                            'nombre':   partes[1],
-                            'precio':   float(partes[2]),
-                            'cantidad': int(partes[3]) if len(partes) > 3 else 1,
-                            'peso':     float(partes[4]) if len(partes) > 4 else 0.5,
-                        })
+        try:
+            addr = get_agent_address(ECSNS['Ag.GestorDePedidos'])
+            if not addr:
+                raise Exception('AgenteGestorPedidos no encontrado en el DS')
+            gmess = Graph()
+            gmess.bind('ecsns', ECSNS)
+            ped_id = 'PED-' + str(uuid.uuid4())[:8].upper()
+            ped = ECSNS[ped_id]
+            gmess.add((ped, RDF.type,          ECSNS.Pedido))
+            gmess.add((ped, ECSNS.comprador,   Literal(request.form.get('comprador', 'Anonimo'))))
+            gmess.add((ped, ECSNS.direccion,   Literal(request.form.get('direccion', ''))))
+            gmess.add((ped, ECSNS.prioridad,   Literal(request.form.get('prioridad', 'normal'))))
+            gmess.add((ped, ECSNS.metodoPago,  Literal(request.form.get('metodo_pago', 'tarjeta'))))
 
-                if not productos:
-                    error = 'Debes especificar al menos un producto.'
-                else:
-                    gmess = Graph()
-                    gmess.bind('ecsns', ECSNS)
-                    ped = ECSNS['pedido-ui']
-                    gmess.add((ped, RDF.type,         ECSNS.Pedido))
-                    gmess.add((ped, ECSNS.comprador,  Literal(request.form.get('comprador', 'Usuario'))))
-                    gmess.add((ped, ECSNS.direccion,  Literal(request.form.get('direccion', ''))))
-                    gmess.add((ped, ECSNS.prioridad,  Literal(request.form.get('prioridad', 'normal'))))
-                    gmess.add((ped, ECSNS.metodoPago, Literal(request.form.get('metodo_pago', 'tarjeta'))))
+            ids_str     = request.form.get('ids_productos', '')
+            nombres_str = request.form.get('nombres_productos', '')
+            precios_str = request.form.get('precios_productos', '')
+            pesos_str   = request.form.get('pesos_productos', '')
 
-                    for i, p in enumerate(productos):
-                        pn = ECSNS[f'ped-prod-{i}']
-                        gmess.add((ped, ECSNS.tieneProducto, pn))
-                        gmess.add((pn, ECSNS.idProducto, Literal(p['id'])))
-                        gmess.add((pn, ECSNS.nombre,     Literal(p['nombre'])))
-                        gmess.add((pn, ECSNS.precio,     Literal(p['precio'])))
-                        gmess.add((pn, ECSNS.cantidad,   Literal(p['cantidad'])))
-                        gmess.add((pn, ECSNS.peso,       Literal(p['peso'])))
+            ids     = [x.strip() for x in ids_str.split(',') if x.strip()]
+            nombres = [x.strip() for x in nombres_str.split(',') if x.strip()]
+            precios = [x.strip() for x in precios_str.split(',') if x.strip()]
+            pesos   = [x.strip() for x in pesos_str.split(',') if x.strip()]
 
-                    gr = send_message(
-                        build_message(gmess, perf=ACL.request, sender=UsuarioAgent.uri,
-                                      receiver=agn.AgenteGestorPedidos, content=ped, msgcnt=mss_cnt),
-                        addr,
-                    )
-                    mss_cnt += 1
-                    factura_id = str(gr.value(predicate=ECSNS.idFactura) or '')
-                    total      = str(gr.value(predicate=ECSNS.total) or '')
-                    fecha      = str(gr.value(predicate=ECSNS.fecha) or '')
-                    resultado = {'factura_id': factura_id, 'total': total, 'fecha': fecha}
-            except Exception as e:
-                error = f'Error al realizar pedido: {e}'
+            for i, pid in enumerate(ids):
+                p_node = ECSNS[f'prod-{ped_id}-{i}']
+                gmess.add((ped, ECSNS.tieneProducto, p_node))
+                gmess.add((p_node, ECSNS.idProducto, Literal(pid)))
+                gmess.add((p_node, ECSNS.nombre,     Literal(nombres[i] if i < len(nombres) else pid)))
+                gmess.add((p_node, ECSNS.precio,     Literal(float(precios[i]) if i < len(precios) else 0)))
+                gmess.add((p_node, ECSNS.cantidad,   Literal(1)))
+                gmess.add((p_node, ECSNS.peso,       Literal(float(pesos[i]) if i < len(pesos) else 0)))
 
-    form_html = '''
-    <h2>&#128666; Nuevo pedido</h2>
-    <div class="card">
-      <form method="POST">
-        <label>Nombre del comprador</label>
-        <input type="text" name="comprador" required placeholder="Marc">
-        <label>Direccion de entrega</label>
-        <input type="text" name="direccion" required placeholder="Carrer de Pau Claris 10, Barcelona">
-        <label>Prioridad</label>
-        <select name="prioridad">
-          <option value="normal">Normal (2-4 dias)</option>
-          <option value="urgente">Urgente (1-2 dias)</option>
-          <option value="economica">Economica (4-7 dias)</option>
-        </select>
-        <label>Metodo de pago</label>
-        <select name="metodo_pago">
-          <option value="tarjeta">Tarjeta</option>
-          <option value="paypal">PayPal</option>
-          <option value="transferencia">Transferencia</option>
-        </select>
-        <label>Productos (una linea por producto: id|nombre|precio|cantidad|peso)</label>
-        <textarea name="productos" placeholder="p001|Teclado Mecanico|89.99|1|1.2
-p002|Raton Gaming|45.00|1|0.3"></textarea>
-        <br><br>
-        <button type="submit" class="btn btn-primary">Realizar pedido</button>
-      </form>
-    </div>
-    '''
+            global mss_cnt
+            gr = send_message(
+                build_message(gmess, perf=ACL.request, sender=UsuarioAgent.uri,
+                              receiver=agn.AgenteGestorPedidos, content=ped, msgcnt=mss_cnt),
+                addr)
+            mss_cnt += 1
+            factura_id = ''
+            total      = ''
+            for s, p, o in gr:
+                if p == ECSNS.idFactura: factura_id = str(o)
+                if p == ECSNS.total:     total      = str(o)
+            mensaje = f'✅ Pedido confirmado. Factura: <strong>{factura_id}</strong> — Total: <strong>{total}€</strong>'
+        except Exception as e:
+            error = str(e)
 
-    result_html = ''
-    if error:
-        result_html = f'<div class="alert alert-err">{error}</div>'
-    elif resultado:
-        result_html = f'''
-        <div class="alert alert-ok">
-          <strong>Pedido realizado correctamente</strong><br>
-          Factura: <strong>{resultado["factura_id"]}</strong> &nbsp;|
-          Total: <strong>{resultado["total"]} EUR</strong> &nbsp;|
-          Fecha: {resultado["fecha"]}
-        </div>'''
-
-    return render(result_html + form_html)
+    html = STYLE + NAV + '<main><div class="card"><h2>📦 Realizar Pedido</h2>'
+    if mensaje: html += f'<div class="success">{mensaje}</div>'
+    if error:   html += f'<div class="error">{error}</div>'
+    html += '''
+    <form method="post">
+      <label>Nombre comprador</label>
+      <input type="text" name="comprador" placeholder="Tu nombre" required>
+      <label>Dirección de entrega</label>
+      <input type="text" name="direccion" placeholder="Calle, número, ciudad" required>
+      <label>Prioridad</label>
+      <select name="prioridad">
+        <option value="normal">Normal</option>
+        <option value="urgente">Urgente</option>
+        <option value="economica">Económica</option>
+      </select>
+      <label>Método de pago</label>
+      <select name="metodo_pago">
+        <option value="tarjeta">Tarjeta</option>
+        <option value="paypal">PayPal</option>
+        <option value="transferencia">Transferencia</option>
+      </select>
+      <label>IDs de productos (separados por coma)</label>
+      <input type="text" name="ids_productos" placeholder="p001, p002" required>
+      <label>Nombres (separados por coma)</label>
+      <input type="text" name="nombres_productos" placeholder="Laptop, Raton">
+      <label>Precios (separados por coma)</label>
+      <input type="text" name="precios_productos" placeholder="999.99, 29.99">
+      <label>Pesos kg (separados por coma)</label>
+      <input type="text" name="pesos_productos" placeholder="1.5, 0.2">
+      <button type="submit">Confirmar pedido</button>
+    </form>
+    </div></main>'''
+    return html
 
 
 @app.route('/devolucion', methods=['GET', 'POST'])
 def devolucion():
-    global mss_cnt
-    resultado = None
-    error = None
-
+    mensaje = ''
+    error   = ''
     if request.method == 'POST':
-        addr = get_agent_address(ECSNS['Ag.Devolucion'])
-        if not addr:
-            error = 'AgenteDevolucion no disponible. Asegurate de que esta en marcha (puerto 9006).'
-        else:
-            try:
-                gmess = Graph()
-                gmess.bind('ecsns', ECSNS)
-                sol = ECSNS['sol-devolucion-ui']
-                gmess.add((sol, RDF.type,                ECSNS.SolicitudDevolucion))
-                gmess.add((sol, ECSNS.comprador,         Literal(request.form.get('comprador', ''))))
-                gmess.add((sol, ECSNS.idFactura,         Literal(request.form.get('factura_id', ''))))
-                gmess.add((sol, ECSNS.razonDevolucion,   Literal(request.form.get('razon', 'insatisfaccion'))))
-                gmess.add((sol, ECSNS.fechaRecepcion,    Literal(request.form.get('fecha_recepcion', ''))))
+        try:
+            addr = get_agent_address(ECSNS['Ag.Devolucion'])
+            if not addr:
+                raise Exception('AgenteDevolucion no encontrado en el DS')
+            gmess = Graph()
+            gmess.bind('ecsns', ECSNS)
+            sol = ECSNS['sol-dev-' + str(uuid.uuid4())[:6]]
+            gmess.add((sol, RDF.type,               ECSNS.SolicitudDevolucion))
+            gmess.add((sol, ECSNS.comprador,        Literal(request.form.get('comprador', ''))))
+            gmess.add((sol, ECSNS.idFactura,        Literal(request.form.get('factura_id', ''))))
+            gmess.add((sol, ECSNS.razonDevolucion,  Literal(request.form.get('razon', 'insatisfaccion'))))
+            gmess.add((sol, ECSNS.fechaRecepcion,   Literal(request.form.get('fecha_recepcion', ''))))
+            global mss_cnt
+            gr = send_message(
+                build_message(gmess, perf=ACL.request, sender=UsuarioAgent.uri,
+                              receiver=agn.AgenteDevolucion, content=sol, msgcnt=mss_cnt),
+                addr)
+            mss_cnt += 1
+            aceptada = ''
+            motivo   = ''
+            empresa  = ''
+            for s, p, o in gr:
+                if p == ECSNS.aceptada:          aceptada = str(o)
+                if p == ECSNS.motivoDevolucion:  motivo   = str(o)
+                if p == ECSNS.empresaMensajeria: empresa  = str(o)
+            if aceptada.lower() == 'true':
+                mensaje = f'✅ {motivo}. <br>Empresa de recogida: <strong>{empresa}</strong>'
+            else:
+                mensaje = f'❌ {motivo}'
+        except Exception as e:
+            error = str(e)
 
-                gr = send_message(
-                    build_message(gmess, perf=ACL.request, sender=UsuarioAgent.uri,
-                                  receiver=agn.AgenteDevolucion, content=sol, msgcnt=mss_cnt),
-                    addr,
-                )
-                mss_cnt += 1
-
-                aceptada       = gr.value(predicate=ECSNS.aceptada)
-                motivo         = str(gr.value(predicate=ECSNS.motivoDevolucion) or '')
-                empresa        = str(gr.value(predicate=ECSNS.empresaMensajeria) or '')
-                dev_id         = str(gr.value(predicate=ECSNS.idDevolucion) or '')
-                resultado = {
-                    'aceptada': str(aceptada) == 'True',
-                    'motivo': motivo,
-                    'empresa': empresa,
-                    'dev_id': dev_id,
-                }
-            except Exception as e:
-                error = f'Error al procesar devolucion: {e}'
-
-    form_html = '''
-    <h2>&#8617; Solicitar devolucion</h2>
-    <div class="card">
-      <form method="POST">
-        <label>Nombre del comprador</label>
-        <input type="text" name="comprador" required placeholder="Marc">
-        <label>ID de factura</label>
-        <input type="text" name="factura_id" required placeholder="FAC-XXXXXXXX">
-        <label>Razon de la devolucion</label>
-        <select name="razon">
-          <option value="insatisfaccion">Insatisfaccion con el producto</option>
-          <option value="defectuoso">Producto defectuoso</option>
-          <option value="equivocado">Producto equivocado / no es lo que pedi</option>
-          <option value="danado">Producto llegó danado</option>
-        </select>
-        <label>Fecha en que recibiste el pedido</label>
-        <input type="date" name="fecha_recepcion" required>
-        <br><br>
-        <button type="submit" class="btn btn-danger">Solicitar devolucion</button>
-      </form>
-    </div>
-    '''
-
-    result_html = ''
-    if error:
-        result_html = f'<div class="alert alert-err">{error}</div>'
-    elif resultado is not None:
-        if resultado['aceptada']:
-            result_html = f'''
-            <div class="alert alert-ok">
-              <strong>Devolucion ACEPTADA</strong> (ID: {resultado["dev_id"]})<br>
-              {resultado["motivo"]}<br>
-              Empresa de recogida: <strong>{resultado["empresa"]}</strong>
-            </div>'''
-        else:
-            result_html = f'''
-            <div class="alert alert-err">
-              <strong>Devolucion RECHAZADA</strong><br>
-              {resultado["motivo"]}
-            </div>'''
-
-    return render(result_html + form_html)
+    html = STYLE + NAV + '<main><div class="card"><h2>↩ Solicitar Devolución</h2>'
+    if mensaje: html += f'<div class="{"success" if mensaje.startswith("✅") else "error"}">{mensaje}</div>'
+    if error:   html += f'<div class="error">{error}</div>'
+    html += '''
+    <form method="post">
+      <label>Nombre comprador</label>
+      <input type="text" name="comprador" placeholder="Tu nombre" required>
+      <label>ID de factura</label>
+      <input type="text" name="factura_id" placeholder="FAC-XXXXXXXX" required>
+      <label>Razón de la devolución</label>
+      <select name="razon">
+        <option value="insatisfaccion">Insatisfacción</option>
+        <option value="defectuoso">Producto defectuoso</option>
+        <option value="equivocado">Producto equivocado</option>
+        <option value="danado">Producto dañado</option>
+      </select>
+      <label>Fecha de recepción del pedido</label>
+      <input type="date" name="fecha_recepcion" required>
+      <button type="submit">Solicitar devolución</button>
+    </form>
+    </div></main>'''
+    return html
 
 
-@app.route('/comm', methods=['GET', 'POST'])
-def comunicacion():
-    return 'AgenteUsuario web activo', 200
+@app.route('/facturas')
+def facturas():
+    FACTURAS_PATH = os.path.join(os.path.dirname(__file__), 'data', 'facturas.json')
+    facturas_data = []
+    if os.path.exists(FACTURAS_PATH):
+        with open(FACTURAS_PATH) as f:
+            facturas_data = json.load(f)
+
+    html = STYLE + NAV + '<main><div class="card"><h2>🧾 Facturas</h2>'
+    if not facturas_data:
+        html += '<p style="color:#888">No hay facturas registradas todavía.</p>'
+    else:
+        html += '<table><tr><th>ID</th><th>Comprador</th><th>Fecha</th><th>Total</th><th>Método pago</th></tr>'
+        for fac in reversed(facturas_data):
+            html += f"<tr><td><code>{fac['id']}</code></td><td>{fac.get('comprador','')}</td>"
+            html += f"<td>{fac.get('fecha','')[:10]}</td><td><strong>{fac.get('total','')}€</strong></td>"
+            html += f"<td>{fac.get('metodo_pago','')}</td></tr>"
+        html += '</table>'
+    html += '</div></main>'
+    return html
 
 
 if __name__ == '__main__':
-    logger.info(f'[Usuario] Interfaz web disponible en http://{hostname}:{port}')
+    logger.info(f'[Usuario] Interfaz web en http://{hostname}:{port}')
     app.run(host=hostaddr, port=port)
