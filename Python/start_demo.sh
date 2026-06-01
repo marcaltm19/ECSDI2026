@@ -22,29 +22,29 @@ echo "[OK] Datos reiniciados"
 
 # 2. Directory Service (DS)
 echo "[1/5] Arrancando DirectoryService en puerto 9000..."
-python DirectoryService.py --port 9000 &
+python DirectoryService.py --port 9000 --open &
 echo $! > /tmp/ds.pid
 sleep 2
 
 # 3. Agente Logistico
 echo "[2/5] Arrancando AgenteLogistico en puerto 9003..."
-python AgenteLogistico.py --port 9003 --dport 9000 &
+python AgenteLogistico.py --port 9003 --dport 9000 --open &
 echo $! > /tmp/logistico.pid
 sleep 1
 
 # 4. Tres transportistas propios con puertos distintos
 echo "[3/5] Arrancando AgenteTransportista: RapidExpress en puerto 9010..."
-python AgenteTransportista.py --port 9010 --dport 9000 --nombre RapidExpress &
+python AgenteTransportista.py --port 9010 --dport 9000 --nombre RapidExpress --open &
 echo $! > /tmp/t1.pid
 sleep 0.5
 
 echo "[4/5] Arrancando AgenteTransportista: EcoEnvios en puerto 9011..."
-python AgenteTransportista.py --port 9011 --dport 9000 --nombre EcoEnvios &
+python AgenteTransportista.py --port 9011 --dport 9000 --nombre EcoEnvios --open &
 echo $! > /tmp/t2.pid
 sleep 0.5
 
 echo "[5/5] Arrancando AgenteTransportista: MensajeriaPlus en puerto 9012..."
-python AgenteTransportista.py --port 9012 --dport 9000 --nombre MensajeriaPlus &
+python AgenteTransportista.py --port 9012 --dport 9000 --nombre MensajeriaPlus --open &
 echo $! > /tmp/t3.pid
 sleep 0.5
 
@@ -53,10 +53,10 @@ echo "====================================================="
 echo " Sistema arrancado correctamente"
 echo " DS:           http://localhost:9000/Register"
 echo " Logistico:    http://localhost:9003/comm"
-echo " Transportista1 (RapidExpress):  puerto 9010"
-echo " Transportista2 (EcoEnvios):     puerto 9011"
-echo " Transportista3 (MensajeriaPlus):puerto 9012"
+echo " Transportista1 (RapidExpress):   puerto 9010"
+echo " Transportista2 (EcoEnvios):      puerto 9011"
+echo " Transportista3 (MensajeriaPlus): puerto 9012"
 echo ""
-echo " Para ver el registro del DS: http://localhost:9000/info"
-echo " Para parar todo: bash stop_demo.sh"
+echo " Ver agentes registrados: http://localhost:9000/info"
+echo " Para parar todo:         bash stop_demo.sh"
 echo "====================================================="
