@@ -1,0 +1,58 @@
+{% extends 'usuario/base.html' %}
+{% block title %}Valorar productos{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>⭐ Valorar productos</h1>
+  <p>Tu opinión ayuda a otros compradores y mejora las recomendaciones</p>
+</div>
+
+{% if resultado %}
+<div class="alert alert-success">✅ {{ resultado }}</div>
+{% endif %}
+{% if error %}
+<div class="alert alert-danger">⚠️ {{ error }}</div>
+{% endif %}
+
+<div class="card">
+  {% if productos %}
+  <form method="post" action="/valorar">
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Tu nombre</label>
+        <input class="form-control" type="text" name="comprador" required placeholder="Nombre del comprador">
+      </div>
+      <div class="form-group">
+        <label>Producto</label>
+        <select class="form-control" name="producto_id">
+          {% for p in productos %}
+          <option value="{{ p.id }}">{{ p.nombre }} ({{ p.id }})</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Puntuación</label>
+        <select class="form-control" name="puntuacion">
+          <option value="5">⭐⭐⭐⭐⭐ Excelente</option>
+          <option value="4">⭐⭐⭐⭐ Muy bueno</option>
+          <option value="3" selected>⭐⭐⭐ Normal</option>
+          <option value="2">⭐⭐ Regular</option>
+          <option value="1">⭐ Malo</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Comentario (opcional)</label>
+      <textarea class="form-control" name="comentario" rows="3" placeholder="Cuéntanos tu experiencia..."></textarea>
+    </div>
+    <button type="submit" class="btn btn-primary">⭐ Enviar valoración</button>
+  </form>
+  {% else %}
+  <div class="empty-state">
+    <div class="icon">🛍</div>
+    <h3>Sin compras todavía</h3>
+    <p>Necesitas haber comprado productos para poder valorarlos</p>
+    <a href="/buscar" class="btn btn-primary">Buscar productos</a>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

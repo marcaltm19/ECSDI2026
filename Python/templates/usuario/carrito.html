@@ -1,0 +1,51 @@
+{% extends 'usuario/base.html' %}
+{% block title %}Carrito{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>🛒 Carrito de compra</h1>
+</div>
+
+{% if carrito %}
+<div class="card">
+  <table>
+    <thead>
+      <tr>
+        <th>Producto</th>
+        <th>Precio unit.</th>
+        <th>Cantidad</th>
+        <th>Subtotal</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in carrito %}
+      <tr>
+        <td class="fw-bold">{{ item.nombre }}</td>
+        <td>{{ '%.2f'|format(item.precio) }} €</td>
+        <td>{{ item.cantidad }}</td>
+        <td class="fw-bold" style="color:var(--accent)">{{ '%.2f'|format(item.precio * item.cantidad) }} €</td>
+        <td><a href="/carrito/eliminar/{{ item.id }}" class="btn btn-danger btn-sm">✕</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <hr>
+  <div class="flex items-center" style="justify-content:space-between">
+    <span class="text-muted">{{ carrito|length }} artículo(s)</span>
+    <span style="font-size:20px; font-weight:800; color:var(--primary)">Total: {{ '%.2f'|format(total) }} €</span>
+  </div>
+  <div class="flex gap-3 mt-4" style="flex-wrap:wrap">
+    <a href="/pedido" class="btn btn-success">✅ Tramitar pedido</a>
+    <a href="/carrito/vaciar" class="btn btn-danger">🗑 Vaciar</a>
+    <a href="/buscar" class="btn btn-outline">← Seguir comprando</a>
+  </div>
+</div>
+{% else %}
+<div class="empty-state">
+  <div class="icon">🛒</div>
+  <h3>El carrito está vacío</h3>
+  <p>Añade productos desde el buscador</p>
+  <a href="/buscar" class="btn btn-primary">Buscar productos</a>
+</div>
+{% endif %}
+{% endblock %}

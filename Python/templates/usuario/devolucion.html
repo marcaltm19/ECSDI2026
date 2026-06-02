@@ -1,0 +1,77 @@
+{% extends 'usuario/base.html' %}
+{% block title %}Devoluciones{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>↩ Solicitar devolución</h1>
+  <p>Plazo de devolución: 15 días desde la recepción. Productos defectuosos: sin límite de tiempo.</p>
+</div>
+
+{% if resultado %}
+<div class="card" style="border-left: 4px solid {% if resultado.aceptada %}var(--accent){% else %}var(--danger){% endif %}">
+  {% if resultado.aceptada %}
+  <div class="alert alert-success">✅ <strong>Devolución aceptada</strong> — {{ resultado.motivo }}</div>
+  <table>
+    <tr><th>Nº Devolución</th><td><span class="badge badge-success">{{ resultado.id }}</span></td></tr>
+    <tr><th>Estado</th><td><span class="badge badge-success">Aceptada</span></td></tr>
+    {% if resultado.empresa %}
+    <tr><th>Empresa de mensajería</th><td>{{ resultado.empresa }}</td></tr>
+    {% endif %}
+  </table>
+  {% else %}
+  <div class="alert alert-danger">❌ <strong>Devolución rechazada</strong> — {{ resultado.motivo }}</div>
+  {% endif %}
+</div>
+{% endif %}
+
+{% if not resultado %}
+{% if error %}
+<div class="alert alert-danger">⚠️ {{ error }}</div>
+{% endif %}
+
+<div class="card">
+  <div class="card-title">Nueva solicitud de devolución</div>
+  <form method="post" action="/devolucion">
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Tu nombre *</label>
+        <input class="form-control" type="text" name="comprador" required placeholder="Nombre del comprador">
+      </div>
+      <div class="form-group">
+        <label>Nº Factura *</label>
+        <select class="form-control" name="factura_id" required>
+          <option value="">— Selecciona una factura —</option>
+          {% for f in facturas %}
+          <option value="{{ f.id }}">{{ f.id }} — {{ f.fecha[:10] }} — {{ '%.2f'|format(f.total) }} €</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Motivo de la devolución *</label>
+        <select class="form-control" name="razon">
+          <option value="insatisfaccion">No estoy satisfecho/a con el producto</option>
+          <option value="defectuoso">Producto defectuoso o dañado</option>
+          <option value="equivocado">Me enviaron el producto equivocado</option>
+          <option value="no_necesito">Ya no lo necesito</option>
+          <option value="otro">Otro motivo</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Fecha de recepción *</label>
+        <input class="form-control" type="date" name="fecha_recepcion" required>
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary">↩ Solicitar devolución</button>
+  </form>
+</div>
+{% endif %}
+
+<div class="card">
+  <div class="card-title">ℹ️ Política de devoluciones</div>
+  <ul style="padding-left:20px; font-size:14px; color:var(--text-muted); line-height:2">
+    <li>Tienes <strong>15 días</strong> desde la recepción para devolver cualquier producto</li>
+    <li>Productos <strong>defectuosos o equivocados</strong>: devolución aceptada siempre</li>
+    <li>La empresa de mensajería se asignará automáticamente</li>
+    <li>El reembolso se procesará en 3-5 días hábiles</li>
+  </ul>
+</div>
+{% endblock %}

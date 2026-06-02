@@ -1,0 +1,57 @@
+{% extends 'usuario/base.html' %}
+{% block title %}Historial de pedidos{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>📋 Historial de pedidos</h1>
+  <p>Todas tus compras realizadas</p>
+</div>
+
+{% if facturas %}
+{% for f in facturas %}
+<div class="card" style="padding:0; overflow:hidden">
+  <div style="background:var(--primary); color:#fff; padding:14px 20px; display:flex; align-items:center; justify-content:space-between">
+    <div class="flex items-center gap-3">
+      <span style="font-weight:700; font-size:16px">{{ f.id }}</span>
+      <span style="opacity:.8; font-size:13px">{{ f.fecha[:10] }}</span>
+    </div>
+    <span style="font-size:18px; font-weight:800">{{ '%.2f'|format(f.total) }} €</span>
+  </div>
+  <div style="padding:16px 20px">
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px">
+      <div>
+        <div class="text-muted text-sm" style="margin-bottom:8px; font-weight:600; text-transform:uppercase; letter-spacing:.4px">Productos</div>
+        {% for p in f.get('productos', []) %}
+        <div class="text-sm" style="padding:3px 0">• {{ p.nombre }} x{{ p.get('cantidad',1) }} — {{ '%.2f'|format(p.precio) }} €</div>
+        {% endfor %}
+      </div>
+      <div>
+        <div class="text-muted text-sm" style="margin-bottom:8px; font-weight:600; text-transform:uppercase; letter-spacing:.4px">Envío</div>
+        {% if f.envios_logistico %}
+          {% for e in f.envios_logistico %}
+          <div class="envio-tag">🚚 {{ e.transportista }} — {{ e.fecha }}</div>
+          {% endfor %}
+        {% elif f.get('envios_vendedor') %}
+          {% for e in f.envios_vendedor %}
+          <div class="envio-tag">🏪 {{ e.vendedor }}: {{ e.transportista }} — {{ e.fecha_prevista }}</div>
+          {% endfor %}
+        {% else %}
+          <span class="text-muted text-sm">Procesando...</span>
+        {% endif %}
+      </div>
+    </div>
+    <div class="flex gap-2 mt-3">
+      <a href="/devolucion" class="btn btn-outline btn-sm">↩ Devolver</a>
+      <a href="/valorar" class="btn btn-outline btn-sm">⭐ Valorar</a>
+    </div>
+  </div>
+</div>
+{% endfor %}
+{% else %}
+<div class="empty-state">
+  <div class="icon">📋</div>
+  <h3>No hay pedidos todavía</h3>
+  <p>Realiza tu primera compra para ver el historial aquí</p>
+  <a href="/buscar" class="btn btn-primary">Buscar productos</a>
+</div>
+{% endif %}
+{% endblock %}
