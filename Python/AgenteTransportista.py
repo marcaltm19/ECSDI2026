@@ -6,6 +6,7 @@ import argparse
 import random
 import socket
 import logging
+import threading
 from datetime import datetime, timedelta
 from flask import Flask, request
 from rdflib import Graph, Literal, Namespace
@@ -30,7 +31,7 @@ parser.add_argument('--nombre', type=str, default='Transportista')
 parser.add_argument('--precio-factor', type=float, default=1.0,
                     help='Factor multiplicador sobre el precio base (default: 1.0)')
 parser.add_argument('--ciudad', type=str, default='',
-                    help='Ciudad de cobertura geográfica (default: "")')
+                    help='Ciudad de cobertura geografica (default: "")')
 args = parser.parse_args()
 
 logger = config_logger(level=1)
@@ -53,6 +54,8 @@ if not args.verbose:
 agn = Namespace('http://www.agentes.org#')
 mss_cnt = 0
 
+# Lock para proteger el estado de la ultima oferta en caso de concurrencia
+_lock = threading.Lock()
 _ultima_oferta_precio = None
 
 TransportistaAgent = Agent(
@@ -124,7 +127,8 @@ def comunicacion():
     if perf == ACL.request and accion == ECSNS.CFP:
         prioridad = str(gm.value(content, ECSNS.tienePrioridad) or 'normal')
         precio, fecha = _calcular_oferta_inicial(prioridad)
-        _ultima_oferta_precio = precio
+        with _lock:
+            _ultima_oferta_precio = precio
 
         gr = Graph()
         gr.bind('ecsns', ECSNS)
@@ -140,21 +144,32 @@ def comunicacion():
 
     elif perf == ACL.propose and accion == ECSNS.ContraOferta:
         contra_precio = float(gm.value(content, ECSNS.tienePrecio) or 0)
-        oferta_inicial = _ultima_oferta_precio or 999
+        with _lock:
+            oferta_inicial = _ultima_oferta_precio or 999
         dado = random.random()
 
         if dado < 0.33:
+            # ACEPTA la contra-oferta
             logger.info(f'[{NOMBRE}] R2 -- ACEPTA contra-oferta: {contra_precio}EUR')
             resp = build_message(Graph(), ACL.inform,
                                  sender=TransportistaAgent.uri,
                                  receiver=msgdic['sender'],
                                  msgcnt=mss_cnt)
         elif dado < 0.66:
+            # PROPONE un precio intermedio entre contra_precio y oferta_inicial
             if contra_precio < oferta_inicial:
+                # Rango valido: generar precio estrictamente entre contra_precio y oferta_inicial
+                # Usamos uniform en (contra_precio, oferta_inicial) y garantizamos
+                # que nuevo_precio sea siempre > contra_precio aunque haya redondeo
                 nuevo_precio = round(random.uniform(contra_precio, oferta_inicial), 2)
+                # Fix bug redondeo: si nuevo_precio colapsa a contra_precio, forzar epsilon
                 if nuevo_precio <= contra_precio:
                     nuevo_precio = round(contra_precio + 0.01, 2)
+                # Adicionalmente asegurar que no supera la oferta_inicial
+                if nuevo_precio >= oferta_inicial:
+                    nuevo_precio = round(oferta_inicial - 0.01, 2)
             else:
+                # Rango invalido (contra_precio >= oferta_inicial): acepta directamente
                 logger.info(f'[{NOMBRE}] R2 -- rango invalido, ACEPTA: {contra_precio}EUR')
                 resp = build_message(Graph(), ACL.inform,
                                      sender=TransportistaAgent.uri,
@@ -176,6 +191,7 @@ def comunicacion():
                                  content=nueva_oferta_uri,
                                  msgcnt=mss_cnt)
         else:
+            # RECHAZA la contra-oferta
             logger.info(f'[{NOMBRE}] R2 -- RECHAZA la contra-oferta')
             resp = build_message(Graph(), ACL['reject-proposal'],
                                  sender=TransportistaAgent.uri,

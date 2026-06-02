@@ -37,6 +37,8 @@ logger = config_logger(level=1)
 port = args.port
 hostname = socket.gethostname()
 hostaddr = os.environ.get('ECSDI_PUBLIC_HOST') or hostname
+# fix: usar 0.0.0.0 cuando --open para aceptar conexiones externas
+flask_host = '0.0.0.0' if args.open else hostname
 dport = args.dport
 dhostname = os.environ.get('ECSDI_DHOST') or args.dhost or socket.gethostname()
 
@@ -47,9 +49,11 @@ if not args.verbose:
 agn = Namespace('http://www.agentes.org#')
 mss_cnt = 0
 FACTURAS_PATH = os.path.join(os.path.dirname(__file__), 'data', 'facturas.json')
+PEDIDOS_PATH  = os.path.join(os.path.dirname(__file__), 'data', 'pedidos.json')
 
-logistico_address = None
+logistico_address  = None
 experiencia_address = None
+usuario_address    = None
 
 GestorAgent = Agent(
     'AgenteGestorPedidos',
@@ -145,10 +149,11 @@ def obtener_address_vendedor(vendedor_nombre):
             addr = gr_ds.value(entry, DSO.Address)
             if uri and str(uri).endswith(vendedor_nombre):
                 return str(addr)
-        # Fallback
+        # Fallback: devolver cualquier vendedor externo registrado
         for entry in gr_ds.subjects(DSO.Uri):
             addr = gr_ds.value(entry, DSO.Address)
-            if addr: return str(addr)
+            if addr:
+                return str(addr)
     except Exception as e:
         logger.warning(f'[GestorPedidos] Error buscando vendedor {vendedor_nombre}: {e}')
     return None
@@ -223,6 +228,35 @@ def generar_factura(productos, comprador, direccion, metodo_pago, envios_vendedo
     return factura
 
 
+def guardar_pedido(pedido_id, comprador, productos, sub_envios):
+    """Persiste el resultado de envio en pedidos.json para trazabilidad."""
+    registro = {
+        'id':        pedido_id,
+        'comprador': comprador,
+        'fecha':     datetime.now().isoformat(),
+        'productos': productos,
+        'envios':    sub_envios,
+    }
+    os.makedirs(os.path.dirname(PEDIDOS_PATH), exist_ok=True)
+    if os.path.exists(PEDIDOS_PATH):
+        try:
+            with open(PEDIDOS_PATH) as f:
+                pedidos = json.load(f)
+        except (json.JSONDecodeError, ValueError):
+            pedidos = []
+    else:
+        pedidos = []
+    # Actualizar si ya existe (por segunda notificacion del logistico)
+    for i, p in enumerate(pedidos):
+        if p.get('id') == pedido_id:
+            pedidos[i] = registro
+            break
+    else:
+        pedidos.append(registro)
+    with open(PEDIDOS_PATH, 'w') as f:
+        json.dump(pedidos, f, indent=2)
+
+
 def notificar_logistico(pedido):
     global mss_cnt, logistico_address
     if logistico_address is None:
@@ -288,6 +322,47 @@ def notificar_experiencia_compra(comprador, factura, productos):
     logger.info(f'[GestorPedidos] AgenteExperiencia notificado -- comprador: {comprador}')
 
 
+def notificar_usuario_envios(pedido_id, sub_envios):
+    """
+    Notifica al AgenteUsuario (interfaz web) el resultado de los envios
+    para que lo muestre al cliente: transportista y fecha por cada sub-envio.
+    Si el AgenteUsuario no esta registrado en el DS, lo ignora silenciosamente.
+    """
+    global mss_cnt, usuario_address
+    if usuario_address is None:
+        try:
+            usuario_address = get_agent_address(ECSNS['Ag.Usuario'])
+        except Exception:
+            usuario_address = None
+    if usuario_address is None:
+        logger.info('[GestorPedidos] AgenteUsuario no registrado en DS, omitiendo notificacion de envios')
+        return
+    gmess = Graph()
+    gmess.bind('ecsns', ECSNS)
+    notif_node = ECSNS['notif-envios-' + pedido_id]
+    gmess.add((notif_node, RDF.type,       ECSNS.NotificacionEnvios))
+    gmess.add((notif_node, ECSNS.idPedido, Literal(pedido_id)))
+    for i, envio in enumerate(sub_envios):
+        en = ECSNS[f'notif-sub-{pedido_id}-{i}']
+        gmess.add((notif_node, ECSNS.tieneSubEnvio, en))
+        gmess.add((en, ECSNS.idEnvio,            Literal(envio.get('id', ''))))
+        gmess.add((en, ECSNS.tieneCentro,        Literal(envio.get('centro', ''))))
+        gmess.add((en, ECSNS.tieneTransportista, Literal(envio.get('transportista', ''))))
+        gmess.add((en, ECSNS.tieneFechaEntrega,  Literal(envio.get('fecha', ''))))
+        for pid in envio.get('productos', []):
+            gmess.add((en, ECSNS.tieneProductoId, Literal(pid)))
+    try:
+        send_message(
+            build_message(gmess, perf=ACL.inform, sender=GestorAgent.uri,
+                          receiver=agn.AgenteUsuario, content=notif_node, msgcnt=mss_cnt),
+            usuario_address,
+        )
+        mss_cnt += 1
+        logger.info(f'[GestorPedidos] AgenteUsuario notificado con {len(sub_envios)} envio/s del pedido {pedido_id}')
+    except Exception as e:
+        logger.warning(f'[GestorPedidos] No se pudo notificar al AgenteUsuario: {e}')
+
+
 def procesar_compra(gm, content):
     comprador   = str(gm.value(subject=content, predicate=ECSNS.comprador)  or 'Anonimo')
     direccion   = str(gm.value(subject=content, predicate=ECSNS.direccion)  or '')
@@ -323,7 +398,7 @@ def procesar_compra(gm, content):
     pedido_id = 'PED-' + str(uuid.uuid4())[:8].upper()
     envios_vendedor = []
 
-    # Pedidos tienda o tienda gestiona
+    # Pedidos gestionados por la tienda propia (via AgenteLogistico)
     if shop_products:
         shop_pedido = {
             'id':        pedido_id,
@@ -333,7 +408,7 @@ def procesar_compra(gm, content):
         }
         notificar_logistico(shop_pedido)
 
-    # Pedidos vendedor gestiona
+    # Pedidos gestionados por vendedores externos
     for vname, vprods in vendor_products.items():
         vaddr = obtener_address_vendedor(vname)
         if vaddr:
@@ -350,15 +425,15 @@ def procesar_compra(gm, content):
                 envios_vendedor.append({
                     'vendedor': vname,
                     'productos': [p['id'] for p in vprods],
-                    'transportista': f'Mensajería {vname}',
+                    'transportista': f'Mensajeria {vname}',
                     'fecha_prevista': (datetime.now() + timedelta(days=5)).strftime('%Y-%m-%d')
                 })
         else:
-            logger.warning(f'[GestorPedidos] No se pudo encontrar dirección del vendedor {vname}')
+            logger.warning(f'[GestorPedidos] No se pudo encontrar direccion del vendedor {vname}')
             envios_vendedor.append({
                 'vendedor': vname,
                 'productos': [p['id'] for p in vprods],
-                'transportista': f'Mensajería {vname}',
+                'transportista': f'Mensajeria {vname}',
                 'fecha_prevista': (datetime.now() + timedelta(days=5)).strftime('%Y-%m-%d')
             })
 
@@ -376,6 +451,10 @@ def procesar_compra(gm, content):
 
 
 def procesar_resultado_envio(gm, content):
+    """
+    Recibe el ResultadoEnvio del AgenteLogistico, lo persiste en pedidos.json
+    y notifica al AgenteUsuario para que lo muestre al cliente.
+    """
     pedido_id  = str(gm.value(content, ECSNS.idPedido)  or 'DESCONOCIDO')
     num_envios = int(gm.value(content, ECSNS.numEnvios) or 0)
     logger.info(f'[GestorPedidos] Pedido {pedido_id} gestionado con {num_envios} envio/s:')
@@ -396,6 +475,13 @@ def procesar_resultado_envio(gm, content):
             f'Transportista: {transportista} | Entrega: {fecha} | '
             f'Productos: {productos}'
         )
+
+    # Persistir en pedidos.json
+    guardar_pedido(pedido_id, comprador='', productos=[], sub_envios=sub_envios)
+
+    # Notificar al AgenteUsuario (si esta disponible)
+    notificar_usuario_envios(pedido_id, sub_envios)
+
     return sub_envios
 
 
@@ -462,6 +548,7 @@ if __name__ == '__main__':
     os.makedirs(os.path.join(os.path.dirname(__file__), 'data'), exist_ok=True)
     ab1 = Process(target=agentbehavior1, args=(cola1,))
     ab1.start()
-    app.run(host=hostname, port=port)
+    # fix: respetar --open para escuchar en 0.0.0.0 cuando se requiere
+    app.run(host=flask_host, port=port)
     ab1.join()
     logger.info('[GestorPedidos] Fin')
