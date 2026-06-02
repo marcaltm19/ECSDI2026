@@ -1,0 +1,17 @@
+[
+  {
+    "pedido_id": "FAC-434E08FB",
+    "comprador": "Mar\u00e7al",
+    "direccion": "Calle A",
+    "prioridad": "urgente",
+    "productos": [
+      {
+        "id": "EXT-VendedorExterno1-002",
+        "cantidad": 1
+      }
+    ],
+    "fecha_entrega": "2026-06-03",
+    "fecha_registro": "2026-06-02T21:17:18.667231",
+    "estado": "en_proceso"
+  }
+]

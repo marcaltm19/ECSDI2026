@@ -7,6 +7,7 @@ Ejecucion:
     python jp_cliente.py --jp 2        # JP2: prioridad urgente (mas rapido gana)
     python jp_cliente.py --jp 3        # JP3: sin transportistas (fallback)
     python jp_cliente.py --jp 5        # JP5: multiples pedidos simultaneos
+    python jp_cliente.py --jp 6        # JP6: pedido multi-centro (2 sub-envios)
 
 Requiere que start_demo.sh este corriendo.
 """
@@ -124,10 +125,26 @@ def jp5():
     print('Cada pedido debe haberse asignado a un transportista de forma independiente.')
 
 
+def jp6():
+    print('\n=== JP6: Pedido multi-centro — dos sub-envios ===')
+    print('Productos p001 (Madrid) y p002 (Barcelona) en un solo pedido.')
+    print('Espera a que el logistico procese; deben aparecer 2 envios en envios.json.\n')
+    enviar_pedido(
+        pedido_id='PED-JP6-001',
+        direccion='Barcelona',
+        prioridad='normal',
+        productos=[
+            {'id': 'p001', 'cantidad': 1, 'peso': 2.1},
+            {'id': 'p002', 'cantidad': 1, 'peso': 0.3},
+        ],
+    )
+    print('Revisa data/envios.json: dos envios con el mismo pedido_id y centros distintos.')
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Juegos de prueba ECSDI 2026')
-    parser.add_argument('--jp', type=int, required=True, choices=[1, 2, 3, 5],
-                        help='Numero del juego de prueba a ejecutar (1, 2, 3 o 5)')
+    parser.add_argument('--jp', type=int, required=True, choices=[1, 2, 3, 5, 6],
+                        help='Numero del juego de prueba (1, 2, 3, 5 o 6)')
     parser.add_argument('--host', default='localhost',
                         help='Host del AgenteLogistico (default: localhost)')
     parser.add_argument('--port', type=int, default=9003,
@@ -136,5 +153,5 @@ if __name__ == '__main__':
 
     LOGISTICO_URL = f'http://{args.host}:{args.port}/comm'
 
-    jp_map = {1: jp1, 2: jp2, 3: jp3, 5: jp5}
+    jp_map = {1: jp1, 2: jp2, 3: jp3, 5: jp5, 6: jp6}
     jp_map[args.jp]()

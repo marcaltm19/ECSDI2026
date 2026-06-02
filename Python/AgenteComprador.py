@@ -33,6 +33,7 @@ logger = config_logger(level=1)
 port = args.port
 hostname = socket.gethostname()
 hostaddr = os.environ.get('ECSDI_PUBLIC_HOST') or hostname
+flask_host = '0.0.0.0' if args.open else hostname
 dport = args.dport
 dhostname = os.environ.get('ECSDI_DHOST') or args.dhost or socket.gethostname()
 
@@ -214,6 +215,6 @@ if __name__ == '__main__':
     os.makedirs(os.path.join(os.path.dirname(__file__), 'data'), exist_ok=True)
     ab1 = Process(target=agentbehavior1, args=(cola1,))
     ab1.start()
-    app.run(host=hostname, port=port)
+    app.run(host=flask_host, port=port)
     ab1.join()
     logger.info('[Comprador] Fin')

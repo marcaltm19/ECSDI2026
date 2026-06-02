@@ -1,56 +1,52 @@
 {% extends 'usuario/base.html' %}
 {% block title %}Pedido confirmado{% endblock %}
 {% block content %}
-<div style="text-align:center; padding:40px 0 20px">
-  <div style="font-size:64px">✅</div>
-  <h1 style="font-size:28px; color:var(--accent); margin:16px 0 8px">¡Pedido confirmado!</h1>
-  <p class="text-muted">Tu pedido ha sido procesado correctamente por el sistema multiagente</p>
+<div class="page-header">
+  <h1>Pedido registrado</h1>
+  <p>El gestor de pedidos ha aceptado tu compra</p>
 </div>
 
-<div style="display:grid; grid-template-columns:1fr 1fr; gap:20px">
+<div class="alert alert-success">Tu pedido se ha tramitado correctamente.</div>
+
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:18px">
   <div class="card">
-    <div class="card-title">🧾 Datos de la factura</div>
+    <div class="card-title">Factura</div>
     <table>
-      <tr><th>Nº Factura</th><td><span class="badge badge-primary">{{ factura.id }}</span></td></tr>
+      <tr><th>Número</th><td><span class="badge badge-primary">{{ factura.id }}</span></td></tr>
       <tr><th>Comprador</th><td>{{ comprador }}</td></tr>
-      <tr><th>Total</th><td style="font-weight:800; color:var(--accent); font-size:18px">{{ '%.2f'|format(factura.total) }} €</td></tr>
-      <tr><th>Fecha</th><td>{{ factura.fecha[:19]|replace('T',' ') }}</td></tr>
+      <tr><th>Total</th><td class="fw-bold">{{ '%.2f'|format(factura.total) }} €</td></tr>
+      <tr><th>Fecha</th><td>{{ factura.fecha[:19]|replace('T', ' ') }}</td></tr>
     </table>
   </div>
-
   <div class="card">
-    <div class="card-title">📦 Productos</div>
+    <div class="card-title">Líneas</div>
     {% for item in items %}
     <div class="flex items-center" style="justify-content:space-between; padding:6px 0; border-bottom:1px solid var(--border)">
-      <span style="font-size:14px">{{ item.nombre }} x{{ item.cantidad }}</span>
-      <span class="fw-bold" style="color:var(--accent)">{{ '%.2f'|format(item.precio * item.cantidad) }} €</span>
+      <span class="text-sm">{{ item.nombre }} × {{ item.cantidad }}</span>
+      <span class="fw-bold">{{ '%.2f'|format(item.precio * item.cantidad) }} €</span>
     </div>
     {% endfor %}
   </div>
 </div>
 
 <div class="card">
-  <div class="card-title">🚚 Información de envío</div>
+  <div class="card-title">Envío</div>
   {% if envios %}
     {% for e in envios %}
-    <div style="background:var(--accent-light); border-radius:var(--radius-sm); padding:14px; margin-bottom:12px">
-      <div class="flex items-center gap-3" style="flex-wrap:wrap">
-        <span class="badge badge-success">{{ e.transportista }}</span>
-        <span class="text-sm">📍 Centro: <strong>{{ e.centro }}</strong></span>
-        <span class="text-sm">📅 Entrega estimada: <strong>{{ e.fecha }}</strong></span>
-      </div>
-      {% if e.productos %}
-      <div class="text-sm text-muted mt-2">Productos: {{ e.productos|join(', ') }}</div>
-      {% endif %}
+    <div class="envio-tag">
+      <strong>{{ e.transportista }}</strong>
+      — Centro: {{ e.centro }}
+      — Entrega estimada: {{ e.fecha[:10] if e.fecha else e.fecha }}
+      {% if e.productos %}<br><span class="text-muted text-sm">Productos: {{ e.productos|join(', ') }}</span>{% endif %}
     </div>
     {% endfor %}
   {% else %}
-  <div class="alert alert-info">ℹ️ Los detalles de envío serán notificados cuando el sistema logístico procese el pedido (puede tardar unos segundos).</div>
+  <p class="text-muted text-sm">El agente logístico está asignando transportista y fecha. Consulta el historial en unos segundos.</p>
   {% endif %}
 </div>
 
 <div class="flex gap-3">
-  <a href="/historial" class="btn btn-outline">📋 Ver historial</a>
-  <a href="/buscar" class="btn btn-success">🛍 Seguir comprando</a>
+  <a href="/historial" class="btn btn-outline">Ver mis pedidos</a>
+  <a href="/buscar" class="btn btn-primary">Seguir comprando</a>
 </div>
 {% endblock %}

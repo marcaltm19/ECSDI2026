@@ -7,7 +7,7 @@ import sys
 import time
 import uuid
 import threading
-from datetime import datetime
+from datetime import datetime, timedelta
 from multiprocessing import Queue
 
 from flask import Flask, request
@@ -38,6 +38,7 @@ logger = config_logger(level=1)
 port = args.port
 hostname = socket.gethostname()
 hostaddr = os.environ.get('ECSDI_PUBLIC_HOST') or hostname
+flask_host = '0.0.0.0' if args.open else hostname
 dport = args.dport
 dhostname = os.environ.get('ECSDI_DHOST') or args.dhost or socket.gethostname()
 
@@ -48,9 +49,12 @@ if not args.verbose:
 agn = Namespace('http://www.agentes.org#')
 mss_cnt = 0
 
-DATA_DIR         = os.path.join(os.path.dirname(__file__), 'data')
+DATA_DIR          = os.path.join(os.path.dirname(__file__), 'data')
 VALORACIONES_PATH = os.path.join(DATA_DIR, 'valoraciones.json')
-HISTORIAL_PATH   = os.path.join(DATA_DIR, 'historial_compras.json')
+HISTORIAL_PATH    = os.path.join(DATA_DIR, 'historial_compras.json')
+BUSQUEDAS_PATH    = os.path.join(DATA_DIR, 'historial_busquedas.json')
+PRODUCTOS_PATH    = os.path.join(DATA_DIR, 'productos.json')
+PRODUCTOS_EXT_PATH = os.path.join(DATA_DIR, 'productos_externos.json')
 
 ExperienciaAgent = Agent(
     'AgenteExperiencia',
@@ -119,15 +123,38 @@ def calcular_media(lista):
     return sum(v['puntuacion'] for v in lista) / len(lista)
 
 
-def guardar_valoracion(comprador, producto_id, nombre_producto, puntuacion, comentario):
+def _pedido_key(pedido_id):
+    return (pedido_id or '').strip().upper()
+
+
+def ya_valorado_en_pedido(comprador, producto_id, pedido_id, valoraciones=None):
+    """Un comprador puede valorar el mismo producto en pedidos distintos, una vez por pedido."""
+    comprador_norm = (comprador or '').strip().lower()
+    if not comprador_norm:
+        return False
+    if valoraciones is None:
+        valoraciones = _load_json(VALORACIONES_PATH, {})
+    pk = _pedido_key(pedido_id)
+    for v in valoraciones.get(producto_id, {}).get('valoraciones', []):
+        if (v.get('comprador') or '').strip().lower() != comprador_norm:
+            continue
+        if _pedido_key(v.get('pedido_id')) == pk:
+            return True
+    return False
+
+
+def guardar_valoracion(comprador, producto_id, nombre_producto, puntuacion, comentario, pedido_id=''):
     if not (1 <= int(puntuacion) <= 5):
         raise ValueError(f'Puntuacion invalida: {puntuacion}. Debe ser 1-5.')
     valoraciones = _load_json(VALORACIONES_PATH, {})
+    if ya_valorado_en_pedido(comprador, producto_id, pedido_id, valoraciones):
+        raise ValueError('ya_valorado_pedido')
     if producto_id not in valoraciones:
         valoraciones[producto_id] = {'nombre': nombre_producto, 'valoraciones': []}
     entrada = {
         'id':         'VAL-' + str(uuid.uuid4())[:8].upper(),
         'comprador':  comprador,
+        'pedido_id':  _pedido_key(pedido_id),
         'puntuacion': int(puntuacion),
         'comentario': comentario,
         'fecha':      datetime.now().isoformat(),
@@ -137,7 +164,8 @@ def guardar_valoracion(comprador, producto_id, nombre_producto, puntuacion, come
     media = calcular_media(valoraciones[producto_id]['valoraciones'])
     logger.info(
         f'[Experiencia] Valoracion {entrada["id"]} guardada -- '
-        f'Producto: {nombre_producto} | Puntuacion: {puntuacion}/5 | Media: {media:.2f}'
+        f'Pedido: {entrada["pedido_id"]} | Producto: {nombre_producto} | '
+        f'Puntuacion: {puntuacion}/5 | Media: {media:.2f}'
     )
     return entrada
 
@@ -161,6 +189,7 @@ def obtener_valoraciones_producto(producto_id):
 # Historial de compras
 # ---------------------------------------------------------------------------
 
+# (timestamp, comprador, pedido_id, producto_id, nombre)
 feedback_tasks = []
 
 
@@ -204,9 +233,70 @@ def registrar_compra(comprador, pedido_id, productos, total, fecha=None):
         f'[Experiencia] Historial actualizado -- '
         f'Comprador: {comprador} | Pedido: {pedido_id} | Total: {total}EUR'
     )
-    # Enqueue a feedback task for 10 seconds from now
-    feedback_tasks.append((time.time() + 10, comprador, productos))
     return entrada
+
+
+def _momento_feedback_tras_entrega(fecha_entrega_str):
+    """Programa feedback un día después de la fecha prevista de entrega."""
+    try:
+        fecha_ent = datetime.strptime(str(fecha_entrega_str)[:10], '%Y-%m-%d')
+        trigger = fecha_ent + timedelta(days=1)
+        ts = trigger.timestamp()
+        if ts <= time.time():
+            return time.time() + 5
+        # En demo: si la entrega es lejana, solicitar feedback en ~45s tras asignar envío
+        max_demo = time.time() + 45
+        return min(ts, max_demo)
+    except (ValueError, TypeError):
+        return time.time() + 10
+
+
+def programar_feedback_tras_entrega(comprador, pedido_id, sub_envios, productos):
+    """Encola solicitudes de feedback por producto tras la fecha de entrega prevista."""
+    if not productos:
+        return
+    fechas_envio = [
+        e.get('fecha') or e.get('fecha_prevista', '')
+        for e in (sub_envios or [])
+        if e.get('fecha') or e.get('fecha_prevista')
+    ]
+    fecha_ref = max(fechas_envio) if fechas_envio else ''
+    trigger = _momento_feedback_tras_entrega(fecha_ref)
+    for p in productos:
+        pid = p.get('id') or p.get('producto_id', '')
+        if not pid:
+            continue
+        clave = (comprador.strip().lower(), pedido_id, pid)
+        feedback_tasks[:] = [
+            t for t in feedback_tasks
+            if (t[1].strip().lower(), t[2], t[3]) != clave
+        ]
+        feedback_tasks.append((
+            trigger,
+            comprador,
+            pedido_id,
+            pid,
+            p.get('nombre', pid),
+        ))
+    logger.info(
+        f'[Experiencia] Feedback programado para {comprador} pedido {pedido_id} '
+        f'({len(productos)} producto/s, trigger en {int(trigger - time.time())}s)'
+    )
+
+
+def registrar_busqueda(comprador, categoria='', precio_max=None, valoracion_min=None):
+    historial = _load_json(BUSQUEDAS_PATH, {})
+    comprador = (comprador or 'Anonimo').strip()
+    if comprador not in historial:
+        historial[comprador] = []
+    entrada = {
+        'fecha': datetime.now().isoformat(),
+        'categoria': (categoria or '').strip(),
+        'precio_max': precio_max,
+        'valoracion_min': valoracion_min,
+    }
+    historial[comprador].append(entrada)
+    _save_json(BUSQUEDAS_PATH, historial)
 
 
 def obtener_historial(comprador):
@@ -218,62 +308,166 @@ def obtener_historial(comprador):
 # Recomendaciones proactivas
 # ---------------------------------------------------------------------------
 
+def _cargar_catalogo():
+    catalogo = []
+    for path in (PRODUCTOS_PATH, PRODUCTOS_EXT_PATH):
+        if os.path.exists(path):
+            try:
+                with open(path) as f:
+                    catalogo.extend(json.load(f))
+            except (json.JSONDecodeError, ValueError):
+                pass
+    return catalogo
+
+
+def _compras_del_comprador(historial, comprador):
+    comprador_norm = (comprador or '').strip().lower()
+    ids = set()
+    for nombre, pedidos in historial.items():
+        if nombre.strip().lower() != comprador_norm:
+            continue
+        for pedido in pedidos:
+            for p in pedido.get('productos', []):
+                if p.get('id'):
+                    ids.add(p['id'])
+    return ids
+
+
 def calcular_recomendaciones(comprador):
     """
-    Estrategia 1 -- mejor valorados que el comprador NO ha comprado (media >= 3.5)
-    Estrategia 2 -- mas populares entre otros compradores
+    Estrategia 1 -- valoraciones de usuarios (media >= 3.5), no comprados
+    Estrategia 2 -- populares entre otros compradores del historial
+    Estrategia 3 -- bien valorados en el catalogo (campo valoracion), no comprados
+    Estrategia 4 -- misma categoria que productos ya comprados, no comprados
+    Estrategia 5 -- categorias buscadas recientemente por el comprador
     Devuelve hasta 5 productos con {id, nombre, media, razon}.
     """
     historial    = _load_json(HISTORIAL_PATH, {})
+    busquedas_h  = _load_json(BUSQUEDAS_PATH, {})
     valoraciones = _load_json(VALORACIONES_PATH, {})
+    catalogo     = _cargar_catalogo()
+    por_id       = {p['id']: p for p in catalogo if p.get('id')}
 
-    compras_propias = {
-        p['id']
-        for pedido in historial.get(comprador, [])
-        for p in pedido.get('productos', [])
-    }
+    compras_propias = _compras_del_comprador(historial, comprador)
+    comprador_norm = (comprador or '').strip().lower()
+    tiene_busquedas = any(
+        nombre.strip().lower() == comprador_norm for nombre in busquedas_h
+    )
+    if not compras_propias and not tiene_busquedas:
+        logger.info(f'[Experiencia] Sin historial para {comprador!r}')
+        return []
 
-    # Estrategia 1: mejor valorados
+    # Estrategia 1: valoraciones de la comunidad
     por_valoracion = []
     for prod_id, datos in valoraciones.items():
         if prod_id in compras_propias:
             continue
         media = calcular_media(datos.get('valoraciones', []))
+        # Solo valoraciones positivas influyen en recomendaciones a otros usuarios
         if media >= 3.5:
             por_valoracion.append({
-                'id':    prod_id,
+                'id':     prod_id,
                 'nombre': datos.get('nombre', prod_id),
                 'media':  round(media, 2),
-                'razon':  f'Valoracion media de {round(media, 2)}/5',
+                'razon':  f'Bien valorado por la comunidad ({round(media, 2)}/5)',
             })
     por_valoracion.sort(key=lambda x: x['media'], reverse=True)
 
-    # Estrategia 2: mas populares entre otros compradores
+    # Estrategia 2: populares entre otros compradores
     contador = {}
+    comprador_norm = (comprador or '').strip().lower()
     for otro, pedidos in historial.items():
-        if otro == comprador:
+        if otro.strip().lower() == comprador_norm:
             continue
         for pedido in pedidos:
             for p in pedido.get('productos', []):
                 pid = p['id']
-                if pid not in compras_propias:
+                if pid and pid not in compras_propias:
                     if pid not in contador:
                         contador[pid] = {'nombre': p.get('nombre', pid), 'veces': 0}
                     contador[pid]['veces'] += 1
 
     por_popularidad = [
         {
-            'id':    pid,
+            'id':     pid,
             'nombre': datos['nombre'],
-            'media':  obtener_valoraciones_producto(pid)['media'],
+            'media':  obtener_valoraciones_producto(pid)['media']
+                      or float(por_id.get(pid, {}).get('valoracion', 0)),
             'razon':  f'Comprado {datos["veces"]} vez/veces por otros usuarios',
         }
         for pid, datos in sorted(contador.items(), key=lambda x: x[1]['veces'], reverse=True)
     ]
 
+    # Estrategia 3: catalogo (util cuando solo hay un comprador o pocas valoraciones)
+    por_catalogo = []
+    for p in catalogo:
+        pid = p.get('id')
+        if not pid or pid in compras_propias:
+            continue
+        nota = float(p.get('valoracion', 0))
+        if nota >= 3.5:
+            por_catalogo.append({
+                'id':     pid,
+                'nombre': p.get('nombre', pid),
+                'media':  round(nota, 2),
+                'razon':  f'Valoracion en catalogo: {nota}/5',
+            })
+    por_catalogo.sort(key=lambda x: x['media'], reverse=True)
+
+    # Estrategia 4: afinidad por categorias compradas
+    categorias_compradas = set()
+    for pid in compras_propias:
+        cat = (por_id.get(pid, {}).get('categoria') or '').strip()
+        if cat:
+            categorias_compradas.add(cat.lower())
+
+    por_categoria = []
+    for p in catalogo:
+        pid = p.get('id')
+        cat = (p.get('categoria') or '').strip()
+        if not pid or pid in compras_propias or not cat:
+            continue
+        if cat.lower() not in categorias_compradas:
+            continue
+        nota = float(p.get('valoracion', 0))
+        por_categoria.append({
+            'id':     pid,
+            'nombre': p.get('nombre', pid),
+            'media':  round(nota, 2),
+            'razon':  f'Tambien te puede interesar en {cat}',
+        })
+    por_categoria.sort(key=lambda x: x['media'], reverse=True)
+
+    # Estrategia 5: categorias de busquedas del comprador
+    cats_buscadas = set()
+    for nombre, lista in busquedas_h.items():
+        if nombre.strip().lower() != comprador_norm:
+            continue
+        for b in lista:
+            cat = (b.get('categoria') or '').strip()
+            if cat:
+                cats_buscadas.add(cat.lower())
+
+    por_busqueda = []
+    for p in catalogo:
+        pid = p.get('id')
+        cat = (p.get('categoria') or '').strip()
+        if not pid or pid in compras_propias or not cat:
+            continue
+        if cat.lower() not in cats_buscadas:
+            continue
+        nota = float(p.get('valoracion', 0))
+        por_busqueda.append({
+            'id':     pid,
+            'nombre': p.get('nombre', pid),
+            'media':  round(nota, 2),
+            'razon':  f'Basado en tus busquedas en {cat}',
+        })
+    por_busqueda.sort(key=lambda x: x['media'], reverse=True)
+
     # Combinar sin duplicados
     vistos, resultado = set(), []
-    for item in por_valoracion + por_popularidad:
+    for item in por_valoracion + por_popularidad + por_catalogo + por_categoria + por_busqueda:
         if item['id'] not in vistos:
             vistos.add(item['id'])
             resultado.append(item)
@@ -305,6 +499,8 @@ def build_respuesta_valoraciones(producto_id, datos):
         gr.add((node, ECSNS.tieneValoracion, vn))
         gr.add((vn,   ECSNS.idValoracion,    Literal(v['id'])))
         gr.add((vn,   ECSNS.comprador,       Literal(v['comprador'])))
+        if v.get('pedido_id'):
+            gr.add((vn, ECSNS.idPedido, Literal(v['pedido_id'])))
         gr.add((vn,   ECSNS.puntuacion,      Literal(v['puntuacion'])))
         gr.add((vn,   ECSNS.comentario,      Literal(v['comentario'])))
         gr.add((vn,   ECSNS.fecha,           Literal(v['fecha'])))
@@ -383,12 +579,14 @@ def comunicacion():
     if perf == ACL.request and accion == ECSNS.NuevaValoracion:
         comprador   = str(gm.value(content, ECSNS.comprador)  or 'Anonimo')
         producto_id = str(gm.value(content, ECSNS.idProducto) or '')
+        pedido_id   = str(gm.value(content, ECSNS.idPedido)   or '')
         nombre_prod = str(gm.value(content, ECSNS.nombre)     or producto_id)
         puntuacion  = int(gm.value(content, ECSNS.puntuacion) or 3)
         comentario  = str(gm.value(content, ECSNS.comentario) or '')
         try:
-            entrada = guardar_valoracion(comprador, producto_id, nombre_prod,
-                                         puntuacion, comentario)
+            entrada = guardar_valoracion(
+                comprador, producto_id, nombre_prod, puntuacion, comentario, pedido_id
+            )
             resp_gr = Graph()
             resp_gr.bind('ecsns', ECSNS)
             ok_node = ECSNS['val-ok-' + entrada['id']]
@@ -398,7 +596,12 @@ def comunicacion():
                                sender=ExperienciaAgent.uri,
                                receiver=msgdic['sender'],
                                content=ok_node, msgcnt=mss_cnt)
-        except ValueError:
+        except ValueError as e:
+            if str(e) == 'ya_valorado_pedido':
+                logger.info(
+                    f'[Experiencia] Valoracion duplicada rechazada -- '
+                    f'{comprador} ya valoro {producto_id} en pedido {pedido_id}'
+                )
             gr = build_message(Graph(), ACL['not-understood'],
                                sender=ExperienciaAgent.uri, msgcnt=mss_cnt)
 
@@ -427,6 +630,39 @@ def comunicacion():
                 'cantidad': int(gm.value(pn, ECSNS.cantidad)   or 1),
             })
         registrar_compra(comprador, pedido_id, productos, total, fecha)
+        gr = build_message(Graph(), ACL.inform,
+                           sender=ExperienciaAgent.uri,
+                           receiver=msgdic['sender'],
+                           msgcnt=mss_cnt)
+
+    elif perf == ACL.inform and accion == ECSNS.EnviosAsignados:
+        comprador = str(gm.value(content, ECSNS.comprador) or 'Anonimo')
+        pedido_id = str(gm.value(content, ECSNS.idPedido) or '')
+        sub_envios = []
+        for en in gm.objects(content, ECSNS.tieneSubEnvio):
+            sub_envios.append({
+                'fecha': str(gm.value(en, ECSNS.tieneFechaEntrega) or ''),
+            })
+        productos = []
+        for pn in gm.objects(content, ECSNS.tieneProducto):
+            productos.append({
+                'id':     str(gm.value(pn, ECSNS.idProducto) or ''),
+                'nombre': str(gm.value(pn, ECSNS.nombre)     or ''),
+            })
+        programar_feedback_tras_entrega(comprador, pedido_id, sub_envios, productos)
+        gr = build_message(Graph(), ACL.inform,
+                           sender=ExperienciaAgent.uri,
+                           receiver=msgdic['sender'],
+                           msgcnt=mss_cnt)
+
+    elif perf == ACL.inform and accion == ECSNS.RegistroBusqueda:
+        comprador = str(gm.value(content, ECSNS.comprador) or 'Anonimo')
+        categoria = str(gm.value(content, ECSNS.categoria) or '')
+        pm = gm.value(content, ECSNS.precioMaximo)
+        vm = gm.value(content, ECSNS.valoracionMinima)
+        precio_max = float(pm) if pm is not None else None
+        val_min = float(vm) if vm is not None else None
+        registrar_busqueda(comprador, categoria, precio_max, val_min)
         gr = build_message(Graph(), ACL.inform,
                            sender=ExperienciaAgent.uri,
                            receiver=msgdic['sender'],
@@ -479,36 +715,35 @@ def agentbehavior1(cola):
             
         now = time.time()
         
-        # 1. Feedback proactivo (10s después de la compra)
+        # 1. Feedback proactivo (tras fecha de entrega prevista)
         vencidos = [t for t in feedback_tasks if t[0] <= now]
-        feedback_tasks = [t for t in feedback_tasks if t[0] > now]
-        
+        feedback_tasks[:] = [t for t in feedback_tasks if t[0] > now]
+
         if vencidos:
             user_addr = obtener_address_usuario()
             if user_addr:
-                for _, comprador, productos in vencidos:
-                    for p in productos:
-                        pid = p['id']
-                        pnombre = p.get('nombre', pid)
-                        logger.info(f'[Experiencia] Enviando SolicitudFeedback proactiva a {user_addr} para {comprador} sobre {pnombre}')
-                        
-                        gmess = Graph()
-                        gmess.bind('ecsns', ECSNS)
-                        req = ECSNS[f'sol-feed-{uuid.uuid4()}']
-                        gmess.add((req, RDF.type,          ECSNS.SolicitudFeedback))
-                        gmess.add((req, ECSNS.comprador,   Literal(comprador)))
-                        gmess.add((req, ECSNS.idProducto,  Literal(pid)))
-                        gmess.add((req, ECSNS.nombre,      Literal(pnombre)))
-                        
-                        try:
-                            send_message(
-                                build_message(gmess, perf=ACL.request, sender=ExperienciaAgent.uri,
-                                              receiver=agn.AgenteUsuario, content=req, msgcnt=mss_cnt),
-                                user_addr
-                            )
-                            mss_cnt += 1
-                        except Exception as e:
-                            logger.warning(f'[Experiencia] Fallo al enviar feedback proactivo: {e}')
+                for _, comprador, pedido_id, pid, pnombre in vencidos:
+                    logger.info(
+                        f'[Experiencia] SolicitudFeedback a {user_addr} -- '
+                        f'{comprador} / {pedido_id} / {pnombre}'
+                    )
+                    gmess = Graph()
+                    gmess.bind('ecsns', ECSNS)
+                    req = ECSNS[f'sol-feed-{uuid.uuid4()}']
+                    gmess.add((req, RDF.type,          ECSNS.SolicitudFeedback))
+                    gmess.add((req, ECSNS.comprador,   Literal(comprador)))
+                    gmess.add((req, ECSNS.idPedido,    Literal(pedido_id)))
+                    gmess.add((req, ECSNS.idProducto,  Literal(pid)))
+                    gmess.add((req, ECSNS.nombre,      Literal(pnombre)))
+                    try:
+                        send_message(
+                            build_message(gmess, perf=ACL.request, sender=ExperienciaAgent.uri,
+                                          receiver=agn.AgenteUsuario, content=req, msgcnt=mss_cnt),
+                            user_addr
+                        )
+                        mss_cnt += 1
+                    except Exception as e:
+                        logger.warning(f'[Experiencia] Fallo al enviar feedback proactivo: {e}')
                             
         # 2. Recomendaciones proactivas periódicas (cada 30s)
         if now - last_rec_time >= 30:
@@ -551,5 +786,5 @@ if __name__ == '__main__':
     ab1 = threading.Thread(target=agentbehavior1, args=(cola1,))
     ab1.daemon = True
     ab1.start()
-    app.run(host=hostname, port=port)
+    app.run(host=flask_host, port=port)
     logger.info('[Experiencia] Fin')

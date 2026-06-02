@@ -202,8 +202,9 @@ def realizar_pedido_externo(vendedor_addr, vendedor_nombre, pedido_id, comprador
     return {'exito': False}
 
 
-def generar_factura(productos, comprador, direccion, metodo_pago, envios_vendedor=None):
-    factura_id = 'FAC-' + str(uuid.uuid4())[:8].upper()
+def generar_factura(productos, comprador, direccion, metodo_pago, envios_vendedor=None, factura_id=None):
+    if factura_id is None:
+        factura_id = 'FAC-' + str(uuid.uuid4())[:8].upper()
     total = sum(p['precio'] * p.get('cantidad', 1) for p in productos)
     factura = {
         'id':          factura_id,
@@ -213,7 +214,8 @@ def generar_factura(productos, comprador, direccion, metodo_pago, envios_vendedo
         'total':       round(total, 2),
         'direccion':   direccion,
         'metodo_pago': metodo_pago,
-        'envios_vendedor': envios_vendedor or []
+        'envios_vendedor': envios_vendedor or [],
+        'envios_logistico': [],
     }
     if os.path.exists(FACTURAS_PATH):
         with open(FACTURAS_PATH) as f:
@@ -255,6 +257,25 @@ def guardar_pedido(pedido_id, comprador, productos, sub_envios):
         pedidos.append(registro)
     with open(PEDIDOS_PATH, 'w') as f:
         json.dump(pedidos, f, indent=2)
+
+
+def actualizar_factura_envios_logistico(factura_id, sub_envios):
+    """Persiste los envíos logísticos en facturas.json para que la UI los muestre al refrescar."""
+    if not os.path.exists(FACTURAS_PATH):
+        return
+    try:
+        with open(FACTURAS_PATH) as f:
+            facturas = json.load(f)
+    except (json.JSONDecodeError, ValueError):
+        return
+    for factura in facturas:
+        if factura.get('id') == factura_id:
+            factura['envios_logistico'] = sub_envios
+            break
+    else:
+        return
+    with open(FACTURAS_PATH, 'w') as f:
+        json.dump(facturas, f, indent=2)
 
 
 def notificar_logistico(pedido):
@@ -320,6 +341,54 @@ def notificar_experiencia_compra(comprador, factura, productos):
     )
     mss_cnt += 1
     logger.info(f'[GestorPedidos] AgenteExperiencia notificado -- comprador: {comprador}')
+
+
+def notificar_experiencia_envios(comprador, pedido_id, sub_envios, productos):
+    """Programa feedback proactivo tras las fechas de entrega asignadas."""
+    global mss_cnt, experiencia_address
+    if not productos:
+        return
+    if experiencia_address is None:
+        experiencia_address = get_agent_address(ECSNS['Ag.Experiencia'])
+    if experiencia_address is None:
+        logger.warning('[GestorPedidos] AgenteExperiencia no encontrado para envíos')
+        return
+    gmess = Graph()
+    gmess.bind('ecsns', ECSNS)
+    node = ECSNS['envios-' + pedido_id]
+    gmess.add((node, RDF.type,        ECSNS.EnviosAsignados))
+    gmess.add((node, ECSNS.comprador, Literal(comprador)))
+    gmess.add((node, ECSNS.idPedido,  Literal(pedido_id)))
+    for i, envio in enumerate(sub_envios):
+        en = ECSNS[f'env-sub-{pedido_id}-{i}']
+        gmess.add((node, ECSNS.tieneSubEnvio, en))
+        gmess.add((en, ECSNS.tieneFechaEntrega, Literal(envio.get('fecha', ''))))
+    for i, p in enumerate(productos):
+        pn = ECSNS[f'env-prod-{pedido_id}-{i}']
+        gmess.add((node, ECSNS.tieneProducto, pn))
+        gmess.add((pn, ECSNS.idProducto, Literal(p.get('id', ''))))
+        gmess.add((pn, ECSNS.nombre,     Literal(p.get('nombre', ''))))
+    send_message(
+        build_message(gmess, perf=ACL.inform, sender=GestorAgent.uri,
+                      receiver=agn.AgenteExperiencia, content=node, msgcnt=mss_cnt),
+        experiencia_address,
+    )
+    mss_cnt += 1
+    logger.info(f'[GestorPedidos] Experiencia notificada envíos pedido {pedido_id}')
+
+
+def _productos_factura(pedido_id):
+    if not os.path.exists(FACTURAS_PATH):
+        return [], ''
+    try:
+        with open(FACTURAS_PATH) as f:
+            facturas = json.load(f)
+    except (json.JSONDecodeError, ValueError):
+        return [], ''
+    for factura in facturas:
+        if factura.get('id') == pedido_id:
+            return factura.get('productos', []), factura.get('comprador', '')
+    return [], ''
 
 
 def notificar_usuario_envios(pedido_id, sub_envios):
@@ -395,13 +464,14 @@ def procesar_compra(gm, content):
                 vendor_products[vname] = []
             vendor_products[vname].append(p)
 
-    pedido_id = 'PED-' + str(uuid.uuid4())[:8].upper()
+    # Mismo identificador para factura y pedido logístico (la UI muestra la factura)
+    factura_id = 'FAC-' + str(uuid.uuid4())[:8].upper()
     envios_vendedor = []
 
     # Pedidos gestionados por la tienda propia (via AgenteLogistico)
     if shop_products:
         shop_pedido = {
-            'id':        pedido_id,
+            'id':        factura_id,
             'productos': shop_products,
             'direccion': direccion,
             'prioridad': prioridad,
@@ -413,7 +483,7 @@ def procesar_compra(gm, content):
         vaddr = obtener_address_vendedor(vname)
         if vaddr:
             logger.info(f'[GestorPedidos] Contactando vendedor externo {vname} en {vaddr}...')
-            info_envio = realizar_pedido_externo(vaddr, vname, pedido_id, comprador, direccion, prioridad, vprods)
+            info_envio = realizar_pedido_externo(vaddr, vname, factura_id, comprador, direccion, prioridad, vprods)
             if info_envio['exito']:
                 envios_vendedor.append({
                     'vendedor': vname,
@@ -437,7 +507,7 @@ def procesar_compra(gm, content):
                 'fecha_prevista': (datetime.now() + timedelta(days=5)).strftime('%Y-%m-%d')
             })
 
-    factura = generar_factura(productos, comprador, direccion, metodo_pago, envios_vendedor)
+    factura = generar_factura(productos, comprador, direccion, metodo_pago, envios_vendedor, factura_id=factura_id)
     notificar_experiencia_compra(comprador, factura, productos)
 
     gr = Graph()
@@ -476,11 +546,14 @@ def procesar_resultado_envio(gm, content):
             f'Productos: {productos}'
         )
 
-    # Persistir en pedidos.json
-    guardar_pedido(pedido_id, comprador='', productos=[], sub_envios=sub_envios)
+    productos, comprador = _productos_factura(pedido_id)
 
-    # Notificar al AgenteUsuario (si esta disponible)
+    guardar_pedido(pedido_id, comprador=comprador, productos=productos, sub_envios=sub_envios)
+    actualizar_factura_envios_logistico(pedido_id, sub_envios)
+
     notificar_usuario_envios(pedido_id, sub_envios)
+    if comprador and productos:
+        notificar_experiencia_envios(comprador, pedido_id, sub_envios, productos)
 
     return sub_envios
 

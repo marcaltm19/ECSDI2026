@@ -2,59 +2,60 @@
 {% block title %}Tramitar pedido{% endblock %}
 {% block content %}
 <div class="page-header">
-  <h1>📦 Tramitar pedido</h1>
+  <h1>Datos del pedido</h1>
+  <p>Completa la entrega y confirma la compra</p>
 </div>
 
 {% if error %}
-<div class="alert alert-danger">⚠️ {{ error }}</div>
+<div class="alert alert-danger">{{ error }}</div>
 {% endif %}
 
-<div style="display:grid; grid-template-columns:1fr 340px; gap:24px; align-items:start">
+<div style="display:grid; grid-template-columns:1fr 320px; gap:20px; align-items:start">
   <div class="card">
-    <div class="card-title">Datos de entrega</div>
+    <div class="card-title">Entrega y pago</div>
     <form method="post" action="/pedido">
       <div class="form-group">
-        <label>Nombre del comprador *</label>
-        <input class="form-control" type="text" name="comprador" required placeholder="Tu nombre completo">
+        <label>Nombre del comprador</label>
+        <input class="form-control" type="text" name="comprador" required>
       </div>
       <div class="form-group">
-        <label>Dirección de entrega *</label>
-        <input class="form-control" type="text" name="direccion" required placeholder="Calle, número, ciudad, CP">
+        <label>Dirección de entrega</label>
+        <input class="form-control" type="text" name="direccion" required placeholder="Calle, número, ciudad, código postal">
       </div>
       <div class="form-group">
         <label>Prioridad de envío</label>
         <select class="form-control" name="prioridad">
-          <option value="normal">Normal (2-4 días)</option>
-          <option value="urgente">Urgente (1-2 días)</option>
-          <option value="economica">Económica (4-6 días)</option>
+          <option value="normal">Normal (2–4 días laborables)</option>
+          <option value="urgente">Urgente (1–2 días laborables)</option>
+          <option value="economica">Económica (4–6 días laborables)</option>
         </select>
       </div>
       <div class="form-group">
         <label>Método de pago</label>
         <select class="form-control" name="metodo_pago">
-          <option value="tarjeta">💳 Tarjeta de crédito/débito</option>
-          <option value="paypal">🅿 PayPal</option>
-          <option value="transferencia">🏦 Transferencia bancaria</option>
+          <option value="tarjeta">Tarjeta</option>
+          <option value="paypal">PayPal</option>
+          <option value="transferencia">Transferencia bancaria</option>
         </select>
       </div>
-      <button type="submit" class="btn btn-success btn-full">✅ Confirmar pedido</button>
+      <button type="submit" class="btn btn-success">Confirmar pedido</button>
     </form>
   </div>
 
   <div class="card">
-    <div class="card-title">Resumen del pedido</div>
+    <div class="card-title">Resumen</div>
     {% for item in carrito %}
-    <div class="flex items-center" style="justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--border)">
+    <div class="flex items-center" style="justify-content:space-between; padding:7px 0; border-bottom:1px solid var(--border)">
       <div>
-        <div style="font-weight:600; font-size:14px">{{ item.nombre }}</div>
-        <div class="text-muted text-sm">x{{ item.cantidad }}</div>
+        <div style="font-size:14px; font-weight:500">{{ item.nombre }}</div>
+        <div class="text-muted text-sm">Cantidad: {{ item.cantidad }}</div>
       </div>
-      <div style="font-weight:700; color:var(--accent)">{{ '%.2f'|format(item.precio * item.cantidad) }} €</div>
+      <div class="fw-bold">{{ '%.2f'|format(item.precio * item.cantidad) }} €</div>
     </div>
     {% endfor %}
     <div class="flex items-center mt-3" style="justify-content:space-between">
-      <span class="fw-bold">TOTAL</span>
-      <span style="font-size:20px; font-weight:800; color:var(--primary)">{{ '%.2f'|format(total) }} €</span>
+      <span class="fw-bold">Total</span>
+      <span style="font-size:18px; font-weight:700">{{ '%.2f'|format(total) }} €</span>
     </div>
   </div>
 </div>

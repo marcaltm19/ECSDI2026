@@ -37,9 +37,10 @@ args = parser.parse_args()
 logger = config_logger(level=1)
 port = args.port
 hostname = socket.gethostname()
-hostaddr = hostname if not args.open else '0.0.0.0'
+hostaddr = os.environ.get('ECSDI_PUBLIC_HOST') or hostname
+flask_host = '0.0.0.0' if args.open else hostname
 dport = args.dport
-dhostname = args.dhost if args.dhost else socket.gethostname()
+dhostname = os.environ.get('ECSDI_DHOST') or args.dhost or socket.gethostname()
 nombre_vendedor = args.nombre
 
 app = Flask(__name__)
@@ -310,6 +311,6 @@ if __name__ == '__main__':
         guardar_catalogo(CATALOGO_INICIAL)
     ab1 = Process(target=agentbehavior1, args=(cola1,))
     ab1.start()
-    app.run(host=hostname, port=port)
+    app.run(host=flask_host, port=port)
     ab1.join()
     logger.info(f'[{nombre_vendedor}] Fin')

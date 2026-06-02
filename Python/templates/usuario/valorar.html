@@ -1,58 +1,120 @@
 {% extends 'usuario/base.html' %}
-{% block title %}Valorar productos{% endblock %}
+{% block title %}Valoraciones{% endblock %}
 {% block content %}
 <div class="page-header">
-  <h1>⭐ Valorar productos</h1>
-  <p>Tu opinión ayuda a otros compradores y mejora las recomendaciones</p>
+  <h1>Valorar productos</h1>
+  <p>Opina sobre un producto concreto de uno de tus pedidos. Puedes valorar el mismo producto en pedidos distintos.</p>
 </div>
 
 {% if resultado %}
-<div class="alert alert-success">✅ {{ resultado }}</div>
+<div class="alert alert-success">{{ resultado }}</div>
 {% endif %}
 {% if error %}
-<div class="alert alert-danger">⚠️ {{ error }}</div>
+<div class="alert alert-danger">{{ error }}</div>
 {% endif %}
 
+{% if solicitudes_feedback %}
 <div class="card">
-  {% if productos %}
+  <div class="card-title">Solicitudes de valoración (agente de experiencia)</div>
+  <ul style="margin:0;padding-left:18px">
+    {% for s in solicitudes_feedback %}
+    <li style="margin-bottom:8px">
+      <strong>{{ s.nombre }}</strong>
+      {% if s.pedido_id %}<span class="text-muted text-sm"> — pedido {{ s.pedido_id }}</span>{% endif %}
+      <a href="{{ url_for('valorar', comprador=s.comprador, linea=s.pedido_id ~ '|' ~ s.producto_id) }}" class="btn btn-outline btn-sm" style="margin-left:8px">Valorar</a>
+    </li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+{% if not tiene_compras %}
+<div class="empty-state">
+  <h3>Sin compras registradas</h3>
+  <p>Solo puedes valorar productos que hayas comprado.</p>
+  <a href="/buscar" class="btn btn-primary mt-3">Ir al catálogo</a>
+</div>
+{% else %}
+
+<div class="card">
+  <div class="card-title">Tu nombre</div>
   <form method="post" action="/valorar">
-    <div class="form-grid">
+    <div class="form-group">
+      <label>Nombre del comprador (como en el pedido)</label>
+      <input class="form-control" type="text" name="comprador" value="{{ comprador }}" required>
+    </div>
+    <button type="submit" class="btn btn-outline">Cargar mis pedidos</button>
+  </form>
+</div>
+
+{% if comprador %}
+  {% if productos %}
+  <div class="card">
+    <div class="card-title">Pendientes de valorar</div>
+    <form method="post" action="/valorar">
+      <input type="hidden" name="comprador" value="{{ comprador }}">
       <div class="form-group">
-        <label>Tu nombre</label>
-        <input class="form-control" type="text" name="comprador" required placeholder="Nombre del comprador">
-      </div>
-      <div class="form-group">
-        <label>Producto</label>
-        <select class="form-control" name="producto_id">
-          {% for p in productos %}
-          <option value="{{ p.id }}">{{ p.nombre }} ({{ p.id }})</option>
+        <label>Pedido y producto</label>
+        <select class="form-control" name="linea_valoracion" required>
+          {% for l in productos %}
+          <option value="{{ l.factura_id }}|{{ l.producto_id }}"
+            {% if linea_preseleccionada == l.factura_id ~ '|' ~ l.producto_id %}selected{% endif %}>
+            {{ l.factura_id }} — {{ l.nombre }} ({{ l.fecha }})
+          </option>
           {% endfor %}
         </select>
       </div>
       <div class="form-group">
         <label>Puntuación</label>
         <select class="form-control" name="puntuacion">
-          <option value="5">⭐⭐⭐⭐⭐ Excelente</option>
-          <option value="4">⭐⭐⭐⭐ Muy bueno</option>
-          <option value="3" selected>⭐⭐⭐ Normal</option>
-          <option value="2">⭐⭐ Regular</option>
-          <option value="1">⭐ Malo</option>
+          <option value="5">5 — Excelente</option>
+          <option value="4">4 — Muy bueno</option>
+          <option value="3" selected>3 — Aceptable</option>
+          <option value="2">2 — Mejorable</option>
+          <option value="1">1 — Insatisfactorio</option>
         </select>
+        <p class="text-muted text-sm" style="margin-top:4px">Las valoraciones de 3,5 o más ayudan a recomendar el producto a otros usuarios.</p>
       </div>
-    </div>
-    <div class="form-group">
-      <label>Comentario (opcional)</label>
-      <textarea class="form-control" name="comentario" rows="3" placeholder="Cuéntanos tu experiencia..."></textarea>
-    </div>
-    <button type="submit" class="btn btn-primary">⭐ Enviar valoración</button>
-  </form>
-  {% else %}
-  <div class="empty-state">
-    <div class="icon">🛍</div>
-    <h3>Sin compras todavía</h3>
-    <p>Necesitas haber comprado productos para poder valorarlos</p>
-    <a href="/buscar" class="btn btn-primary">Buscar productos</a>
+      <div class="form-group">
+        <label>Comentario (opcional)</label>
+        <textarea class="form-control" name="comentario" rows="3"></textarea>
+      </div>
+      <button type="submit" class="btn btn-primary">Enviar valoración</button>
+    </form>
+  </div>
+  {% elif not productos_valorados %}
+  <div class="alert alert-warning">No hay pedidos en facturas para el nombre «{{ comprador }}».</div>
+  {% endif %}
+
+  {% if productos_valorados %}
+  <div class="card">
+    <div class="card-title">Ya valorados</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Pedido</th>
+          <th>Producto</th>
+          <th>Puntuación</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for l in productos_valorados %}
+        <tr>
+          <td><span class="badge badge-primary">{{ l.factura_id }}</span></td>
+          <td>{{ l.nombre }} <span class="text-muted text-sm">({{ l.producto_id }})</span></td>
+          <td><span class="badge badge-muted">{{ l.puntuacion_enviada }} / 5</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p class="text-muted text-sm mt-3">Cada línea solo puede valorarse una vez. Si compraste el mismo producto en otro pedido, aparecerá arriba como pendiente.</p>
   </div>
   {% endif %}
-</div>
+
+  {% if not productos and productos_valorados and not resultado %}
+  <div class="alert alert-info">Has valorado todos los productos de tus pedidos actuales.</div>
+  {% endif %}
+{% endif %}
+
+{% endif %}
 {% endblock %}

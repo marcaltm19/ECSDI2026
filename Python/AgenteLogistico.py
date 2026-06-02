@@ -496,6 +496,8 @@ def procesar_pedido(gm, content):
         names = [p.get('nombre', p['id']) for p in grupo['productos']]
         logger.info(f'  -> {grupo["centro"]["nombre"]}: {names}')
 
+    realizar_envios()
+
 
 @app.route('/stop')
 def stop():

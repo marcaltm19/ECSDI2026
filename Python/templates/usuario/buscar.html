@@ -1,9 +1,9 @@
 {% extends 'usuario/base.html' %}
-{% block title %}Buscar productos{% endblock %}
+{% block title %}Catálogo{% endblock %}
 {% block content %}
 <div class="page-header">
-  <h1>🔍 Buscar productos</h1>
-  <p>Filtra por nombre, categoría, precio o valoración</p>
+  <h1>Catálogo de productos</h1>
+  <p>Filtra por nombre, categoría, precio o valoración mínima</p>
 </div>
 
 <div class="card">
@@ -11,59 +11,58 @@
     <div class="form-grid">
       <div class="form-group">
         <label>Nombre</label>
-        <input class="form-control" type="text" name="nombre" value="{{ filtros.nombre }}" placeholder="ej: silla ergonómica">
+        <input class="form-control" type="text" name="nombre" value="{{ filtros.nombre }}" placeholder="Ej.: auriculares">
       </div>
       <div class="form-group">
         <label>Categoría</label>
-        <input class="form-control" type="text" name="categoria" value="{{ filtros.categoria }}" placeholder="ej: electronica">
+        <select class="form-control" name="categoria">
+          <option value="">— Todas —</option>
+          {% for cat in categorias %}
+          <option value="{{ cat }}" {% if filtros.categoria == cat %}selected{% endif %}>{{ cat }}</option>
+          {% endfor %}
+        </select>
       </div>
       <div class="form-group">
-        <label>Precio máx (€)</label>
-        <input class="form-control" type="number" name="precio_max" value="{{ filtros.precio_max }}" placeholder="ej: 200" min="0" step="0.01">
+        <label>Precio máximo (€)</label>
+        <input class="form-control" type="number" name="precio_max" value="{{ filtros.precio_max }}" min="0" step="0.01">
       </div>
       <div class="form-group">
-        <label>Valoración mín (1-5)</label>
-        <input class="form-control" type="number" name="val_min" value="{{ filtros.val_min }}" placeholder="ej: 3" min="0" max="5" step="0.1">
+        <label>Valoración mínima (1–5)</label>
+        <input class="form-control" type="number" name="val_min" value="{{ filtros.val_min }}" min="0" max="5" step="0.1">
       </div>
     </div>
-    <button type="submit" class="btn btn-primary">🔍 Buscar</button>
+    <button type="submit" class="btn btn-primary mt-3">Buscar</button>
   </form>
 </div>
 
 {% if error %}
-<div class="alert alert-danger">⚠️ {{ error }}</div>
+<div class="alert alert-danger">{{ error }}</div>
 {% endif %}
 
 {% if productos %}
-<p class="text-muted text-sm mb-4">{{ productos|length }} resultado(s) encontrado(s)</p>
+<p class="text-muted text-sm">{{ productos|length }} resultado(s)</p>
 <div class="grid-products">
   {% for p in productos %}
   <div class="prod-card">
     <span class="prod-cat">{{ p.categoria }}</span>
     <span class="prod-name">{{ p.nombre }}</span>
-    <div class="flex items-center gap-2">
-      <span class="prod-price">{{ '%.2f'|format(p.precio) }} €</span>
-    </div>
-    <span class="prod-stars">
-      {% for i in range(p.valoracion|int) %}⭐{% endfor %}
-      <span class="text-muted" style="font-size:12px">({{ '%.1f'|format(p.valoracion) }})</span>
-    </span>
+    <span class="prod-price">{{ '%.2f'|format(p.precio) }} €</span>
+    <span class="prod-rating">Valoración: {{ '%.1f'|format(p.valoracion) }} / 5</span>
     <span class="prod-vendor">Vendedor: {{ p.vendedor }}</span>
-    <form method="post" action="/carrito/anadir" style="margin-top:10px">
-      <input type="hidden" name="id"     value="{{ p.id }}">
+    <form method="post" action="/carrito/anadir" style="margin-top:8px">
+      <input type="hidden" name="id" value="{{ p.id }}">
       <input type="hidden" name="nombre" value="{{ p.nombre }}">
       <input type="hidden" name="precio" value="{{ p.precio }}">
-      <input type="hidden" name="peso"   value="{{ p.peso }}">
-      <button type="submit" class="btn btn-success btn-full">+ Añadir al carrito</button>
+      <input type="hidden" name="peso" value="{{ p.peso }}">
+      <button type="submit" class="btn btn-success btn-full">Añadir al carrito</button>
     </form>
   </div>
   {% endfor %}
 </div>
 {% elif filtros.nombre or filtros.categoria or filtros.precio_max or filtros.val_min %}
 <div class="empty-state">
-  <div class="icon">📦</div>
   <h3>Sin resultados</h3>
-  <p>No hay productos que coincidan con los filtros aplicados</p>
+  <p>Prueba con otros criterios de búsqueda.</p>
 </div>
 {% endif %}
 {% endblock %}

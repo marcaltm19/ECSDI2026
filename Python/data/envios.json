@@ -1,1 +1,14 @@
-[]
+[
+  {
+    "id": "ENV-346AAB88",
+    "pedido_id": "FAC-B1FF5E1D",
+    "centro_logistico": "Centro Barcelona",
+    "transportista": "EcoEnvios",
+    "fecha_prevista": "2026-06-04",
+    "productos": [
+      "p010",
+      "p002"
+    ],
+    "estado": "enviado"
+  }
+]

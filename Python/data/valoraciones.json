@@ -1,1 +1,28 @@
-{}
+{
+  "p010": {
+    "nombre": "Libro Python Avanzado",
+    "valoraciones": [
+      {
+        "id": "VAL-989388C1",
+        "comprador": "Marçal",
+        "pedido_id": "FAC-B1FF5E1D",
+        "puntuacion": 5,
+        "comentario": "",
+        "fecha": "2026-06-02T22:51:28.299366"
+      }
+    ]
+  },
+  "p002": {
+    "nombre": "Auriculares Bluetooth",
+    "valoraciones": [
+      {
+        "id": "VAL-106F728B",
+        "comprador": "Marçal",
+        "pedido_id": "FAC-B1FF5E1D",
+        "puntuacion": 1,
+        "comentario": "",
+        "fecha": "2026-06-02T22:51:32.197918"
+      }
+    ]
+  }
+}

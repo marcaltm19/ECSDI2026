@@ -148,6 +148,25 @@ python jp_cliente.py --jp 5
 
 ---
 
+## JP6 — Pedido multi-centro (dos sub-envíos)
+
+**Propósito:** Verificar que un pedido con productos de centros logísticos distintos genera varias negociaciones y el usuario recibe varios transportistas y fechas.
+
+**Entrada:**
+- 1 pedido con productos `p001` (centro Madrid) y `p002` (centro Barcelona).
+- 3 transportistas activos con filtrado por ciudad.
+
+**Salida esperada:**
+- En `data/envios.json`, dos registros con el mismo `pedido_id` y `centro_logistico` distinto.
+- En el historial de la UI, dos líneas de envío por factura.
+
+**Comando:**
+```bash
+python jp_cliente.py --jp 6
+```
+
+---
+
 ## Guía de ejecución rápida para la demo
 
 ```bash
@@ -172,6 +191,11 @@ bash stop_demo.sh
 
 ### Para JP4 (agente externo), desde el PC del otro grupo:
 ```bash
-# El otro grupo ejecuta su transportista apuntando a tu DS
-python AgenteTransportista.py --port 9013 --dhost <IP_PC1> --dport 9000 --nombre TransportistaExterno
+# Anfitrión: export ECSDI_PUBLIC_HOST=<IP_LAN> && bash start_demo.sh
+# Otro grupo:
+export PYTHONPATH="$(pwd)/..:$PYTHONPATH"
+python3 AgenteTransportista.py --port 9013 --dhost <IP_anfitrión> --dport 9000 \
+  --nombre TransportistaExterno --ciudad Madrid --open
 ```
+
+Guía completa: [Ontologias/INTEROPERABILIDAD_TRANSPORTE.md](Ontologias/INTEROPERABILIDAD_TRANSPORTE.md)

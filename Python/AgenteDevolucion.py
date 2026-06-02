@@ -6,7 +6,7 @@ import socket
 import sys
 import time
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from multiprocessing import Process, Queue
 
 from flask import Flask, request
@@ -36,9 +36,10 @@ args = parser.parse_args()
 logger = config_logger(level=1)
 port = args.port
 hostname = socket.gethostname()
-hostaddr = hostname if not args.open else '0.0.0.0'
+hostaddr = os.environ.get('ECSDI_PUBLIC_HOST') or hostname
+flask_host = '0.0.0.0' if args.open else hostname
 dport = args.dport
-dhostname = args.dhost if args.dhost else socket.gethostname()
+dhostname = os.environ.get('ECSDI_DHOST') or args.dhost or socket.gethostname()
 
 app = Flask(__name__)
 if not args.verbose:
@@ -99,6 +100,10 @@ def guardar_devoluciones(devs):
         json.dump(devs, f, indent=2)
 
 
+def _norm_comprador(nombre):
+    return (nombre or '').strip().casefold()
+
+
 def buscar_factura(factura_id):
     if not os.path.exists(FACTURAS_PATH):
         return None
@@ -108,6 +113,42 @@ def buscar_factura(factura_id):
         if fac['id'] == factura_id:
             return fac
     return None
+
+
+def factura_tiene_devolucion_aceptada(factura_id, devs=None):
+    if devs is None:
+        devs = cargar_devoluciones()
+    factura = buscar_factura(factura_id)
+    if factura and factura.get('devuelta'):
+        return True
+    return any(
+        d.get('factura_id') == factura_id and d.get('aceptada')
+        for d in devs
+    )
+
+
+def marcar_factura_devuelta(factura_id):
+    if not os.path.exists(FACTURAS_PATH):
+        return
+    with open(FACTURAS_PATH) as f:
+        facturas = json.load(f)
+    for fac in facturas:
+        if fac.get('id') == factura_id:
+            fac['devuelta'] = True
+            fac['fecha_devolucion'] = datetime.now().isoformat()
+            break
+    with open(FACTURAS_PATH, 'w') as f:
+        json.dump(facturas, f, indent=2)
+
+
+def _parse_fecha_recepcion(fecha_str):
+    """Interpreta YYYY-MM-DD (formulario) o ISO completo."""
+    s = (fecha_str or '').strip()
+    if not s:
+        raise ValueError('fecha vacía')
+    if 'T' in s:
+        return datetime.fromisoformat(s).replace(hour=0, minute=0, second=0, microsecond=0)
+    return datetime.combine(date.fromisoformat(s[:10]), datetime.min.time())
 
 
 def evaluar_devolucion(factura_id, razon, fecha_recepcion_str):
@@ -121,13 +162,18 @@ def evaluar_devolucion(factura_id, razon, fecha_recepcion_str):
         return True, 'Devolución aceptada: producto defectuoso o equivocado', 'MensajeriaRapida S.L.'
 
     try:
-        fecha_rec = datetime.fromisoformat(fecha_recepcion_str)
-        dias = (datetime.now() - fecha_rec).days
+        fecha_rec = _parse_fecha_recepcion(fecha_recepcion_str)
+        hoy = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        if fecha_rec > hoy:
+            return False, 'Devolución rechazada: la fecha de recepción no puede ser futura', None
+        dias = (hoy - fecha_rec).days
         if dias <= PLAZO_DIAS:
             return True, f'Devolución aceptada: dentro del plazo ({dias} días)', 'MensajeriaEstandar S.A.'
-        else:
-            return False, f'Devolución rechazada: fuera del plazo de {PLAZO_DIAS} días ({dias} días transcurridos)', None
-    except Exception:
+        return False, (
+            f'Devolución rechazada: fuera del plazo de {PLAZO_DIAS} días '
+            f'({dias} días desde la recepción)'
+        ), None
+    except (ValueError, TypeError):
         return False, 'Fecha de recepción inválida', None
 
 
@@ -137,7 +183,19 @@ def procesar_solicitud(gm, content):
     razon           = str(gm.value(content, ECSNS.razonDevolucion)  or 'insatisfaccion')
     fecha_recepcion = str(gm.value(content, ECSNS.fechaRecepcion)   or datetime.now().isoformat())
 
-    aceptada, motivo, empresa = evaluar_devolucion(factura_id, razon, fecha_recepcion)
+    factura = buscar_factura(factura_id)
+    if factura is None:
+        aceptada, motivo, empresa = False, 'Devolución rechazada: factura no encontrada', None
+    elif _norm_comprador(comprador) != _norm_comprador(factura.get('comprador', '')):
+        aceptada, motivo, empresa = (
+            False,
+            'Devolución rechazada: el comprador no coincide con el de la factura',
+            None,
+        )
+    elif factura_tiene_devolucion_aceptada(factura_id):
+        aceptada, motivo, empresa = False, 'Devolución rechazada: esta factura ya fue devuelta', None
+    else:
+        aceptada, motivo, empresa = evaluar_devolucion(factura_id, razon, fecha_recepcion)
 
     dev_id = 'DEV-' + str(uuid.uuid4())[:8].upper()
     devs   = cargar_devoluciones()
@@ -148,6 +206,8 @@ def procesar_solicitud(gm, content):
         'motivo': motivo, 'empresa_mensajeria': empresa,
     })
     guardar_devoluciones(devs)
+    if aceptada:
+        marcar_factura_devuelta(factura_id)
     logger.info(f'[Devolucion] {dev_id} — aceptada={aceptada} — {motivo}')
 
     gr = Graph()
@@ -236,6 +296,6 @@ if __name__ == '__main__':
     os.makedirs(os.path.join(os.path.dirname(__file__), 'data'), exist_ok=True)
     ab1 = Process(target=agentbehavior1, args=(cola1,))
     ab1.start()
-    app.run(host=hostname, port=port)
+    app.run(host=flask_host, port=port)
     ab1.join()
     logger.info('[Devolucion] Fin')

@@ -5,10 +5,10 @@ import os
 import socket
 import sys
 import time
-from datetime import datetime
+from datetime import date, datetime
 from multiprocessing import Process, Queue
 
-from flask import Flask, request, redirect, url_for, session, make_response
+from flask import Flask, request, redirect, url_for, session, render_template
 from rdflib import Graph, Literal, Namespace, URIRef
 from rdflib.namespace import FOAF, RDF
 import requests as http_requests
@@ -39,7 +39,7 @@ flask_host = '0.0.0.0' if args.open else hostname
 dport = args.dport
 dhostname = os.environ.get('ECSDI_DHOST') or args.dhost or socket.gethostname()
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder=os.path.join(os.path.dirname(__file__), 'templates'))
 app.secret_key = 'ecsdi2026-usuario-secret'
 if not args.verbose:
     logging.getLogger('werkzeug').setLevel(logging.ERROR)
@@ -50,9 +50,14 @@ mss_cnt = 0
 DATA_DIR      = os.path.join(os.path.dirname(__file__), 'data')
 FACTURAS_PATH = os.path.join(DATA_DIR, 'facturas.json')
 PEDIDOS_PATH  = os.path.join(DATA_DIR, 'pedidos.json')
+VALORACIONES_PATH = os.path.join(DATA_DIR, 'valoraciones.json')
+PRODUCTOS_PATH    = os.path.join(DATA_DIR, 'productos.json')
+PRODUCTOS_EXT_PATH = os.path.join(DATA_DIR, 'productos_externos.json')
+DEVOLUCIONES_PATH  = os.path.join(DATA_DIR, 'devoluciones.json')
 
 _envios_notificados = {}
 _recomendaciones    = []
+_solicitudes_feedback = []
 _addr_cache         = {}
 
 UsuarioAgent = Agent(
@@ -69,6 +74,88 @@ DirectoryAgent = Agent(
 )
 
 cola1 = Queue()
+
+
+@app.context_processor
+def inject_feedback_pendiente():
+    return {'solicitudes_feedback': list(_solicitudes_feedback)}
+
+
+def _comprador_sesion():
+    return (
+        session.get('comprador', '').strip()
+        or (session.get('ultimo_pedido') or {}).get('comprador', '').strip()
+    )
+
+
+def _registrar_busqueda_experiencia(comprador, categoria='', precio_max='', val_min=''):
+    global mss_cnt
+    comprador = (comprador or 'Anonimo').strip()
+    addr = get_agent_address('Ag.Experiencia')
+    if not addr:
+        return
+    gmess = Graph()
+    gmess.bind('ecsns', ECSNS)
+    node = ECSNS['busq-reg-' + str(mss_cnt)]
+    gmess.add((node, RDF.type, ECSNS.RegistroBusqueda))
+    gmess.add((node, ECSNS.comprador, Literal(comprador)))
+    if categoria.strip():
+        gmess.add((node, ECSNS.categoria, Literal(categoria.strip())))
+    if precio_max.strip():
+        try:
+            gmess.add((node, ECSNS.precioMaximo, Literal(float(precio_max.strip()))))
+        except ValueError:
+            pass
+    if val_min.strip():
+        try:
+            gmess.add((node, ECSNS.valoracionMinima, Literal(float(val_min.strip()))))
+        except ValueError:
+            pass
+    try:
+        send_message(
+            build_message(gmess, perf=ACL.inform, sender=UsuarioAgent.uri,
+                          receiver=agn.AgenteExperiencia, content=node, msgcnt=mss_cnt),
+            addr,
+        )
+        mss_cnt += 1
+    except Exception as e:
+        logger.warning(f'[Usuario] No se pudo registrar busqueda en Experiencia: {e}')
+
+
+def _añadir_solicitud_feedback(gm, content):
+    comprador = str(gm.value(content, ECSNS.comprador) or '').strip()
+    pedido_id = str(gm.value(content, ECSNS.idPedido) or '').strip()
+    producto_id = str(gm.value(content, ECSNS.idProducto) or '').strip()
+    nombre = str(gm.value(content, ECSNS.nombre) or producto_id)
+    if not comprador or not producto_id:
+        return
+    clave = (comprador.lower(), pedido_id, producto_id)
+    for s in _solicitudes_feedback:
+        if (s['comprador'].lower(), s.get('pedido_id', ''), s['producto_id']) == clave:
+            return
+    _solicitudes_feedback.append({
+        'comprador': comprador,
+        'pedido_id': pedido_id,
+        'producto_id': producto_id,
+        'nombre': nombre,
+        'linea': f'{pedido_id}|{producto_id}' if pedido_id else f'|{producto_id}',
+    })
+    logger.info(f'[Usuario] Feedback pendiente: {comprador} — {nombre} ({pedido_id})')
+
+
+def _quitar_solicitud_feedback(comprador, pedido_id, producto_id):
+    comprador_norm = (comprador or '').strip().lower()
+    pk = (pedido_id or '').strip()
+    pid = (producto_id or '').strip()
+    global _solicitudes_feedback
+    _solicitudes_feedback[:] = [
+        s for s in _solicitudes_feedback
+        if not (
+            s['comprador'].strip().lower() == comprador_norm
+            and s.get('pedido_id', '').strip() == pk
+            and s['producto_id'].strip() == pid
+        )
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -152,6 +239,201 @@ def load_json(path, default=None):
     return default
 
 
+def _catalogo_productos():
+    return load_json(PRODUCTOS_PATH, []) + load_json(PRODUCTOS_EXT_PATH, [])
+
+
+def listar_categorias():
+    cats = set()
+    for p in _catalogo_productos():
+        c = (p.get('categoria') or '').strip()
+        if c:
+            cats.add(c)
+    return sorted(cats, key=str.lower)
+
+
+def enriquecer_recomendacion(rec):
+    for p in _catalogo_productos():
+        if p.get('id') == rec.get('id'):
+            rec.setdefault('nombre', p.get('nombre', ''))
+            rec.setdefault('precio', float(p.get('precio', 0)))
+            rec.setdefault('categoria', p.get('categoria', ''))
+            break
+    return rec
+
+
+def _registrar_recomendaciones(nuevas):
+    global _recomendaciones
+    for rec in nuevas:
+        rec = enriquecer_recomendacion(dict(rec))
+        if not rec.get('id'):
+            continue
+        if not any(r['id'] == rec['id'] for r in _recomendaciones):
+            _recomendaciones.append(rec)
+
+
+def _parsear_recomendaciones_grafo(gm, content):
+    recs = []
+    for pn in gm.objects(content, ECSNS.tieneRecomendacion):
+        rec = {
+            'id':     str(gm.value(pn, ECSNS.idProducto) or ''),
+            'nombre': str(gm.value(pn, ECSNS.nombre) or ''),
+            'media':  float(gm.value(pn, ECSNS.mediaValoracion) or 0),
+            'razon':  str(gm.value(pn, ECSNS.razonRecomendacion) or ''),
+        }
+        if rec['id']:
+            recs.append(rec)
+    return recs
+
+
+def solicitar_recomendaciones(comprador):
+    global mss_cnt
+    addr = get_agent_address('Ag.Experiencia')
+    if not addr:
+        return [], 'AgenteExperiencia no disponible'
+    gmess = Graph()
+    gmess.bind('ecsns', ECSNS)
+    req = ECSNS['recs-req-' + str(mss_cnt)]
+    gmess.add((req, RDF.type, ECSNS.PedirRecomendaciones))
+    gmess.add((req, ECSNS.comprador, Literal(comprador)))
+    try:
+        gr_resp = send_message(
+            build_message(gmess, perf=ACL.request, sender=UsuarioAgent.uri,
+                          receiver=agn.AgenteExperiencia, content=req, msgcnt=mss_cnt),
+            addr,
+        )
+        mss_cnt += 1
+        msgdic = get_message_properties(gr_resp)
+        content = msgdic.get('content') if msgdic else None
+        if content is None:
+            return [], 'Sin respuesta del agente de experiencia'
+        recs = _parsear_recomendaciones_grafo(gr_resp, content)
+        _registrar_recomendaciones(recs)
+        return recs, None
+    except Exception as e:
+        mss_cnt += 1
+        return [], f'Error: {e}'
+
+
+def _num_carrito():
+    return len(session.get('carrito', []))
+
+
+def _norm_comprador(nombre):
+    return (nombre or '').strip().casefold()
+
+
+def ids_facturas_devueltas():
+    """Facturas con devolución aceptada (flag en factura o registro en devoluciones.json)."""
+    ids = set()
+    for f in load_json(FACTURAS_PATH):
+        if f.get('devuelta'):
+            ids.add(f.get('id'))
+    for d in load_json(DEVOLUCIONES_PATH):
+        if d.get('aceptada') and d.get('factura_id'):
+            ids.add(d['factura_id'])
+    return ids
+
+
+def buscar_factura_local(factura_id):
+    for f in load_json(FACTURAS_PATH):
+        if f.get('id') == factura_id:
+            return f
+    return None
+
+
+def facturas_para_vista(solo_comprador=None, excluir_devueltas=True):
+    """Facturas con envíos logísticos fusionados (memoria, pedidos.json o facturas.json)."""
+    devueltas = ids_facturas_devueltas() if excluir_devueltas else set()
+    comprador_norm = _norm_comprador(solo_comprador) if solo_comprador else None
+    facturas = load_json(FACTURAS_PATH)
+    pedidos_map = {p['id']: p for p in load_json(PEDIDOS_PATH)}
+    resultado = []
+    for f in facturas:
+        fid = f.get('id', '')
+        if excluir_devueltas and fid in devueltas:
+            continue
+        if comprador_norm and _norm_comprador(f.get('comprador')) != comprador_norm:
+            continue
+        if not f.get('envios_logistico'):
+            envios = _envios_notificados.get(fid)
+            if not envios:
+                envios = pedidos_map.get(fid, {}).get('envios', [])
+            f['envios_logistico'] = envios or []
+        resultado.append(f)
+    return list(reversed(resultado))
+
+
+def devoluciones_para_vista(comprador=None):
+    devs = load_json(DEVOLUCIONES_PATH)
+    if comprador:
+        cn = _norm_comprador(comprador)
+        devs = [d for d in devs if _norm_comprador(d.get('comprador')) == cn]
+    return list(reversed(devs))
+
+
+def facturas_elegibles_devolucion(comprador):
+    """Facturas del comprador que aún no tienen devolución aceptada."""
+    return facturas_para_vista(solo_comprador=comprador, excluir_devueltas=True)
+
+
+def _pedido_key(pedido_id):
+    return (pedido_id or '').strip().upper()
+
+
+def valoracion_en_pedido(comprador, producto_id, pedido_id, valoraciones=None):
+    comprador_norm = (comprador or '').strip().lower()
+    if valoraciones is None:
+        valoraciones = load_json(VALORACIONES_PATH, {})
+    pk = _pedido_key(pedido_id)
+    for v in valoraciones.get(producto_id, {}).get('valoraciones', []):
+        if (v.get('comprador') or '').strip().lower() != comprador_norm:
+            continue
+        if _pedido_key(v.get('pedido_id')) == pk:
+            return v
+    return None
+
+
+def ya_valorado_en_pedido(comprador, producto_id, pedido_id):
+    return valoracion_en_pedido(comprador, producto_id, pedido_id) is not None
+
+
+def lineas_compra_para_valorar(comprador):
+    """Líneas (pedido + producto) del comprador, separadas en pendientes y ya valoradas."""
+    comprador_norm = (comprador or '').strip().lower()
+    valoraciones = load_json(VALORACIONES_PATH, {})
+    pendientes, valorados = [], []
+    for f in load_json(FACTURAS_PATH):
+        if (f.get('comprador') or '').strip().lower() != comprador_norm:
+            continue
+        fid = f.get('id', '')
+        for p in f.get('productos', []):
+            pid = p.get('id', '')
+            linea = {
+                'factura_id':  fid,
+                'producto_id': pid,
+                'nombre':      p.get('nombre', pid),
+                'precio':      p.get('precio', 0),
+                'fecha':       (f.get('fecha') or '')[:10],
+            }
+            prev = valoracion_en_pedido(comprador, pid, fid, valoraciones)
+            if prev:
+                linea['puntuacion_enviada'] = prev['puntuacion']
+                valorados.append(linea)
+            else:
+                pendientes.append(linea)
+    return pendientes, valorados
+
+
+def estado_envio_factura(f):
+    if f.get('envios_logistico') or f.get('envios_vendedor'):
+        return 'enviado'
+    if any(p.get('vendedor', 'tienda') == 'tienda' or p.get('gestion_envio') == 'tienda'
+           for p in f.get('productos', [])):
+        return 'procesando'
+    return 'confirmado'
+
+
 # ---------------------------------------------------------------------------
 # Agent actions
 # ---------------------------------------------------------------------------
@@ -199,6 +481,10 @@ def buscar_productos(nombre='', categoria='', precio_max='', val_min=''):
             if nombre.strip() and nombre.strip().lower() not in prod['nombre'].lower():
                 continue
             productos.append(prod)
+        comprador = _comprador_sesion() or 'Anonimo'
+        _registrar_busqueda_experiencia(
+            comprador, categoria=categoria, precio_max=precio_max, val_min=val_min,
+        )
         return productos, None
     except Exception as e:
         logger.warning(f'[Usuario] Error buscando productos: {e}')
@@ -248,8 +534,23 @@ def enviar_pedido(comprador, direccion, prioridad, metodo_pago, carrito):
         return None, f'Error: {e}'
 
 
+def _literal_bool(val):
+    if val is None:
+        return False
+    if isinstance(val, bool):
+        return val
+    return str(val).strip().lower() in ('true', '1', 'yes')
+
+
 def solicitar_devolucion(comprador, factura_id, razon, fecha_recepcion):
     global mss_cnt
+    factura = buscar_factura_local(factura_id)
+    if not factura:
+        return None, 'Factura no encontrada.'
+    if _norm_comprador(comprador) != _norm_comprador(factura.get('comprador', '')):
+        return None, 'El nombre no coincide con el comprador de esta factura.'
+    if factura_id in ids_facturas_devueltas():
+        return None, 'Esta factura ya tiene una devolución aceptada.'
     addr = get_agent_address('Ag.Devolucion')
     if not addr:
         return None, 'AgenteDevolucion no disponible'
@@ -271,7 +572,7 @@ def solicitar_devolucion(comprador, factura_id, razon, fecha_recepcion):
         for s in gr_resp.subjects(RDF.type, ECSNS.Devolucion):
             return {
                 'id':       str(gr_resp.value(s, ECSNS.idDevolucion)      or ''),
-                'aceptada': str(gr_resp.value(s, ECSNS.aceptada)          or 'False') == 'True',
+                'aceptada': _literal_bool(gr_resp.value(s, ECSNS.aceptada)),
                 'motivo':   str(gr_resp.value(s, ECSNS.motivoDevolucion)  or ''),
                 'empresa':  str(gr_resp.value(s, ECSNS.empresaMensajeria) or ''),
             }, None
@@ -281,87 +582,36 @@ def solicitar_devolucion(comprador, factura_id, razon, fecha_recepcion):
         return None, f'Error: {e}'
 
 
-def enviar_valoracion(comprador, producto_id, puntuacion, comentario=''):
+def enviar_valoracion(comprador, producto_id, pedido_id, nombre_producto, puntuacion, comentario=''):
     global mss_cnt
+    if ya_valorado_en_pedido(comprador, producto_id, pedido_id):
+        return False, 'Ya has valorado este producto en ese pedido.'
     addr = get_agent_address('Ag.Experiencia')
     if not addr:
         return False, 'AgenteExperiencia no disponible'
     gmess = Graph()
     gmess.bind('ecsns', ECSNS)
     val = ECSNS['val-' + str(mss_cnt)]
-    gmess.add((val, RDF.type,         ECSNS.Valoracion))
+    gmess.add((val, RDF.type,         ECSNS.NuevaValoracion))
     gmess.add((val, ECSNS.comprador,  Literal(comprador)))
     gmess.add((val, ECSNS.idProducto, Literal(producto_id)))
+    gmess.add((val, ECSNS.idPedido,   Literal(_pedido_key(pedido_id))))
+    gmess.add((val, ECSNS.nombre,     Literal(nombre_producto or producto_id)))
     gmess.add((val, ECSNS.puntuacion, Literal(int(puntuacion))))
     gmess.add((val, ECSNS.comentario, Literal(comentario)))
-    gmess.add((val, ECSNS.fecha,      Literal(datetime.now().isoformat())))
     try:
-        send_message(
-            build_message(gmess, perf=ACL.inform, sender=UsuarioAgent.uri,
+        gr_resp = send_message(
+            build_message(gmess, perf=ACL.request, sender=UsuarioAgent.uri,
                           receiver=agn.AgenteExperiencia, content=val, msgcnt=mss_cnt),
             addr
         )
         mss_cnt += 1
-        return True, None
+        if list(gr_resp.subjects(RDF.type, ECSNS.ValoracionOK)):
+            return True, None
+        return False, 'No se pudo registrar la valoración.'
     except Exception as e:
         mss_cnt += 1
         return False, f'Error: {e}'
-
-
-# ---------------------------------------------------------------------------
-# HTML inline renderer (sin dependencia de templates/)
-# ---------------------------------------------------------------------------
-
-NAV = '''<nav style="background:#1a3c5e;padding:12px 24px;display:flex;gap:16px;align-items:center">
-  <span style="color:#fff;font-weight:700;font-size:17px;margin-right:auto">🛒 ECSDI Shop 2026</span>
-  <a href="/" style="color:#cde;text-decoration:none;padding:4px 10px;border-radius:4px">Inicio</a>
-  <a href="/buscar" style="color:#cde;text-decoration:none;padding:4px 10px;border-radius:4px">Buscar</a>
-  <a href="/carrito" style="color:#cde;text-decoration:none;padding:4px 10px;border-radius:4px">🛒 Carrito{badge}</a>
-  <a href="/historial" style="color:#cde;text-decoration:none;padding:4px 10px;border-radius:4px">Historial</a>
-  <a href="/valorar" style="color:#cde;text-decoration:none;padding:4px 10px;border-radius:4px">Valorar</a>
-  <a href="/devolucion" style="color:#cde;text-decoration:none;padding:4px 10px;border-radius:4px">Devolución</a>
-</nav>'''
-
-CSS = '''<style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Segoe UI',sans-serif;background:#f4f6f8;color:#333;font-size:15px}
-.container{max-width:1000px;margin:28px auto;padding:0 16px}
-h1{font-size:22px;margin-bottom:16px;color:#1a3c5e}
-h2{font-size:16px;margin-bottom:10px;color:#1a3c5e}
-.card{background:#fff;border-radius:8px;padding:20px;margin-bottom:16px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
-.pc{background:#fff;border-radius:8px;padding:14px;box-shadow:0 1px 4px rgba(0,0,0,.08);display:flex;flex-direction:column;gap:5px}
-.pc .nm{font-weight:600}.pc .pr{color:#1a7a3c;font-weight:700;font-size:16px}
-.pc .ct{font-size:12px;color:#888;background:#f0f0f0;padding:2px 8px;border-radius:10px;display:inline-block}
-.pc .vl{font-size:12px;color:#e6a817}
-btn,button,input[type=submit]{background:#1a3c5e;color:#fff;border:none;padding:8px 16px;border-radius:5px;cursor:pointer;font-size:14px;display:inline-block;text-decoration:none}
-button:hover,input[type=submit]:hover{background:#2a5480}
-.bg{background:#1a7a3c}.bg:hover{background:#155f2f}
-.br{background:#c0392b}.br:hover{background:#a93226}
-input[type=text],input[type=number],input[type=date],select,textarea{padding:7px 10px;border:1px solid #ccc;border-radius:5px;font-size:14px;width:100%}
-label{font-size:13px;color:#555;margin-bottom:3px;display:block}
-.fg{margin-bottom:12px}
-table{width:100%;border-collapse:collapse}th,td{padding:9px 12px;text-align:left;border-bottom:1px solid #eee}
-th{background:#f0f4f8;font-size:13px;color:#555}
-.badge{background:#e8f4fd;color:#1a3c5e;padding:2px 8px;border-radius:10px;font-size:12px;font-weight:600}
-.ok{background:#d4edda;color:#155724;border:1px solid #c3e6cb;padding:10px 14px;border-radius:6px;margin-bottom:12px;font-size:14px}
-.err{background:#f8d7da;color:#721c24;border:1px solid #f5c6cb;padding:10px 14px;border-radius:6px;margin-bottom:12px;font-size:14px}
-.envtag{background:#e8f8ef;color:#1a7a3c;padding:3px 10px;border-radius:6px;font-size:13px;display:inline-block;margin:2px}
-.empty{text-align:center;color:#aaa;padding:36px 0}
-form.il{display:inline}
-.nb{background:#e9ecef;color:#555;border:none;padding:8px 16px;border-radius:5px;cursor:pointer;font-size:14px}
-.nb:hover{background:#dee2e6}
-</style>'''
-
-def html_page(body, num_carrito=0):
-    badge = f' <span style="background:#e74c3c;color:#fff;border-radius:10px;padding:1px 6px;font-size:11px">{num_carrito}</span>' if num_carrito else ''
-    nav = NAV.replace('{badge}', badge)
-    return f'<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ECSDI Shop 2026</title>{CSS}</head><body>{nav}<div class="container">{body}</div></body></html>'
-
-def resp(html):
-    r = make_response(html)
-    r.headers['Content-Type'] = 'text/html; charset=utf-8'
-    return r
 
 
 # ---------------------------------------------------------------------------
@@ -370,68 +620,53 @@ def resp(html):
 
 @app.route('/')
 def index():
-    recs = _recomendaciones[-6:]
-    nc = len(session.get('carrito', []))
-    recs_html = ''
-    if recs:
-        recs_html = '<h2 style="margin-top:20px">⭐ Recomendaciones para ti</h2><div class="grid">'
-        for r in recs:
-            recs_html += f'<div class="pc"><span class="nm">{r["nombre"]}</span><span class="ct">{r["categoria"]}</span><span class="pr">{r["precio"]:.2f} €</span><a href="/buscar" class="bg" style="margin-top:6px;text-align:center;font-size:13px">Ver productos</a></div>'
-        recs_html += '</div>'
-    body = f'''<h1>Bienvenido a ECSDI Shop 2026</h1>
-<div class="card">
-  <p style="margin-bottom:14px">Sistema multiagente de comercio electrónico ECSDI 2026.</p>
-  <a href="/buscar" class="bg" style="margin-right:8px">🔍 Buscar productos</a>
-  <a href="/carrito" style="background:#1a3c5e;color:#fff;padding:8px 16px;border-radius:5px;text-decoration:none">🛒 Ver carrito</a>
-</div>{recs_html}'''
-    return resp(html_page(body, nc))
+    facturas = load_json(FACTURAS_PATH)
+    return render_template(
+        'usuario/index.html',
+        num_carrito=_num_carrito(),
+        num_facturas=len(facturas),
+        recomendaciones=_recomendaciones[-6:],
+    )
 
 
 @app.route('/buscar', methods=['GET', 'POST'])
 def buscar():
     productos, error = [], None
     filtros = {'nombre': '', 'categoria': '', 'precio_max': '', 'val_min': ''}
-    nc = len(session.get('carrito', []))
     if request.method == 'POST':
         filtros = {k: request.form.get(k, '') for k in filtros}
         productos, error = buscar_productos(**filtros)
+    elif request.args.get('categoria'):
+        filtros['categoria'] = request.args.get('categoria', '').strip()
+        productos, error = buscar_productos(**filtros)
+    return render_template(
+        'usuario/buscar.html',
+        num_carrito=_num_carrito(),
+        productos=productos,
+        error=error,
+        filtros=filtros,
+        categorias=listar_categorias(),
+    )
 
-    err_html = f'<div class="err">⚠️ {error}</div>' if error else ''
-    prods_html = ''
-    if productos:
-        prods_html = f'<p style="color:#555;font-size:13px;margin-bottom:10px">{len(productos)} resultado(s)</p><div class="grid">'
-        for p in productos:
-            stars = '★' * int(p['valoracion']) + '☆' * (5 - int(p['valoracion']))
-            prods_html += f'''<div class="pc">
-  <span class="nm">{p["nombre"]}</span>
-  <span class="ct">{p["categoria"]}</span>
-  <span class="pr">{p["precio"]:.2f} €</span>
-  <span class="vl">{stars} ({p["valoracion"]:.1f})</span>
-  <span style="font-size:11px;color:#aaa">Vendedor: {p["vendedor"]}</span>
-  <form class="il" method="post" action="/carrito/anadir">
-    <input type="hidden" name="id" value="{p["id"]}">
-    <input type="hidden" name="nombre" value="{p["nombre"]}">
-    <input type="hidden" name="precio" value="{p["precio"]}">
-    <input type="hidden" name="peso" value="{p["peso"]}">
-    <button class="bg" style="margin-top:8px;width:100%">+ Añadir</button>
-  </form>
-</div>'''
-        prods_html += '</div>'
-    elif request.method == 'POST' and not error:
-        prods_html = '<p class="empty">No se encontraron productos con esos filtros.</p>'
 
-    body = f'''<h1>🔍 Buscar productos</h1>
-<div class="card">
-<form method="post" style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;align-items:end">
-  <div class="fg" style="margin:0"><label>Nombre</label><input type="text" name="nombre" value="{filtros["nombre"]}" placeholder="ej: silla"></div>
-  <div class="fg" style="margin:0"><label>Categoría</label><input type="text" name="categoria" value="{filtros["categoria"]}" placeholder="ej: electronica"></div>
-  <div class="fg" style="margin:0"><label>Precio máx (€)</label><input type="number" name="precio_max" value="{filtros["precio_max"]}" placeholder="ej: 100" min="0" step="0.01"></div>
-  <div class="fg" style="margin:0"><label>Valoración mín</label><input type="number" name="val_min" value="{filtros["val_min"]}" placeholder="1-5" min="0" max="5" step="0.1"></div>
-  <input type="submit" value="Buscar" style="grid-column:span 4">
-</form>
-</div>
-{err_html}{prods_html}'''
-    return resp(html_page(body, nc))
+@app.route('/recomendaciones', methods=['GET', 'POST'])
+def recomendaciones():
+    error = None
+    comprador = request.form.get('comprador', '').strip() or request.args.get('comprador', '').strip()
+    recs_nuevas = []
+    if request.method == 'POST' and comprador:
+        recs_nuevas, error = solicitar_recomendaciones(comprador)
+    visibles = _recomendaciones[-12:]
+    if comprador:
+        visibles = [enriquecer_recomendacion(dict(r)) for r in visibles]
+    return render_template(
+        'usuario/recomendaciones.html',
+        num_carrito=_num_carrito(),
+        recomendaciones=visibles,
+        comprador=comprador,
+        recs_nuevas=len(recs_nuevas),
+        error=error,
+    )
 
 
 @app.route('/carrito/anadir', methods=['POST'])
@@ -458,25 +693,12 @@ def carrito_anadir():
 def carrito_ver():
     carrito = session.get('carrito', [])
     total = round(sum(i['precio'] * i['cantidad'] for i in carrito), 2)
-    nc = len(carrito)
-    if carrito:
-        filas = ''.join(f'''<tr>
-  <td>{i["nombre"]}</td><td>{i["precio"]:.2f} €</td><td>{i["cantidad"]}</td>
-  <td><strong>{i["precio"]*i["cantidad"]:.2f} €</strong></td>
-  <td><a href="/carrito/eliminar/{i["id"]}"><button class="br" style="padding:3px 10px;font-size:12px">✕</button></a></td>
-</tr>''' for i in carrito)
-        body = f'''<h1>🛒 Carrito</h1><div class="card">
-<table><thead><tr><th>Producto</th><th>Precio</th><th>Qty</th><th>Subtotal</th><th></th></tr></thead>
-<tbody>{filas}</tbody></table>
-<div style="text-align:right;margin-top:14px"><strong style="font-size:17px">Total: {total:.2f} €</strong></div>
-<div style="margin-top:14px;display:flex;gap:10px">
-  <a href="/pedido" class="bg">✅ Tramitar pedido</a>
-  <a href="/carrito/vaciar" class="br">🗑 Vaciar</a>
-  <a href="/buscar" class="nb">← Seguir comprando</a>
-</div></div>'''
-    else:
-        body = '<h1>🛒 Carrito</h1><div class="card"><p class="empty">El carrito está vacío. <a href="/buscar">Buscar productos</a></p></div>'
-    return resp(html_page(body, nc))
+    return render_template(
+        'usuario/carrito.html',
+        num_carrito=len(carrito),
+        carrito=carrito,
+        total=total,
+    )
 
 
 @app.route('/carrito/eliminar/<prod_id>')
@@ -494,7 +716,6 @@ def carrito_vaciar():
 @app.route('/pedido', methods=['GET', 'POST'])
 def pedido():
     carrito = session.get('carrito', [])
-    nc = len(carrito)
     if not carrito:
         return redirect(url_for('buscar'))
     error = None
@@ -509,36 +730,19 @@ def pedido():
             factura, err = enviar_pedido(comprador, direccion, prioridad, metodo_pago, carrito)
             if factura:
                 session['carrito'] = []
+                session['comprador'] = comprador
                 session['ultimo_pedido'] = {'factura': factura, 'comprador': comprador, 'items': carrito}
                 return redirect(url_for('pedido_confirmado'))
             else:
                 error = err or 'Error al procesar el pedido'
     total = round(sum(i['precio'] * i['cantidad'] for i in carrito), 2)
-    err_html = f'<div class="err">{error}</div>' if error else ''
-    body = f'''<h1>📦 Tramitar pedido</h1>
-{err_html}
-<div class="card">
-<form method="post">
-  <div class="fg"><label>Nombre comprador *</label><input type="text" name="comprador" required></div>
-  <div class="fg"><label>Dirección de entrega *</label><input type="text" name="direccion" required></div>
-  <div class="fg"><label>Prioridad</label>
-    <select name="prioridad">
-      <option value="normal">Normal (2-4 días)</option>
-      <option value="urgente">Urgente (1-2 días)</option>
-      <option value="economica">Económica (4-6 días)</option>
-    </select></div>
-  <div class="fg"><label>Método de pago</label>
-    <select name="metodo_pago">
-      <option value="tarjeta">Tarjeta</option>
-      <option value="paypal">PayPal</option>
-      <option value="transferencia">Transferencia</option>
-    </select></div>
-  <div style="background:#f8f8f8;padding:12px;border-radius:6px;margin-bottom:14px">
-    <strong>Resumen:</strong> {len(carrito)} producto(s) — Total: <strong>{total:.2f} €</strong>
-  </div>
-  <input type="submit" value="Confirmar pedido" class="bg">
-</form></div>'''
-    return resp(html_page(body, nc))
+    return render_template(
+        'usuario/pedido.html',
+        num_carrito=len(carrito),
+        carrito=carrito,
+        total=total,
+        error=error,
+    )
 
 
 @app.route('/pedido/confirmado')
@@ -547,130 +751,132 @@ def pedido_confirmado():
     if not datos:
         return redirect(url_for('index'))
     factura = datos['factura']
-    envios  = _envios_notificados.get(factura.get('id', ''), [])
-    env_html = ''
-    if envios:
-        env_html = '<h2 style="margin-top:16px">🚚 Información de envío</h2>'
-        for e in envios:
-            prods = ', '.join(e.get('productos', []))
-            env_html += f'<div class="envtag">📦 <b>{e["centro"]}</b> → <b>{e["transportista"]}</b> — entrega el <b>{e["fecha"]}</b> ({prods})</div><br>'
-    else:
-        env_html = '<p style="color:#888;font-size:13px;margin-top:10px">Los detalles de envío se notificarán cuando el sistema logístico los procese.</p>'
-    body = f'''<h1>✅ Pedido confirmado</h1>
-<div class="card">
-  <div class="ok">¡Tu pedido ha sido procesado correctamente!</div>
-  <p><strong>Factura:</strong> <span class="badge">{factura.get("id","")}</span></p>
-  <p style="margin-top:6px"><strong>Comprador:</strong> {datos["comprador"]}</p>
-  <p style="margin-top:6px"><strong>Total:</strong> {factura.get("total",0):.2f} €</p>
-  <p style="margin-top:6px"><strong>Fecha:</strong> {factura.get("fecha","")[:19]}</p>
-  {env_html}
-  <div style="margin-top:16px;display:flex;gap:10px">
-    <a href="/historial" class="nb">📋 Ver historial</a>
-    <a href="/buscar" class="bg">🛍 Seguir comprando</a>
-  </div>
-</div>'''
-    return resp(html_page(body, 0))
+    fid = factura.get('id', '')
+    envios = _envios_notificados.get(fid, [])
+    if not envios:
+        for f in load_json(FACTURAS_PATH):
+            if f.get('id') == fid:
+                envios = f.get('envios_logistico', [])
+                break
+    return render_template(
+        'usuario/pedido_confirmado.html',
+        num_carrito=0,
+        factura=factura,
+        comprador=datos['comprador'],
+        items=datos['items'],
+        envios=envios,
+    )
 
 
 @app.route('/historial')
 def historial():
-    nc = len(session.get('carrito', []))
-    facturas = load_json(FACTURAS_PATH)
-    pedidos_map = {p['id']: p for p in load_json(PEDIDOS_PATH)}
+    facturas = facturas_para_vista()
     for f in facturas:
-        fid = f.get('id', '')
-        f['_envios'] = _envios_notificados.get(fid, pedidos_map.get(fid, {}).get('envios', []))
-    facturas = list(reversed(facturas))
-    if facturas:
-        rows = ''
-        for f in facturas:
-            prods = ', '.join(p.get('nombre', '') for p in f.get('productos', []))
-            envs  = ' '.join(f'<span class="envtag">{e.get("transportista","")} ({e.get("fecha","")[:10]})</span>' for e in f['_envios']) or '<span style="color:#aaa">Pendiente</span>'
-            rows += f'''<tr>
-  <td><span class="badge">{f.get("id","")}</span></td>
-  <td>{f.get("comprador","")}</td>
-  <td style="font-size:12px">{prods[:55]}{"..." if len(prods)>55 else ""}</td>
-  <td><strong>{f.get("total",0):.2f} €</strong></td>
-  <td style="font-size:12px">{f.get("fecha","")[:10]}</td>
-  <td>{envs}</td>
-</tr>'''
-        body = f'''<h1>📋 Historial de pedidos</h1>
-<div class="card"><table><thead><tr><th>Factura</th><th>Comprador</th><th>Productos</th><th>Total</th><th>Fecha</th><th>Envío</th></tr></thead>
-<tbody>{rows}</tbody></table></div>'''
-    else:
-        body = '<h1>📋 Historial</h1><div class="card"><p class="empty">No hay pedidos todavía. <a href="/buscar">Haz tu primera compra</a></p></div>'
-    return resp(html_page(body, nc))
+        f['estado_envio'] = estado_envio_factura(f)
+    return render_template(
+        'usuario/historial.html',
+        num_carrito=_num_carrito(),
+        facturas=facturas,
+    )
 
 
 @app.route('/devolucion', methods=['GET', 'POST'])
 def devolucion():
-    nc = len(session.get('carrito', []))
-    facturas = load_json(FACTURAS_PATH)
     resultado = error = None
+    comprador_form = (
+        request.form.get('comprador', '').strip()
+        or request.args.get('comprador', '').strip()
+    )
     if request.method == 'POST':
-        comprador       = request.form.get('comprador', '').strip()
-        factura_id      = request.form.get('factura_id', '').strip()
-        razon           = request.form.get('razon', '').strip()
+        comprador = comprador_form
+        factura_id = request.form.get('factura_id', '').strip()
+        razon = request.form.get('razon', '').strip()
         fecha_recepcion = request.form.get('fecha_recepcion', '').strip()
-        if not all([comprador, factura_id, razon, fecha_recepcion]):
-            error = 'Rellena todos los campos'
+        if factura_id and razon and fecha_recepcion:
+            if not comprador:
+                error = 'Indica tu nombre de comprador.'
+            else:
+                resultado, error = solicitar_devolucion(
+                    comprador, factura_id, razon, fecha_recepcion
+                )
+        elif comprador:
+            pass
         else:
-            resultado, error = solicitar_devolucion(comprador, factura_id, razon, fecha_recepcion)
-    opts = ''.join(f'<option value="{f["id"]}">{f["id"]} — {f.get("comprador","")}</option>' for f in facturas) or '<option>— Sin pedidos —</option>'
-    res_html = ''
-    if resultado:
-        estado = '✅ Aceptada' if resultado['aceptada'] else '❌ Rechazada'
-        res_html = f'<div class="{"ok" if resultado["aceptada"] else "err"}">{estado} — {resultado["motivo"]} {("| Empresa: "+resultado["empresa"]) if resultado["empresa"] else ""}</div>'
-    err_html = f'<div class="err">{error}</div>' if error else ''
-    body = f'''<h1>↩️ Solicitar devolución</h1>
-{res_html}{err_html}
-<div class="card"><form method="post">
-  <div class="fg"><label>Nombre comprador</label><input type="text" name="comprador" required></div>
-  <div class="fg"><label>Factura</label><select name="factura_id">{opts}</select></div>
-  <div class="fg"><label>Razón de devolución</label><input type="text" name="razon" required></div>
-  <div class="fg"><label>Fecha de recepción del producto</label><input type="date" name="fecha_recepcion" required></div>
-  <input type="submit" value="Solicitar devolución" class="bg">
-</form></div>'''
-    return resp(html_page(body, nc))
+            error = 'Indica tu nombre de comprador.'
+    facturas_elegibles = (
+        facturas_elegibles_devolucion(comprador_form) if comprador_form else []
+    )
+    mis_devoluciones = devoluciones_para_vista(comprador_form) if comprador_form else []
+    return render_template(
+        'usuario/devolucion.html',
+        num_carrito=_num_carrito(),
+        facturas=facturas_elegibles,
+        mis_devoluciones=mis_devoluciones,
+        comprador=comprador_form,
+        resultado=resultado,
+        error=error,
+        hoy=date.today().isoformat(),
+    )
 
 
 @app.route('/valorar', methods=['GET', 'POST'])
 def valorar():
-    nc = len(session.get('carrito', []))
     facturas = load_json(FACTURAS_PATH)
-    prods_comprados = {}
-    for f in facturas:
-        for p in f.get('productos', []):
-            prods_comprados[p['id']] = p
     resultado = error = None
+    comprador_form = (
+        request.form.get('comprador', '').strip()
+        or request.args.get('comprador', '').strip()
+        or _comprador_sesion()
+    )
+    linea_preseleccionada = request.args.get('linea', '').strip()
     if request.method == 'POST':
-        comprador  = request.form.get('comprador', '').strip()
-        prod_id    = request.form.get('producto_id', '').strip()
-        puntuacion = request.form.get('puntuacion', 3)
-        comentario = request.form.get('comentario', '').strip()
-        ok, err = enviar_valoracion(comprador, prod_id, puntuacion, comentario)
-        resultado = 'Valoración enviada correctamente' if ok else None
-        error = err if not ok else None
-    opts = ''.join(f'<option value="{p["id"]}">{p["nombre"]} ({p["id"]})</option>' for p in prods_comprados.values()) or '<option value="">— Compra primero algún producto —</option>'
-    res_html = f'<div class="ok">✅ {resultado}</div>' if resultado else ''
-    err_html = f'<div class="err">❌ {error}</div>' if error else ''
-    body = f'''<h1>⭐ Valorar productos</h1>
-{res_html}{err_html}
-<div class="card"><form method="post">
-  <div class="fg"><label>Tu nombre</label><input type="text" name="comprador" required></div>
-  <div class="fg"><label>Producto</label><select name="producto_id">{opts}</select></div>
-  <div class="fg"><label>Puntuación (1-5)</label>
-    <select name="puntuacion">
-      <option value="5">★★★★★ Excelente</option>
-      <option value="4">★★★★ Muy bueno</option>
-      <option value="3" selected>★★★ Normal</option>
-      <option value="2">★★ Regular</option>
-      <option value="1">★ Malo</option>
-    </select></div>
-  <div class="fg"><label>Comentario (opcional)</label><textarea name="comentario" rows="3"></textarea></div>
-  <input type="submit" value="Enviar valoración" class="bg">
-</form></div>'''
-    return resp(html_page(body, nc))
+        comprador = comprador_form
+        linea = request.form.get('linea_valoracion', '').strip()
+        if linea:
+            puntuacion = request.form.get('puntuacion', 3)
+            comentario = request.form.get('comentario', '').strip()
+            if '|' not in linea:
+                error = 'Selección de pedido y producto no válida.'
+            else:
+                factura_id, prod_id = linea.split('|', 1)
+                pendientes, _ = lineas_compra_para_valorar(comprador)
+                linea_datos = next(
+                    (l for l in pendientes
+                     if l['factura_id'] == factura_id and l['producto_id'] == prod_id),
+                    None,
+                )
+                if not comprador:
+                    error = 'Indica tu nombre de comprador.'
+                elif not linea_datos:
+                    error = 'Ya has valorado este producto en ese pedido o no pertenece a tus compras.'
+                else:
+                    ok, err = enviar_valoracion(
+                        comprador,
+                        prod_id,
+                        factura_id,
+                        linea_datos.get('nombre', ''),
+                        puntuacion,
+                        comentario,
+                    )
+                    if ok:
+                        _quitar_solicitud_feedback(comprador, factura_id, prod_id)
+                    resultado = 'Valoración registrada correctamente.' if ok else None
+                    error = err if not ok else None
+    productos_pendientes, productos_valorados = [], []
+    if comprador_form:
+        productos_pendientes, productos_valorados = lineas_compra_para_valorar(comprador_form)
+    return render_template(
+        'usuario/valorar.html',
+        num_carrito=_num_carrito(),
+        productos=productos_pendientes,
+        productos_valorados=productos_valorados,
+        comprador=comprador_form,
+        tiene_compras=bool(facturas),
+        resultado=resultado,
+        error=error,
+        linea_preseleccionada=linea_preseleccionada,
+        solicitudes_feedback=_solicitudes_feedback,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -706,26 +912,29 @@ def comunicacion():
                 'productos':     [str(o) for o in gm.objects(en, ECSNS.tieneProductoId)],
             })
         _envios_notificados[pedido_id] = sub_envios
+        try:
+            facturas = load_json(FACTURAS_PATH)
+            for i, factura in enumerate(facturas):
+                if factura.get('id') == pedido_id:
+                    facturas[i]['envios_logistico'] = sub_envios
+                    with open(FACTURAS_PATH, 'w') as f:
+                        json.dump(facturas, f, indent=2)
+                    break
+        except Exception:
+            pass
         logger.info(f'[Usuario] NotificacionEnvios: pedido {pedido_id}, {len(sub_envios)} envío(s)')
         gr = build_message(Graph(), ACL.confirm, sender=UsuarioAgent.uri,
                            receiver=msgdic['sender'], msgcnt=mss_cnt)
 
     elif perf == ACL.inform and accion == ECSNS.RecomendacionesProactivas:
-        for pn in gm.objects(content, ECSNS.tieneProducto):
-            rec = {
-                'id':       str(gm.value(pn, ECSNS.idProducto)  or ''),
-                'nombre':   str(gm.value(pn, ECSNS.nombre)       or ''),
-                'precio':   float(gm.value(pn, ECSNS.precio)     or 0),
-                'categoria':str(gm.value(pn, ECSNS.categoria)    or ''),
-            }
-            if rec['id'] and rec not in _recomendaciones:
-                _recomendaciones.append(rec)
-        logger.info(f'[Usuario] Recomendaciones: {len(_recomendaciones)} total')
+        nuevas = _parsear_recomendaciones_grafo(gm, content)
+        _registrar_recomendaciones(nuevas)
+        logger.info(f'[Usuario] Recomendaciones proactivas: +{len(nuevas)}, total {len(_recomendaciones)}')
         gr = build_message(Graph(), ACL.confirm, sender=UsuarioAgent.uri,
                            receiver=msgdic['sender'], msgcnt=mss_cnt)
 
     elif perf == ACL.request and accion == ECSNS.SolicitudFeedback:
-        logger.info('[Usuario] SolicitudFeedback recibida')
+        _añadir_solicitud_feedback(gm, content)
         gr = build_message(Graph(), ACL.confirm, sender=UsuarioAgent.uri,
                            receiver=msgdic['sender'], msgcnt=mss_cnt)
     else:

@@ -1,1 +1,23 @@
-{}
+{
+  "Marçal": [
+    {
+      "pedido_id": "FAC-B1FF5E1D",
+      "fecha": "2026-06-02T22:50:48.729437",
+      "productos": [
+        {
+          "id": "p010",
+          "nombre": "Libro Python Avanzado",
+          "precio": 29.99,
+          "cantidad": 1
+        },
+        {
+          "id": "p002",
+          "nombre": "Auriculares Bluetooth",
+          "precio": 89.99,
+          "cantidad": 1
+        }
+      ],
+      "total": 119.98
+    }
+  ]
+}

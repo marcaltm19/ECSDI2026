@@ -34,6 +34,7 @@ echo '[]' > data/envios.json
 echo '[]' > data/facturas.json
 echo '{}' > data/valoraciones.json
 echo '{}' > data/historial_compras.json
+echo '{}' > data/historial_busquedas.json
 echo "[OK] Datos reiniciados"
 
 # 2. Directory Service (DS)
@@ -96,7 +97,7 @@ sleep 0.5
 
 # 10. Agente Usuario (Interfaz Web)
 echo "[11/11] Arrancando AgenteUsuario en puerto 9020..."
-"$PYTHON_BIN" AgenteUsuario.py --port 9020 --dport 9000 &
+"$PYTHON_BIN" AgenteUsuario.py --port 9020 --dport 9000 --open &
 echo $! > /tmp/usuario.pid
 sleep 1
 

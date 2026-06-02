@@ -100,6 +100,27 @@
         <Class IRI="#OfertaTransporte"/>
     </Declaration>
     <Declaration>
+        <Class IRI="#Oferta"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#CFP"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#ContraOferta"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#SolicitudFeedback"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#CompraFinalizada"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#EnviosAsignados"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#RegistroBusqueda"/>
+    </Declaration>
+    <Declaration>
         <Class IRI="#Pagar"/>
     </Declaration>
     <Declaration>
