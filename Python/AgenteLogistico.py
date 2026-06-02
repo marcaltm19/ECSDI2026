@@ -354,6 +354,10 @@ def realizar_envios():
     if not pedidos:
         return
 
+    # Clear the queue now — pedidos already in memory, so GestorPedidos can
+    # write completed orders to pedidos.json without being overwritten later.
+    guardar_pedidos([])
+
     if os.path.exists(ENVIOS_PATH):
         with open(ENVIOS_PATH) as f:
             envios = json.load(f)
@@ -408,8 +412,6 @@ def realizar_envios():
 
     with open(ENVIOS_PATH, 'w') as f:
         json.dump(envios, f, indent=2)
-
-    guardar_pedidos([])
 
 
 def notificar_gestor_multiples_envios(pedido, sub_envios):
