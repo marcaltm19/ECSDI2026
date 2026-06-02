@@ -19,8 +19,11 @@ directory-service-ontology.owl
 import argparse
 import logging
 import socket
+import os
+import sys
 from multiprocessing import Process, Queue
 
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from flask import Flask, render_template, request
 from rdflib import RDF, RDFS, Graph, Namespace
 from rdflib.namespace import FOAF
