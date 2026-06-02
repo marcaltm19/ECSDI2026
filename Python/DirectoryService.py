@@ -33,6 +33,7 @@ from AgentUtil.DSO import DSO
 from AgentUtil.FlaskServer import shutdown_server
 from AgentUtil.Logging import config_logger
 from AgentUtil.Util import gethostname
+from ontologia import ECSNS
 
 __author__ = "javier"
 
@@ -123,6 +124,7 @@ def register():
         agn_name = gm.value(subject=content, predicate=FOAF.name)
         agn_uri = gm.value(subject=content, predicate=DSO.Uri)
         agn_type = gm.value(subject=content, predicate=DSO.AgentType)
+        agn_ciudad = gm.value(subject=content, predicate=ECSNS.ciudad)
 
         # Añadimos la informacion en el grafo de registro vinculandola a la URI
         # del agente y registrandola como tipo FOAF.Agent
@@ -130,6 +132,8 @@ def register():
         dsgraph.add((agn_uri, FOAF.name, agn_name))
         dsgraph.add((agn_uri, DSO.Address, agn_add))
         dsgraph.add((agn_uri, DSO.AgentType, agn_type))
+        if agn_ciudad:
+            dsgraph.add((agn_uri, ECSNS.ciudad, agn_ciudad))
 
         # Generamos un mensaje de respuesta
         return build_message(
@@ -159,11 +163,15 @@ def register():
         if encontrados:
             gr = Graph()
             gr.bind('dso', DSO)
+            gr.bind('ecsns', ECSNS)
             for i, (agn_uri, _, _) in enumerate(encontrados):
                 agn_add = dsgraph.value(subject=agn_uri, predicate=DSO.Address)
+                agn_ciudad = dsgraph.value(subject=agn_uri, predicate=ECSNS.ciudad)
                 entry = agn[f'Directory-response-{i}']
                 gr.add((entry, DSO.Address, agn_add))
                 gr.add((entry, DSO.Uri, agn_uri))
+                if agn_ciudad:
+                    gr.add((entry, ECSNS.ciudad, agn_ciudad))
             rsp_obj = agn['Directory-response']
             return build_message(gr, ACL.inform, sender=DirectoryAgent.uri,
                                 msgcnt=mss_cnt, content=rsp_obj)

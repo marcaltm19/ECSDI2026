@@ -5,7 +5,7 @@
 
 echo "Parando agentes..."
 
-for pidfile in /tmp/ds.pid /tmp/logistico.pid /tmp/t1.pid /tmp/t2.pid /tmp/t3.pid; do
+for pidfile in /tmp/ds.pid /tmp/comprador.pid /tmp/gestor.pid /tmp/experiencia.pid /tmp/logistico.pid /tmp/t1.pid /tmp/t2.pid /tmp/t3.pid /tmp/devolucion.pid /tmp/vendedor.pid /tmp/usuario.pid; do
     if [ -f "$pidfile" ]; then
         kill "$(cat $pidfile)" 2>/dev/null && echo "Parado PID $(cat $pidfile)" || true
         rm "$pidfile"
@@ -14,7 +14,13 @@ done
 
 # Por si acaso, matar cualquier proceso python de agentes
 pkill -f "AgenteTransportista.py" 2>/dev/null || true
+pkill -f "AgenteExperiencia.py" 2>/dev/null || true
+pkill -f "AgenteGestorPedidos.py" 2>/dev/null || true
+pkill -f "AgenteComprador.py" 2>/dev/null || true
 pkill -f "AgenteLogistico.py" 2>/dev/null || true
 pkill -f "DirectoryService.py" 2>/dev/null || true
+pkill -f "AgenteDevolucion.py" 2>/dev/null || true
+pkill -f "AgenteVendedorExterno.py" 2>/dev/null || true
+pkill -f "AgenteUsuario.py" 2>/dev/null || true
 
 echo "Sistema parado."

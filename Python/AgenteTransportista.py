@@ -29,6 +29,8 @@ parser.add_argument('--dport', type=int, default=9000)
 parser.add_argument('--nombre', type=str, default='Transportista')
 parser.add_argument('--precio-factor', type=float, default=1.0,
                     help='Factor multiplicador sobre el precio base (default: 1.0)')
+parser.add_argument('--ciudad', type=str, default='',
+                    help='Ciudad de cobertura geográfica (default: "")')
 args = parser.parse_args()
 
 logger = config_logger(level=1)
@@ -36,12 +38,13 @@ port = args.port
 hostname = socket.gethostname()
 # flask_host: donde escucha Flask (0.0.0.0 si --open para aceptar conexiones externas)
 flask_host = '0.0.0.0' if args.open else hostname
-# hostaddr: direccion publica que se registra en el DS (siempre el hostname real)
-hostaddr = hostname
+# hostaddr: direccion publica que se registra en el DS.
+hostaddr = os.environ.get('ECSDI_PUBLIC_HOST') or hostname
 dport = args.dport
-dhostname = args.dhost if args.dhost else socket.gethostname()
+dhostname = os.environ.get('ECSDI_DHOST') or args.dhost or socket.gethostname()
 NOMBRE = args.nombre
 PRECIO_FACTOR = args.precio_factor
+CIUDAD = args.ciudad
 
 app = Flask(__name__)
 if not args.verbose:
@@ -71,19 +74,22 @@ def register_message():
     gmess = Graph()
     gmess.bind('foaf', FOAF)
     gmess.bind('dso', DSO)
+    gmess.bind('ecsns', ECSNS)
     reg_obj = agn[TransportistaAgent.name + '-Register']
     gmess.add((reg_obj, RDF.type, DSO.Register))
     gmess.add((reg_obj, DSO.Uri, TransportistaAgent.uri))
     gmess.add((reg_obj, FOAF.name, Literal(TransportistaAgent.name)))
     gmess.add((reg_obj, DSO.Address, Literal(TransportistaAgent.address)))
     gmess.add((reg_obj, DSO.AgentType, ECSNS['Ag.Transportista']))
+    if CIUDAD:
+        gmess.add((reg_obj, ECSNS.ciudad, Literal(CIUDAD)))
     gr = send_message(
         build_message(gmess, perf=ACL.request, sender=TransportistaAgent.uri,
                       receiver=DirectoryAgent.uri, content=reg_obj, msgcnt=mss_cnt),
         DirectoryAgent.address,
     )
     mss_cnt += 1
-    logger.info(f'[{NOMBRE}] Registrado en DS como {TransportistaAgent.address}')
+    logger.info(f'[{NOMBRE}] Registrado en DS como {TransportistaAgent.address} - Ciudad: {CIUDAD}')
     return gr
 
 
@@ -132,7 +138,7 @@ def comunicacion():
         resp = build_message(gr, ACL.propose, sender=TransportistaAgent.uri,
                              receiver=msgdic['sender'], content=oferta_uri, msgcnt=mss_cnt)
 
-    elif perf == ACL['counter-proposal']:
+    elif perf == ACL.propose and accion == ECSNS.ContraOferta:
         contra_precio = float(gm.value(content, ECSNS.tienePrecio) or 0)
         oferta_inicial = _ultima_oferta_precio or 999
         dado = random.random()

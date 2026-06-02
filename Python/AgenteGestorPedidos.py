@@ -6,7 +6,7 @@ import socket
 import sys
 import time
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from multiprocessing import Process, Queue
 
 from flask import Flask, request
@@ -36,9 +36,9 @@ args = parser.parse_args()
 logger = config_logger(level=1)
 port = args.port
 hostname = socket.gethostname()
-hostaddr = hostname if not args.open else '0.0.0.0'
+hostaddr = os.environ.get('ECSDI_PUBLIC_HOST') or hostname
 dport = args.dport
-dhostname = args.dhost if args.dhost else socket.gethostname()
+dhostname = os.environ.get('ECSDI_DHOST') or args.dhost or socket.gethostname()
 
 app = Flask(__name__)
 if not args.verbose:
@@ -47,6 +47,9 @@ if not args.verbose:
 agn = Namespace('http://www.agentes.org#')
 mss_cnt = 0
 FACTURAS_PATH = os.path.join(os.path.dirname(__file__), 'data', 'facturas.json')
+
+logistico_address = None
+experiencia_address = None
 
 GestorAgent = Agent(
     'AgenteGestorPedidos',
@@ -62,8 +65,6 @@ DirectoryAgent = Agent(
 )
 
 cola1 = Queue()
-logistico_address   = None
-experiencia_address = None
 
 
 def register_message():
@@ -108,7 +109,95 @@ def get_agent_address(agent_type):
     return None
 
 
-def generar_factura(productos, comprador, direccion, metodo_pago):
+def obtener_info_producto(prod_id):
+    propios_path = os.path.join(os.path.dirname(__file__), 'data', 'productos.json')
+    if os.path.exists(propios_path):
+        with open(propios_path) as f:
+            for p in json.load(f):
+                if p['id'] == prod_id:
+                    return p
+    externos_path = os.path.join(os.path.dirname(__file__), 'data', 'productos_externos.json')
+    if os.path.exists(externos_path):
+        with open(externos_path) as f:
+            for p in json.load(f):
+                if p['id'] == prod_id:
+                    return p
+    return None
+
+
+def obtener_address_vendedor(vendedor_nombre):
+    global mss_cnt
+    gmess = Graph()
+    gmess.bind('dso', DSO)
+    search_obj = agn[f'SearchVend-{mss_cnt}']
+    gmess.add((search_obj, RDF.type, DSO.Search))
+    gmess.add((search_obj, DSO.AgentType, ECSNS['Ag.VendedorExterno']))
+    msg = build_message(gmess, perf=ACL.request, sender=GestorAgent.uri,
+                        receiver=DirectoryAgent.uri, content=search_obj, msgcnt=mss_cnt)
+    mss_cnt += 1
+    try:
+        r = http_requests.get(DirectoryAgent.address,
+                              params={'content': msg.serialize(format='xml')}, timeout=5)
+        gr_ds = Graph()
+        gr_ds.parse(data=r.text, format='xml')
+        for entry in gr_ds.subjects(DSO.Uri):
+            uri = gr_ds.value(entry, DSO.Uri)
+            addr = gr_ds.value(entry, DSO.Address)
+            if uri and str(uri).endswith(vendedor_nombre):
+                return str(addr)
+        # Fallback
+        for entry in gr_ds.subjects(DSO.Uri):
+            addr = gr_ds.value(entry, DSO.Address)
+            if addr: return str(addr)
+    except Exception as e:
+        logger.warning(f'[GestorPedidos] Error buscando vendedor {vendedor_nombre}: {e}')
+    return None
+
+
+def realizar_pedido_externo(vendedor_addr, vendedor_nombre, pedido_id, comprador, direccion, prioridad, productos_vendedor):
+    global mss_cnt
+    gmess = Graph()
+    gmess.bind('ecsns', ECSNS)
+    ped_ext = ECSNS['ped-ext-' + pedido_id]
+    gmess.add((ped_ext, RDF.type,        ECSNS.PedidoExterno))
+    gmess.add((ped_ext, ECSNS.idPedido,  Literal(pedido_id)))
+    gmess.add((ped_ext, ECSNS.comprador, Literal(comprador)))
+    gmess.add((ped_ext, ECSNS.direccion, Literal(direccion)))
+    gmess.add((ped_ext, ECSNS.prioridad, Literal(prioridad)))
+
+    for i, p in enumerate(productos_vendedor):
+        pn = ECSNS[f'ped-ext-prod-{pedido_id}-{i}']
+        gmess.add((ped_ext, ECSNS.tieneProducto, pn))
+        gmess.add((pn, ECSNS.idProducto, Literal(p['id'])))
+        gmess.add((pn, ECSNS.cantidad,   Literal(p['cantidad'])))
+
+    try:
+        gr_resp = send_message(
+            build_message(gmess, perf=ACL.request, sender=GestorAgent.uri,
+                          content=ped_ext, msgcnt=mss_cnt),
+            vendedor_addr
+        )
+        mss_cnt += 1
+        resp_node = None
+        for s, p, o in gr_resp.triples((None, RDF.type, ECSNS.RespuestaPedidoExterno)):
+            resp_node = s
+            break
+        if resp_node:
+            fecha_entrega = str(gr_resp.value(resp_node, ECSNS.fechaEntrega) or '')
+            transportista = str(gr_resp.value(resp_node, ECSNS.transportista) or '')
+            estado        = str(gr_resp.value(resp_node, ECSNS.estado) or '')
+            return {
+                'fecha_prevista': fecha_entrega,
+                'transportista': transportista,
+                'estado': estado,
+                'exito': True
+            }
+    except Exception as e:
+        logger.warning(f'[GestorPedidos] Error enviando pedido a {vendedor_nombre}: {e}')
+    return {'exito': False}
+
+
+def generar_factura(productos, comprador, direccion, metodo_pago, envios_vendedor=None):
     factura_id = 'FAC-' + str(uuid.uuid4())[:8].upper()
     total = sum(p['precio'] * p.get('cantidad', 1) for p in productos)
     factura = {
@@ -119,6 +208,7 @@ def generar_factura(productos, comprador, direccion, metodo_pago):
         'total':       round(total, 2),
         'direccion':   direccion,
         'metodo_pago': metodo_pago,
+        'envios_vendedor': envios_vendedor or []
     }
     if os.path.exists(FACTURAS_PATH):
         with open(FACTURAS_PATH) as f:
@@ -206,24 +296,73 @@ def procesar_compra(gm, content):
 
     productos = []
     for prod_node in gm.objects(content, ECSNS.tieneProducto):
+        pid = str(gm.value(prod_node, ECSNS.idProducto))
+        pinfo = obtener_info_producto(pid) or {}
         productos.append({
-            'id':       str(gm.value(prod_node, ECSNS.idProducto)),
-            'nombre':   str(gm.value(prod_node, ECSNS.nombre)   or ''),
-            'precio':   float(gm.value(prod_node, ECSNS.precio) or 0),
+            'id':       pid,
+            'nombre':   str(gm.value(prod_node, ECSNS.nombre)   or pinfo.get('nombre', '')),
+            'precio':   float(gm.value(prod_node, ECSNS.precio) or pinfo.get('precio', 0)),
             'cantidad': int(gm.value(prod_node, ECSNS.cantidad) or 1),
-            'peso':     float(gm.value(prod_node, ECSNS.peso)   or 0),
+            'peso':     float(gm.value(prod_node, ECSNS.peso)   or pinfo.get('peso', 0)),
+            'vendedor': pinfo.get('vendedor', 'tienda'),
+            'gestion_envio': pinfo.get('gestion_envio', 'tienda')
         })
 
-    factura = generar_factura(productos, comprador, direccion, metodo_pago)
+    shop_products = []
+    vendor_products = {}
+
+    for p in productos:
+        if p['vendedor'] == 'tienda' or p['gestion_envio'] == 'tienda':
+            shop_products.append(p)
+        else:
+            vname = p['vendedor']
+            if vname not in vendor_products:
+                vendor_products[vname] = []
+            vendor_products[vname].append(p)
 
     pedido_id = 'PED-' + str(uuid.uuid4())[:8].upper()
-    pedido = {
-        'id':        pedido_id,
-        'productos': productos,
-        'direccion': direccion,
-        'prioridad': prioridad,
-    }
-    notificar_logistico(pedido)
+    envios_vendedor = []
+
+    # Pedidos tienda o tienda gestiona
+    if shop_products:
+        shop_pedido = {
+            'id':        pedido_id,
+            'productos': shop_products,
+            'direccion': direccion,
+            'prioridad': prioridad,
+        }
+        notificar_logistico(shop_pedido)
+
+    # Pedidos vendedor gestiona
+    for vname, vprods in vendor_products.items():
+        vaddr = obtener_address_vendedor(vname)
+        if vaddr:
+            logger.info(f'[GestorPedidos] Contactando vendedor externo {vname} en {vaddr}...')
+            info_envio = realizar_pedido_externo(vaddr, vname, pedido_id, comprador, direccion, prioridad, vprods)
+            if info_envio['exito']:
+                envios_vendedor.append({
+                    'vendedor': vname,
+                    'productos': [p['id'] for p in vprods],
+                    'transportista': info_envio['transportista'],
+                    'fecha_prevista': info_envio['fecha_prevista']
+                })
+            else:
+                envios_vendedor.append({
+                    'vendedor': vname,
+                    'productos': [p['id'] for p in vprods],
+                    'transportista': f'Mensajería {vname}',
+                    'fecha_prevista': (datetime.now() + timedelta(days=5)).strftime('%Y-%m-%d')
+                })
+        else:
+            logger.warning(f'[GestorPedidos] No se pudo encontrar dirección del vendedor {vname}')
+            envios_vendedor.append({
+                'vendedor': vname,
+                'productos': [p['id'] for p in vprods],
+                'transportista': f'Mensajería {vname}',
+                'fecha_prevista': (datetime.now() + timedelta(days=5)).strftime('%Y-%m-%d')
+            })
+
+    factura = generar_factura(productos, comprador, direccion, metodo_pago, envios_vendedor)
     notificar_experiencia_compra(comprador, factura, productos)
 
     gr = Graph()

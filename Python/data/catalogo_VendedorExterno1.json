@@ -1,0 +1,35 @@
+[
+  {
+    "id": "EXT-VendedorExterno1-001",
+    "nombre": "Auriculares Premium BT",
+    "categoria": "electronica",
+    "precio": 89.99,
+    "peso": 0.3,
+    "stock": 15,
+    "valoracion": 4.3,
+    "vendedor": "VendedorExterno1",
+    "gestion_envio": "tienda"
+  },
+  {
+    "id": "EXT-VendedorExterno1-002",
+    "nombre": "Mochila Urbana 30L",
+    "categoria": "hogar",
+    "precio": 45.5,
+    "peso": 0.8,
+    "stock": 30,
+    "valoracion": 4.1,
+    "vendedor": "VendedorExterno1",
+    "gestion_envio": "vendedor"
+  },
+  {
+    "id": "EXT-VendedorExterno1-003",
+    "nombre": "Libro Sistemas Distribuidos",
+    "categoria": "libros",
+    "precio": 32.0,
+    "peso": 0.5,
+    "stock": 50,
+    "valoracion": 4.8,
+    "vendedor": "VendedorExterno1",
+    "gestion_envio": "tienda"
+  }
+]

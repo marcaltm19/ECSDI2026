@@ -32,9 +32,9 @@ args = parser.parse_args()
 logger = config_logger(level=1)
 port = args.port
 hostname = socket.gethostname()
-hostaddr = hostname if not args.open else '0.0.0.0'
+hostaddr = os.environ.get('ECSDI_PUBLIC_HOST') or hostname
 dport = args.dport
-dhostname = args.dhost if args.dhost else socket.gethostname()
+dhostname = os.environ.get('ECSDI_DHOST') or args.dhost or socket.gethostname()
 
 app = Flask(__name__)
 if not args.verbose:

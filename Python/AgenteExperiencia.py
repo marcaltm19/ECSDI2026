@@ -6,8 +6,9 @@ import socket
 import sys
 import time
 import uuid
+import threading
 from datetime import datetime
-from multiprocessing import Process, Queue
+from multiprocessing import Queue
 
 from flask import Flask, request
 from rdflib import Graph, Literal, Namespace
@@ -36,9 +37,9 @@ args = parser.parse_args()
 logger = config_logger(level=1)
 port = args.port
 hostname = socket.gethostname()
-hostaddr = hostname if not args.open else '0.0.0.0'
+hostaddr = os.environ.get('ECSDI_PUBLIC_HOST') or hostname
 dport = args.dport
-dhostname = args.dhost if args.dhost else socket.gethostname()
+dhostname = os.environ.get('ECSDI_DHOST') or args.dhost or socket.gethostname()
 
 app = Flask(__name__)
 if not args.verbose:
@@ -160,6 +161,33 @@ def obtener_valoraciones_producto(producto_id):
 # Historial de compras
 # ---------------------------------------------------------------------------
 
+feedback_tasks = []
+
+
+def obtener_address_usuario():
+    global mss_cnt
+    gmess = Graph()
+    gmess.bind('dso', DSO)
+    search_obj = agn[f'SearchUser-{mss_cnt}']
+    gmess.add((search_obj, RDF.type, DSO.Search))
+    gmess.add((search_obj, DSO.AgentType, ECSNS['Ag.Usuario']))
+    msg = build_message(gmess, perf=ACL.request, sender=ExperienciaAgent.uri,
+                        receiver=DirectoryAgent.uri, content=search_obj, msgcnt=mss_cnt)
+    mss_cnt += 1
+    try:
+        r = http_requests.get(DirectoryAgent.address,
+                              params={'content': msg.serialize(format='xml')}, timeout=5)
+        gr_ds = Graph()
+        gr_ds.parse(data=r.text, format='xml')
+        for entry in gr_ds.subjects(DSO.Uri):
+            addr = gr_ds.value(entry, DSO.Address)
+            if addr:
+                return str(addr)
+    except Exception as e:
+        logger.warning(f'[Experiencia] Error buscando AgenteUsuario: {e}')
+    return None
+
+
 def registrar_compra(comprador, pedido_id, productos, total, fecha=None):
     historial = _load_json(HISTORIAL_PATH, {})
     if comprador not in historial:
@@ -176,6 +204,8 @@ def registrar_compra(comprador, pedido_id, productos, total, fecha=None):
         f'[Experiencia] Historial actualizado -- '
         f'Comprador: {comprador} | Pedido: {pedido_id} | Total: {total}EUR'
     )
+    # Enqueue a feedback task for 10 seconds from now
+    feedback_tasks.append((time.time() + 10, comprador, productos))
     return entrada
 
 
@@ -435,19 +465,91 @@ def comunicacion():
 # ---------------------------------------------------------------------------
 
 def agentbehavior1(cola):
+    global mss_cnt, feedback_tasks
     register_message()
     logger.info('[Experiencia] Registrado y escuchando en puerto %d', port)
+    
+    last_rec_time = time.time()
     fin = False
     while not fin:
         time.sleep(1)
         if not cola.empty() and cola.get() == 0:
             fin = True
+            break
+            
+        now = time.time()
+        
+        # 1. Feedback proactivo (10s después de la compra)
+        vencidos = [t for t in feedback_tasks if t[0] <= now]
+        feedback_tasks = [t for t in feedback_tasks if t[0] > now]
+        
+        if vencidos:
+            user_addr = obtener_address_usuario()
+            if user_addr:
+                for _, comprador, productos in vencidos:
+                    for p in productos:
+                        pid = p['id']
+                        pnombre = p.get('nombre', pid)
+                        logger.info(f'[Experiencia] Enviando SolicitudFeedback proactiva a {user_addr} para {comprador} sobre {pnombre}')
+                        
+                        gmess = Graph()
+                        gmess.bind('ecsns', ECSNS)
+                        req = ECSNS[f'sol-feed-{uuid.uuid4()}']
+                        gmess.add((req, RDF.type,          ECSNS.SolicitudFeedback))
+                        gmess.add((req, ECSNS.comprador,   Literal(comprador)))
+                        gmess.add((req, ECSNS.idProducto,  Literal(pid)))
+                        gmess.add((req, ECSNS.nombre,      Literal(pnombre)))
+                        
+                        try:
+                            send_message(
+                                build_message(gmess, perf=ACL.request, sender=ExperienciaAgent.uri,
+                                              receiver=agn.AgenteUsuario, content=req, msgcnt=mss_cnt),
+                                user_addr
+                            )
+                            mss_cnt += 1
+                        except Exception as e:
+                            logger.warning(f'[Experiencia] Fallo al enviar feedback proactivo: {e}')
+                            
+        # 2. Recomendaciones proactivas periódicas (cada 30s)
+        if now - last_rec_time >= 30:
+            last_rec_time = now
+            historial = _load_json(HISTORIAL_PATH, {})
+            if historial:
+                user_addr = obtener_address_usuario()
+                if user_addr:
+                    for comprador in list(historial.keys()):
+                        recs = calcular_recomendaciones(comprador)
+                        if recs:
+                            logger.info(f'[Experiencia] Enviando {len(recs)} RecomendacionesProactivas proactivas a {user_addr} para {comprador}')
+                            
+                            gmess = Graph()
+                            gmess.bind('ecsns', ECSNS)
+                            rec_node = ECSNS[f'recs-pro-{uuid.uuid4()}']
+                            gmess.add((rec_node, RDF.type, ECSNS.RecomendacionesProactivas))
+                            gmess.add((rec_node, ECSNS.comprador, Literal(comprador)))
+                            for r in recs:
+                                rn = ECSNS[f'rec-pro-{r["id"]}']
+                                gmess.add((rec_node, ECSNS.tieneRecomendacion, rn))
+                                gmess.add((rn, ECSNS.idProducto, Literal(r['id'])))
+                                gmess.add((rn, ECSNS.nombre, Literal(r['nombre'])))
+                                gmess.add((rn, ECSNS.mediaValoracion, Literal(r['media'])))
+                                gmess.add((rn, ECSNS.razonRecomendacion, Literal(r['razon'])))
+                                
+                            try:
+                                send_message(
+                                    build_message(gmess, perf=ACL.inform, sender=ExperienciaAgent.uri,
+                                                  receiver=agn.AgenteUsuario, content=rec_node, msgcnt=mss_cnt),
+                                    user_addr
+                                )
+                                mss_cnt += 1
+                            except Exception as e:
+                                logger.warning(f'[Experiencia] Fallo al enviar recomendaciones proactivas: {e}')
 
 
 if __name__ == '__main__':
     os.makedirs(DATA_DIR, exist_ok=True)
-    ab1 = Process(target=agentbehavior1, args=(cola1,))
+    ab1 = threading.Thread(target=agentbehavior1, args=(cola1,))
+    ab1.daemon = True
     ab1.start()
     app.run(host=hostname, port=port)
-    ab1.join()
     logger.info('[Experiencia] Fin')

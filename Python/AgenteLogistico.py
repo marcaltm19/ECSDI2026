@@ -40,10 +40,10 @@ port = args.port
 hostname = socket.gethostname()
 # flask_host: donde escucha Flask (0.0.0.0 si --open para aceptar conexiones externas)
 flask_host = '0.0.0.0' if args.open else hostname
-# hostaddr: direccion publica que se registra en el DS (siempre el hostname real)
-hostaddr = hostname
+# hostaddr: direccion publica que se registra en el DS.
+hostaddr = os.environ.get('ECSDI_PUBLIC_HOST') or hostname
 dport = args.dport
-dhostname = args.dhost if args.dhost else socket.gethostname()
+dhostname = os.environ.get('ECSDI_DHOST') or args.dhost or socket.gethostname()
 
 app = Flask(__name__)
 if not args.verbose:
@@ -169,7 +169,18 @@ def _buscar_transportistas():
     mss_cnt += 1
     gr_ds = Graph()
     gr_ds.parse(data=r.text, format='xml')
-    return [str(o) for s, p, o in gr_ds if p == DSO.Address]
+    
+    transportistas = []
+    # Find all response nodes that represent an agent in the DS response
+    for entry in gr_ds.subjects(DSO.Uri):
+        addr = gr_ds.value(entry, DSO.Address)
+        ciudad = gr_ds.value(entry, ECSNS.ciudad)
+        if addr:
+            transportistas.append({
+                'address': str(addr),
+                'ciudad': str(ciudad) if ciudad else ''
+            })
+    return transportistas
 
 
 def _enviar_cfp(t_addr, prioridad, direccion):
@@ -209,7 +220,7 @@ def _enviar_contraoferta(t_addr, contra_precio):
     gr_counter.add((counter_uri, RDF.type, ECSNS.ContraOferta))
     gr_counter.add((counter_uri, ECSNS.tienePrecio, Literal(contra_precio)))
     msg_counter = build_message(
-        gr_counter, perf=ACL['counter-proposal'],
+        gr_counter, perf=ACL.propose,
         sender=LogisticoAgent.uri, content=counter_uri, msgcnt=mss_cnt
     )
     mss_cnt += 1
@@ -252,15 +263,26 @@ def escoger_mejor_oferta(pool, prioridad):
     return ganador_addr
 
 
-def negociar_transporte(prioridad, direccion):
+def negociar_transporte(prioridad, direccion, centro=None):
     global mss_cnt
-    transportistas_addr = _buscar_transportistas()
-    if not transportistas_addr:
+    transportistas = _buscar_transportistas()
+    if not transportistas:
         logger.warning('[Logistico] No hay transportistas en el DS, usando fallback')
         return 'Desconocido', (datetime.now() + timedelta(days=3)).strftime('%Y-%m-%d')
 
+    # Filtrado por ciudad de cobertura
+    if centro and 'nombre' in centro:
+        ciudad_centro = centro['nombre'].replace("Centro ", "").strip().lower()
+        filtrados = [t for t in transportistas if t['ciudad'].strip().lower() == ciudad_centro]
+        if filtrados:
+            logger.info(f"[Logistico] Transportistas filtrados para la ciudad '{ciudad_centro}': {[t['address'] for t in filtrados]}")
+            transportistas = filtrados
+        else:
+            logger.info(f"[Logistico] No se encontraron transportistas para la ciudad '{ciudad_centro}', negociando con todos.")
+
     ofertas_r1 = {}
-    for t_addr in transportistas_addr:
+    for t in transportistas:
+        t_addr = t['address']
         resultado = _enviar_cfp(t_addr, prioridad, direccion)
         if resultado:
             precio, nombre, fecha, dias = resultado
@@ -360,7 +382,8 @@ def realizar_envios():
 
             nombre_t, fecha = negociar_transporte(
                 pedido.get('prioridad', 'normal'),
-                pedido.get('direccion', '')
+                pedido.get('direccion', ''),
+                centro
             )
 
             envio_id = 'ENV-' + str(uuid.uuid4())[:8].upper()
