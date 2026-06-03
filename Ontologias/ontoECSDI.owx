@@ -100,27 +100,6 @@
         <Class IRI="#OfertaTransporte"/>
     </Declaration>
     <Declaration>
-        <Class IRI="#Oferta"/>
-    </Declaration>
-    <Declaration>
-        <Class IRI="#CFP"/>
-    </Declaration>
-    <Declaration>
-        <Class IRI="#ContraOferta"/>
-    </Declaration>
-    <Declaration>
-        <Class IRI="#SolicitudFeedback"/>
-    </Declaration>
-    <Declaration>
-        <Class IRI="#CompraFinalizada"/>
-    </Declaration>
-    <Declaration>
-        <Class IRI="#EnviosAsignados"/>
-    </Declaration>
-    <Declaration>
-        <Class IRI="#RegistroBusqueda"/>
-    </Declaration>
-    <Declaration>
         <Class IRI="#Pagar"/>
     </Declaration>
     <Declaration>
@@ -179,6 +158,108 @@
     </Declaration>
     <Declaration>
         <Class IRI="#OfertaTransporte(P)"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#Oferta"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#CFP"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#ContraOferta"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#SolicitudFeedback"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#CompraFinalizada"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#EnviosAsignados"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#RegistroBusqueda"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#CatalogoExterno"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#ProductoExterno"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#PedidoExterno"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#RespuestaPedidoExterno"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#AckActualizacion"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#ActualizarCatalogo"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#NuevaValoracion"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#ResultadoValoraciones"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#HistorialCompras"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#Recomendaciones"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#RecomendacionesProactivas"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#ValoracionOK"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#PedirRecomendaciones"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#ConsultaValoraciones"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#ConsultaHistorial"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#SolicitudDevolucion"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#ListaDevoluciones"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#ResultadoEnvio"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#NotificacionEnvios"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#Ag.Comprador"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#Ag.GestorDePedidos"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#Ag.Logistico"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#Ag.Transportista"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#Ag.Devolucion"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#Ag.VendedorExterno"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#Ag.Experiencia"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#Ag.Usuario"/>
     </Declaration>
     <Declaration>
         <ObjectProperty IRI="#compra"/>
@@ -265,6 +346,33 @@
         <ObjectProperty IRI="#viveEn"/>
     </Declaration>
     <Declaration>
+        <ObjectProperty IRI="#tieneCentro"/>
+    </Declaration>
+    <Declaration>
+        <ObjectProperty IRI="#tieneDestino"/>
+    </Declaration>
+    <Declaration>
+        <ObjectProperty IRI="#tieneProducto"/>
+    </Declaration>
+    <Declaration>
+        <ObjectProperty IRI="#tieneTransportista"/>
+    </Declaration>
+    <Declaration>
+        <ObjectProperty IRI="#tienePedido"/>
+    </Declaration>
+    <Declaration>
+        <ObjectProperty IRI="#tieneSubEnvio"/>
+    </Declaration>
+    <Declaration>
+        <ObjectProperty IRI="#tieneValoracion"/>
+    </Declaration>
+    <Declaration>
+        <ObjectProperty IRI="#tieneRecomendacion"/>
+    </Declaration>
+    <Declaration>
+        <ObjectProperty IRI="#tieneDevolucion"/>
+    </Declaration>
+    <Declaration>
         <DataProperty IRI="#calle"/>
     </Declaration>
     <Declaration>
@@ -295,7 +403,7 @@
         <DataProperty IRI="#fechaFactura"/>
     </Declaration>
     <Declaration>
-        <DataProperty IRI="#fechaPrivistaEntrega"/>
+        <DataProperty IRI="#fechaPrevistaEntrega"/>
     </Declaration>
     <Declaration>
         <DataProperty IRI="#fechaSalida"/>
@@ -362,6 +470,93 @@
     </Declaration>
     <Declaration>
         <DataProperty IRI="#valorMin"/>
+    </Declaration>
+    <Declaration>
+        <DataProperty IRI="#total"/>
+    </Declaration>
+    <Declaration>
+        <DataProperty IRI="#estado"/>
+    </Declaration>
+    <Declaration>
+        <DataProperty IRI="#stock"/>
+    </Declaration>
+    <Declaration>
+        <DataProperty IRI="#valoracion"/>
+    </Declaration>
+    <Declaration>
+        <DataProperty IRI="#valoracionMinima"/>
+    </Declaration>
+    <Declaration>
+        <DataProperty IRI="#precioMaximo"/>
+    </Declaration>
+    <Declaration>
+        <DataProperty IRI="#comprador"/>
+    </Declaration>
+    <Declaration>
+        <DataProperty IRI="#idProducto"/>
+    </Declaration>
+    <Declaration>
+        <DataProperty IRI="#idPedido"/>
+    </Declaration>
+    <Declaration>
+        <DataProperty IRI="#idFactura"/>
+    </Declaration>
+    <Declaration>
+        <DataProperty IRI="#idEnvio"/>
+    </Declaration>
+    <Declaration>
+        <DataProperty IRI="#idDevolucion"/>
+    </Declaration>
+    <Declaration>
+        <DataProperty IRI="#idValoracion"/>
+    </Declaration>
+    <Declaration>
+        <DataProperty IRI="#metodoPago"/>
+    </Declaration>
+    <Declaration>
+        <DataProperty IRI="#fechaEntrega"/>
+    </Declaration>
+    <Declaration>
+        <DataProperty IRI="#fechaRecepcion"/>
+    </Declaration>
+    <Declaration>
+        <DataProperty IRI="#aceptada"/>
+    </Declaration>
+    <Declaration>
+        <DataProperty IRI="#motivoDevolucion"/>
+    </Declaration>
+    <Declaration>
+        <DataProperty IRI="#razonDevolucion"/>
+    </Declaration>
+    <Declaration>
+        <DataProperty IRI="#empresaMensajeria"/>
+    </Declaration>
+    <Declaration>
+        <DataProperty IRI="#mediaValoracion"/>
+    </Declaration>
+    <Declaration>
+        <DataProperty IRI="#totalValoraciones"/>
+    </Declaration>
+    <Declaration>
+        <DataProperty IRI="#razonRecomendacion"/>
+    </Declaration>
+    <Declaration>
+        <DataProperty IRI="#nombreVendedor"/>
+    </Declaration>
+    <Declaration>
+        <DataProperty IRI="#gestionEnvio"/>
+    </Declaration>
+    <Declaration>
+        <DataProperty IRI="#comentario"/>
+    </Declaration>
+    <Declaration>
+        <DataProperty IRI="#numEnvios"/>
+    </Declaration>
+    <Declaration>
+        <DataProperty IRI="#incluirExternos"/>
+    </Declaration>
+    <Declaration>
+        <DataProperty IRI="#actualizado"/>
     </Declaration>
     <SubClassOf>
         <Class IRI="#Accion"/>
@@ -495,10 +690,110 @@
         <Class IRI="#OfertaTransporte(P)"/>
         <Class IRI="#Respuesta"/>
     </SubClassOf>
-    <EquivalentObjectProperties>
-        <ObjectProperty IRI="#hacePedido"/>
-        <ObjectProperty IRI="#peticion"/>
-    </EquivalentObjectProperties>
+    <SubClassOf>
+        <Class IRI="#CFP"/>
+        <Class IRI="#Accion"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#Oferta"/>
+        <Class IRI="#Respuesta"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#ContraOferta"/>
+        <Class IRI="#Proponer"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#SolicitudFeedback"/>
+        <Class IRI="#Accion"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#CompraFinalizada"/>
+        <Class IRI="#Respuesta"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#EnviosAsignados"/>
+        <Class IRI="#Respuesta"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#RegistroBusqueda"/>
+        <Class IRI="#Respuesta"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#ActualizarCatalogo"/>
+        <Class IRI="#Accion"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#CatalogoExterno"/>
+        <Class IRI="#Respuesta"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#ProductoExterno"/>
+        <Class IRI="#Respuesta"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#PedidoExterno"/>
+        <Class IRI="#Accion"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#RespuestaPedidoExterno"/>
+        <Class IRI="#Respuesta"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#AckActualizacion"/>
+        <Class IRI="#Respuesta"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#NuevaValoracion"/>
+        <Class IRI="#Accion"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#ResultadoValoraciones"/>
+        <Class IRI="#Respuesta"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#HistorialCompras"/>
+        <Class IRI="#Respuesta"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#Recomendaciones"/>
+        <Class IRI="#Respuesta"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#RecomendacionesProactivas"/>
+        <Class IRI="#Respuesta"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#ValoracionOK"/>
+        <Class IRI="#Respuesta"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#PedirRecomendaciones"/>
+        <Class IRI="#Accion"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#ConsultaValoraciones"/>
+        <Class IRI="#Accion"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#ConsultaHistorial"/>
+        <Class IRI="#Accion"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#SolicitudDevolucion"/>
+        <Class IRI="#Pedir"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#ListaDevoluciones"/>
+        <Class IRI="#Respuesta"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#ResultadoEnvio"/>
+        <Class IRI="#Respuesta"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#NotificacionEnvios"/>
+        <Class IRI="#Informar"/>
+    </SubClassOf>
     <ObjectPropertyDomain>
         <ObjectProperty IRI="#compra"/>
         <Class IRI="#CompraProducto(P)"/>
@@ -767,18 +1062,6 @@
         <DataProperty IRI="#descripcion"/>
         <DataProperty IRI="#informacion"/>
     </EquivalentDataProperties>
-    <EquivalentDataProperties>
-        <DataProperty IRI="#fecha"/>
-        <DataProperty IRI="#fechaFactura"/>
-    </EquivalentDataProperties>
-    <EquivalentDataProperties>
-        <DataProperty IRI="#fecha"/>
-        <DataProperty IRI="#fechaPrivistaEntrega"/>
-    </EquivalentDataProperties>
-    <EquivalentDataProperties>
-        <DataProperty IRI="#fecha"/>
-        <DataProperty IRI="#fechaSalida"/>
-    </EquivalentDataProperties>
     <SubDataPropertyOf>
         <DataProperty IRI="#ciudad"/>
         <DataProperty abbreviatedIRI="owl:topDataProperty"/>
@@ -786,6 +1069,18 @@
     <SubDataPropertyOf>
         <DataProperty IRI="#dineroDevuelto"/>
         <DataProperty abbreviatedIRI="owl:topDataProperty"/>
+    </SubDataPropertyOf>
+    <SubDataPropertyOf>
+        <DataProperty IRI="#fechaFactura"/>
+        <DataProperty IRI="#fecha"/>
+    </SubDataPropertyOf>
+    <SubDataPropertyOf>
+        <DataProperty IRI="#fechaPrevistaEntrega"/>
+        <DataProperty IRI="#fecha"/>
+    </SubDataPropertyOf>
+    <SubDataPropertyOf>
+        <DataProperty IRI="#fechaSalida"/>
+        <DataProperty IRI="#fecha"/>
     </SubDataPropertyOf>
     <DataPropertyDomain>
         <DataProperty IRI="#calle"/>
@@ -821,10 +1116,7 @@
     </DataPropertyDomain>
     <DataPropertyDomain>
         <DataProperty IRI="#email"/>
-        <ObjectExactCardinality cardinality="1">
-            <ObjectProperty abbreviatedIRI="owl:topObjectProperty"/>
-            <Class IRI="#Usuario"/>
-        </ObjectExactCardinality>
+        <Class IRI="#Usuario"/>
     </DataPropertyDomain>
     <DataPropertyDomain>
         <DataProperty IRI="#fecha"/>
@@ -835,7 +1127,7 @@
         <Class IRI="#Factura"/>
     </DataPropertyDomain>
     <DataPropertyDomain>
-        <DataProperty IRI="#fechaPrivistaEntrega"/>
+        <DataProperty IRI="#fechaPrevistaEntrega"/>
         <Class IRI="#OfertaTransporte"/>
     </DataPropertyDomain>
     <DataPropertyDomain>
@@ -916,10 +1208,7 @@
     </DataPropertyDomain>
     <DataPropertyDomain>
         <DataProperty IRI="#peso"/>
-        <ObjectExactCardinality cardinality="1">
-            <ObjectProperty abbreviatedIRI="owl:topObjectProperty"/>
-            <Class IRI="#Producto"/>
-        </ObjectExactCardinality>
+        <Class IRI="#Producto"/>
     </DataPropertyDomain>
     <DataPropertyDomain>
         <DataProperty IRI="#precio"/>
@@ -939,17 +1228,11 @@
     </DataPropertyDomain>
     <DataPropertyDomain>
         <DataProperty IRI="#valorMax"/>
-        <ObjectExactCardinality cardinality="1">
-            <ObjectProperty abbreviatedIRI="owl:topObjectProperty"/>
-            <Class IRI="#RestriccionBusqueda"/>
-        </ObjectExactCardinality>
+        <Class IRI="#RestriccionBusqueda"/>
     </DataPropertyDomain>
     <DataPropertyDomain>
         <DataProperty IRI="#valorMin"/>
-        <ObjectExactCardinality cardinality="1">
-            <ObjectProperty abbreviatedIRI="owl:topObjectProperty"/>
-            <Class IRI="#RestriccionBusqueda"/>
-        </ObjectExactCardinality>
+        <Class IRI="#RestriccionBusqueda"/>
     </DataPropertyDomain>
     <DataPropertyRange>
         <DataProperty IRI="#calle"/>
@@ -965,7 +1248,7 @@
     </DataPropertyRange>
     <DataPropertyRange>
         <DataProperty IRI="#codigoPostal"/>
-        <Datatype abbreviatedIRI="xsd:unsignedByte"/>
+        <Datatype abbreviatedIRI="xsd:string"/>
     </DataPropertyRange>
     <DataPropertyRange>
         <DataProperty IRI="#datosProveedor"/>
@@ -992,7 +1275,7 @@
         <Datatype abbreviatedIRI="xsd:dateTime"/>
     </DataPropertyRange>
     <DataPropertyRange>
-        <DataProperty IRI="#fechaPrivistaEntrega"/>
+        <DataProperty IRI="#fechaPrevistaEntrega"/>
         <Datatype abbreviatedIRI="xsd:dateTime"/>
     </DataPropertyRange>
     <DataPropertyRange>
@@ -1020,12 +1303,16 @@
         <Datatype abbreviatedIRI="xsd:string"/>
     </DataPropertyRange>
     <DataPropertyRange>
+        <DataProperty IRI="#motivo"/>
+        <Datatype abbreviatedIRI="xsd:string"/>
+    </DataPropertyRange>
+    <DataPropertyRange>
         <DataProperty IRI="#nombre"/>
         <Datatype abbreviatedIRI="xsd:string"/>
     </DataPropertyRange>
     <DataPropertyRange>
         <DataProperty IRI="#numero"/>
-        <Datatype abbreviatedIRI="xsd:short"/>
+        <Datatype abbreviatedIRI="xsd:unsignedInt"/>
     </DataPropertyRange>
     <DataPropertyRange>
         <DataProperty IRI="#numeroFactura"/>
@@ -1081,13 +1368,378 @@
     </DataPropertyRange>
     <AnnotationAssertion>
         <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#Accion</IRI>
+        <Literal xml:lang="es">Clase abstracta base de la que heredan todas las solicitudes operativas o directivas que un agente pide realizar a otro.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#CategoriaProducto</IRI>
+        <Literal xml:lang="es">Clasificación taxonómica utilizada para organizar el catálogo de productos y facilitar las restricciones de búsqueda.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#CentroLogistico</IRI>
+        <Literal xml:lang="es">Instalación distribuida encargada del almacenamiento de productos, preparación de paquetes, agrupación en lotes y negociación del transporte.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#CompraProducto</IRI>
+        <Literal xml:lang="es">Línea de detalle dentro de un pedido que asocia un producto concreto con la cantidad exacta adquirida.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#Comunicacion</IRI>
+        <Literal xml:lang="es">Clase raíz abstracta para modelar todos los flujos de interacción, mensajes y contenidos que se intercambian los agentes.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#Devolucion</IRI>
+        <Literal xml:lang="es">Proceso global de gestión del retorno de un producto y la consecuente restitución económica al comprador. El proceso de devolución se pone en marcha una vez se ha aceptado la solicitud de devolución que ha hecho el usuario.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#Direccion</IRI>
+        <Literal xml:lang="es">Estructura de datos que almacena los componentes geográficos (calle, número, código postal, ciudad, país) de un domicilio o instalación (centro logístico, por ejemplo).</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#EmpresaTransporte</IRI>
+        <Literal xml:lang="es">Agente logístico externo encargado del traslado físico de las mercancías desde los centros logísticos hasta el usuario.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#Factura</IRI>
+        <Literal xml:lang="es">Documento legal e impositivo emitido tras un cobro que detalla el desglose de importes, subtotales e impuestos de un pedido.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#Feedback</IRI>
+        <Literal xml:lang="es">Registro de la valoración cualitativa (reseña) y cuantitativa (puntuación) efectuada por un cliente sobre un producto.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#Marca</IRI>
+        <Literal xml:lang="es">Firma comercial o fabricante asociado a un producto específico.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#OfertaTransporte</IRI>
+        <Literal xml:lang="es">Propuesta económica y temporal emitida por un transportista (o &apos;EmrpesaTransporte&apos;) como respuesta a una solicitud de envío de un lote de pedidos.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#Pedido</IRI>
+        <Literal xml:lang="es">Registro que consolida la solicitud de compra de un usuario, agrupando costes totales, prioridades y datos de envío proporcionados por el usuario. El pedido se pone en marcha una vez el usuario ha efectuado el pago de los productos que quiere comprar.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#PeticionDevolucion</IRI>
+        <Literal xml:lang="es">Instancia formal enviada por el usuario donde se especifica el producto a retornar y el motivo detallado de la reclamación.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#Producto</IRI>
+        <Literal xml:lang="es">Elemento o artículo comercial disponible en el catálogo para ser comprado por los usuarios, con atributos indispensables como el precio, peso y descripción.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#Respuesta</IRI>
+        <Literal xml:lang="es">Clase abstracta que engloba aquellos mensajes que sirven como réplica, entrega de datos o confirmación a una acción previa.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#TiendaExterna</IRI>
+        <Literal xml:lang="es">Vendedor o comercio de terceros integrado en la plataforma que provee sus propios productos y recibe pagos de la tienda principal (nuestro sistema). La tienda (nuestro sistema) vende estos productos de terceros, pero es la tienda externa la que se encarga de la gestión de sus productos (devolución, envío a domicilio).</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#Usuario</IRI>
+        <Literal xml:lang="es">Representa al cliente final de la plataforma, que interactúa a través de su agente para realizar búsquedas, compras y valoraciones.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#calle</IRI>
+        <Literal xml:lang="es">Nombre de la vía pública o calzada que compone la dirección postal.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#cantidad</IRI>
+        <Literal xml:lang="es">Número de unidades físicas adquiridas de un mismo producto dentro de una línea de compra.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#ciudad</IRI>
+        <Literal xml:lang="es">Municipio, localidad o urbe a la que pertenece la dirección.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#codigoPostal</IRI>
+        <Literal xml:lang="es">distrito que identifica la zona geográfica exacta del envío.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#compra</IRI>
+        <Literal xml:lang="es">Relación utilizada dentro del mensaje de compra para identificar el productoes de catálogo involucrado en la transacción de la línea.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#compuestoDe</IRI>
+        <Literal xml:lang="es">Relación estructural que desglosa un pedido en sus correspondientes líneas de compra o ítems individuales para detallar cantidades.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#datosProveedor</IRI>
+        <Literal xml:lang="es">Información de registro o identificador de transacciones devuelto por la pasarela de pago externa.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#descripcion</IRI>
+        <Literal xml:lang="es">Texto detallado con las especificaciones del producto o cuerpo de la reseña en un feedback.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#dineroDevuelto</IRI>
+        <Literal xml:lang="es">Cuantía total reintegrada con éxito al comprador tras resolverse positivamente una devolución.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#direccionEntrega</IRI>
+        <Literal xml:lang="es">Asocia un pedido con la ubicación geográfica detallada a la cual debe ser enviado y entregado el paquete del cliente.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#email</IRI>
+        <Literal xml:lang="es">Dirección de correo electrónico del usuario, utilizada para informarle datos sobre su pedido y también para pedir su valoración de los productos que ha comprado.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#empresa</IRI>
+        <Literal xml:lang="es">Identifica a la compañía de transportes sobre la cual el agente está tomando una decisión, informando o proponiendo un envío.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#empresaTransporte</IRI>
+        <Literal xml:lang="es">Vincula un pedido con la compañía de transporte que ha sido seleccionada/contratada para realizar su reparto final.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#estaEn</IRI>
+        <Literal xml:lang="es">Establece la dirección de un centro logístico.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#factura</IRI>
+        <Literal xml:lang="es">Vincula el mensaje o acción informativa de facturación con la entidad de la factura digital que se está transmitiendo.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#fecha</IRI>
+        <Literal xml:lang="es">Marca de tiempo genérica que registra el momento exacto. Entre otros usos nos sirve para guardar cuándo se ha realizado un pedido.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#fechaFactura</IRI>
+        <Literal xml:lang="es">Fecha en la que se ha realizado la factura de la compra del usuario.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#fechaPrevistaEntrega</IRI>
+        <Literal xml:lang="es">Fecha estimada u objetivo en la que la empresa de transporte prevé entregar el paquete al cliente.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#fechaSalida</IRI>
+        <Literal xml:lang="es">Fecha en el que un lote de paquetes abandona físicamente las instalaciones del Centro Logístico.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#formulario</IRI>
+        <Literal xml:lang="es">Cadena de datos estructurada que encapsula los campos requeridos para consultar el estado de un pedido.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#genera_una</IRI>
+        <Literal xml:lang="es">Relaciona el mensaje de devolución recibido con una petición de devolución de cara registrar la solicitud.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#hacePedido</IRI>
+        <Literal xml:lang="es">Relaciona un usuario con el pedido de productos que ha realizado.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#importeTotal</IRI>
+        <Literal xml:lang="es">Monto económico definitivo a cobrar o facturar, que resulta de sumar subtotal, impuestos y transporte en una compra.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#impuestos</IRI>
+        <Literal xml:lang="es">Cuantía monetaria correspondiente a las cargas fiscales (IVA/tasas) calculadas en la factura.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#listadoProductos</IRI>
+        <Literal xml:lang="es">Enlaza la acción de listado o su respuesta con el conjunto de productos que cumplen los criterios solicitados por el agente.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#lo_hace_un</IRI>
+        <Literal xml:lang="es">Relaciona el feedback que ha proporcionado un usuario.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#mensajeAEnviar</IRI>
+        <Literal xml:lang="es">Contenido o texto descriptivo del mensaje de petición utilizado para pedir al usuario que valore un producto.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#motivo</IRI>
+        <Literal xml:lang="es">Explicación textual provista por el cliente para justificar la solicitud de devolución de un producto.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#nombre</IRI>
+        <Literal xml:lang="es">Cadena de texto genérica para asignar un identificador legible y de fácil comprender de elementos como usuarios, productos, marcas, categorías, tiendas o centros.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#numero</IRI>
+        <Literal xml:lang="es">Identificador numérico del portal dentro de la calle especificada.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#numeroFactura</IRI>
+        <Literal xml:lang="es">Código correlativo único y oficial que identifica a una factura emitida.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#numeroTarjeta</IRI>
+        <Literal xml:lang="es">Secuencia numérica de la tarjeta bancaria del cliente para procesar los cargos en la pasarela de pago.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#ofrece</IRI>
+        <Literal xml:lang="es">Conecta una empresa de transporte con la oferta que esta proporciona en la negociación de envío.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#pais</IRI>
+        <Literal xml:lang="es">Nombre del estado o nación soberana donde se ubica una dirección.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#pedido</IRI>
+        <Literal xml:lang="es">Vincula un mensaje o acción de pago/logística inter-agente con la instancia del pedido sobre la cual se está operando.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
         <IRI>#perteneceACategoria</IRI>
-        <Literal>Propiedad de un producto en pertenecer a una categoría.</Literal>
+        <Literal xml:lang="es">Propiedad de un producto en pertenecer a una categoría.</Literal>
     </AnnotationAssertion>
     <AnnotationAssertion>
         <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
         <IRI>#perteneceATienda</IRI>
-        <Literal>Propiedad de un producto que describe la tienda externa a la que pertenece. El valor será nulo en caso que el producto sea propio.</Literal>
+        <Literal xml:lang="es">Propiedad de un producto que describe la tienda externa a la que pertenece. El valor será nulo en caso que el producto sea propio.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#peso</IRI>
+        <Literal xml:lang="es">Masa del producto expresada en unidades de peso, indispensable para agrupar lotes y calcular tarifas de transporte.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#peticion</IRI>
+        <Literal xml:lang="es">Relaciona una devolucion o la comunicacion de confirmar o denegar una petición de devolución.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#piso</IRI>
+        <Literal xml:lang="es">Planta, puerta o departamento específico de una dirección.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#precio</IRI>
+        <Literal xml:lang="es">Valor monetario base fijado para la venta al público de un producto o importe de una oferta logística.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#prioridad</IRI>
+        <Literal xml:lang="es">Nivel de urgencia asignado al procesamiento y envío del pedido (en un día, de 3 a 5 días, cuando llegue).</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#productoABuscar</IRI>
+        <Literal xml:lang="es">Relaciona las restricciones de búsqueda con el producto al que van dirigidos.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#productoADevolver</IRI>
+        <Literal xml:lang="es">Relaciona el producto que el usuario tiene intención de devolver cuando este hace la solicitud/petición de devolución.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#puntuacion</IRI>
+        <Literal xml:lang="es">Valor numérico dentro de una escala fija para calificar la calidad de un producto.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#reembolso</IRI>
+        <Literal xml:lang="es">Asocia una acción o solicitud de reintegro monetario con el registro de una devolución aceptada.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#referenciaProducto</IRI>
+        <Literal xml:lang="es">Vincula una línea de compra con el producto específico del catálogo que está siendo adquirido.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#subtotal</IRI>
+        <Literal xml:lang="es">Importe económico parcial acumulado por los productos antes de aplicar impuestos o tasas logísticas.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#tarifaBase</IRI>
+        <Literal xml:lang="es">Coste fijo de referencia estipulado por los transportistas antes de aplicar variables por peso o distancia.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#textoConsulta</IRI>
+        <Literal xml:lang="es">Término o palabras clave que introduce el usuario en su asistente para iniciar un rastreo en el catálogo del sistema.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#tiendaExterna</IRI>
+        <Literal xml:lang="es">Relaciona conceptos de comunicación que tienen que ver la tienda externa.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#tieneFeedback</IRI>
+        <Literal xml:lang="es">Conecta un producto del catálogo con las valoraciones/reseñas que los usuarios compradores han emitido sobre él.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#tieneUna</IRI>
+        <Literal xml:lang="es">Relación polimórfica que asocia un producto con su marca comercial, o un mensaje de oferta con su correspondiente objeto de oferta logística.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#valorMax</IRI>
+        <Literal xml:lang="es">Límite cuantitativo superior (precio máximo, peso máximo, etc.) fijado en los criterios de búsqueda.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#valorMin</IRI>
+        <Literal xml:lang="es">Límite cuantitativo inferior (precio mínimo, peso mínimo, etc.) fijado en los criterios de búsqueda.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#vendedor</IRI>
+        <Literal xml:lang="es">Sirve para identificar a la tienda externa destinataria que debe recibir la transferencia económica por la venta de sus productos.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#viveEn</IRI>
+        <Literal xml:lang="es">Establece la localización residencial (o domicilio) del usuario.</Literal>
     </AnnotationAssertion>
 </Ontology>
 
