@@ -48,8 +48,7 @@ if not args.verbose:
 agn = Namespace('http://www.agentes.org#')
 mss_cnt = 0
 
-DEVOLUCIONES_PATH = os.path.join(os.path.dirname(__file__), 'data', 'devoluciones.json')
-FACTURAS_PATH     = os.path.join(os.path.dirname(__file__), 'data', 'facturas.json')
+DEVOLUCIONES_PATH = os.path.join(os.path.dirname(__file__), 'data', 'listado_devoluciones.json')
 PLAZO_DIAS        = 15
 
 DevolucionAgent = Agent(
@@ -66,6 +65,9 @@ DirectoryAgent = Agent(
 )
 
 cola1 = Queue()
+gestor_address      = None
+experiencia_address = None
+usuario_address     = None
 
 
 def register_message():
@@ -100,45 +102,258 @@ def guardar_devoluciones(devs):
         json.dump(devs, f, indent=2)
 
 
-def _norm_comprador(nombre):
-    return (nombre or '').strip().casefold()
-
-
-def buscar_factura(factura_id):
-    if not os.path.exists(FACTURAS_PATH):
-        return None
-    with open(FACTURAS_PATH) as f:
-        facturas = json.load(f)
-    for fac in facturas:
-        if fac['id'] == factura_id:
-            return fac
+def get_gestor_address():
+    global mss_cnt, gestor_address
+    if gestor_address is not None:
+        return gestor_address
+    gmess = Graph()
+    gmess.bind('dso', DSO)
+    search_obj = agn['SearchGestor-' + str(mss_cnt)]
+    gmess.add((search_obj, RDF.type,      DSO.Search))
+    gmess.add((search_obj, DSO.AgentType, ECSNS['Ag.GestorDePedidos']))
+    msg = build_message(gmess, perf=ACL.request, sender=DevolucionAgent.uri,
+                        receiver=DirectoryAgent.uri, content=search_obj, msgcnt=mss_cnt)
+    mss_cnt += 1
+    try:
+        r = http_requests.get(DirectoryAgent.address,
+                              params={'content': msg.serialize(format='xml')}, timeout=5)
+        gr = Graph()
+        gr.parse(data=r.text, format='xml')
+        for s, p, o in gr:
+            if p == DSO.Address:
+                gestor_address = str(o)
+                return gestor_address
+    except Exception as e:
+        logger.warning(f'[Devolucion] No se pudo localizar AgenteGestorPedidos: {e}')
     return None
 
 
-def factura_tiene_devolucion_aceptada(factura_id, devs=None):
-    if devs is None:
-        devs = cargar_devoluciones()
-    factura = buscar_factura(factura_id)
-    if factura and factura.get('devuelta'):
-        return True
-    return any(
-        d.get('factura_id') == factura_id and d.get('aceptada')
-        for d in devs
-    )
+def get_experiencia_address():
+    global mss_cnt, experiencia_address
+    if experiencia_address is not None:
+        return experiencia_address
+    gmess = Graph()
+    gmess.bind('dso', DSO)
+    search_obj = agn['SearchExp-' + str(mss_cnt)]
+    gmess.add((search_obj, RDF.type,      DSO.Search))
+    gmess.add((search_obj, DSO.AgentType, ECSNS['Ag.Experiencia']))
+    msg = build_message(gmess, perf=ACL.request, sender=DevolucionAgent.uri,
+                        receiver=DirectoryAgent.uri, content=search_obj, msgcnt=mss_cnt)
+    mss_cnt += 1
+    try:
+        r = http_requests.get(DirectoryAgent.address,
+                              params={'content': msg.serialize(format='xml')}, timeout=5)
+        gr = Graph()
+        gr.parse(data=r.text, format='xml')
+        for s, p, o in gr:
+            if p == DSO.Address:
+                experiencia_address = str(o)
+                return experiencia_address
+    except Exception as e:
+        logger.warning(f'[Devolucion] No se pudo localizar AgenteExperiencia: {e}')
+    return None
 
 
-def marcar_factura_devuelta(factura_id):
-    if not os.path.exists(FACTURAS_PATH):
+def notificar_experiencia_devolucion(comprador, factura_id):
+    global mss_cnt
+    addr = get_experiencia_address()
+    if addr is None:
+        logger.warning('[Devolucion] AgenteExperiencia no disponible, no se notifica la devolución')
         return
-    with open(FACTURAS_PATH) as f:
-        facturas = json.load(f)
-    for fac in facturas:
-        if fac.get('id') == factura_id:
-            fac['devuelta'] = True
-            fac['fecha_devolucion'] = datetime.now().isoformat()
-            break
-    with open(FACTURAS_PATH, 'w') as f:
-        json.dump(facturas, f, indent=2)
+    gmess = Graph()
+    gmess.bind('ecsns', ECSNS)
+    node = ECSNS['devolucion-notif-' + str(mss_cnt)]
+    gmess.add((node, RDF.type,        ECSNS.DevolucionAceptada))
+    gmess.add((node, ECSNS.comprador, Literal(comprador)))
+    gmess.add((node, ECSNS.idFactura, Literal(factura_id)))
+    try:
+        send_message(
+            build_message(gmess, perf=ACL.inform, sender=DevolucionAgent.uri,
+                          receiver=agn.AgenteExperiencia, content=node, msgcnt=mss_cnt),
+            addr,
+        )
+        mss_cnt += 1
+        logger.info(f'[Devolucion] Experiencia notificada: eliminar compra {factura_id} de {comprador}')
+    except Exception as e:
+        mss_cnt += 1
+        logger.warning(f'[Devolucion] Error notificando a AgenteExperiencia: {e}')
+
+
+def verificar_compra_con_gestor(factura_id, comprador):
+    global mss_cnt
+    addr = get_gestor_address()
+    if addr is None:
+        return False, 'AgenteGestorPedidos no disponible', []
+    gmess = Graph()
+    gmess.bind('ecsns', ECSNS)
+    node = ECSNS['verificar-' + str(mss_cnt)]
+    gmess.add((node, RDF.type,        ECSNS.VerificarCompra))
+    gmess.add((node, ECSNS.idFactura, Literal(factura_id)))
+    gmess.add((node, ECSNS.comprador, Literal(comprador)))
+    try:
+        resp = send_message(
+            build_message(gmess, perf=ACL.request, sender=DevolucionAgent.uri,
+                          receiver=agn.AgenteGestorPedidos, content=node, msgcnt=mss_cnt),
+            addr,
+        )
+        mss_cnt += 1
+        for s in resp.subjects(RDF.type, ECSNS.ResultadoVerificacion):
+            aceptada_lit = resp.value(s, ECSNS.aceptada)
+            aceptada = aceptada_lit.toPython() if aceptada_lit is not None else False
+            motivo   = str(resp.value(s, ECSNS.motivo) or '')
+            productos = [
+                {
+                    'id':      str(resp.value(pn, ECSNS.idProducto) or ''),
+                    'vendedor': str(resp.value(pn, ECSNS.vendedor)  or 'tienda'),
+                }
+                for pn in resp.objects(s, ECSNS.tieneProducto)
+            ]
+            return aceptada, motivo, productos
+        return False, 'Respuesta inesperada del gestor de pedidos', []
+    except Exception as e:
+        mss_cnt += 1
+        logger.warning(f'[Devolucion] Error al verificar compra con gestor: {e}')
+        return False, 'Error al contactar con el gestor de pedidos', []
+
+
+def _buscar_address_vendedor_externo(nombre_vendedor):
+    global mss_cnt
+    gmess = Graph()
+    gmess.bind('dso', DSO)
+    search_obj = agn['SearchVend-' + str(mss_cnt)]
+    gmess.add((search_obj, RDF.type,      DSO.Search))
+    gmess.add((search_obj, DSO.AgentType, ECSNS['Ag.VendedorExterno']))
+    msg = build_message(gmess, perf=ACL.request, sender=DevolucionAgent.uri,
+                        receiver=DirectoryAgent.uri, content=search_obj, msgcnt=mss_cnt)
+    mss_cnt += 1
+    try:
+        r = http_requests.get(DirectoryAgent.address,
+                              params={'content': msg.serialize(format='xml')}, timeout=5)
+        gr = Graph()
+        gr.parse(data=r.text, format='xml')
+        for entry in gr.subjects(DSO.Uri):
+            uri  = gr.value(entry, DSO.Uri)
+            addr = gr.value(entry, DSO.Address)
+            if uri and str(uri).endswith(nombre_vendedor) and addr:
+                return str(addr)
+    except Exception as e:
+        logger.warning(f'[Devolucion] Error buscando vendedor {nombre_vendedor}: {e}')
+    return None
+
+
+def notificar_devolucion_a_vendedores(factura_id, comprador, productos):
+    global mss_cnt
+    vendedores_externos = {
+        p['vendedor'] for p in productos
+        if p.get('vendedor', 'tienda') != 'tienda'
+    }
+    for nombre_vendedor in vendedores_externos:
+        addr = _buscar_address_vendedor_externo(nombre_vendedor)
+        if addr is None:
+            logger.warning(f'[Devolucion] Vendedor externo {nombre_vendedor} no encontrado en DS')
+            continue
+        gmess = Graph()
+        gmess.bind('ecsns', ECSNS)
+        node = ECSNS['dev-ext-' + str(mss_cnt)]
+        gmess.add((node, RDF.type,        ECSNS.PedirReembolso))
+        gmess.add((node, ECSNS.idFactura, Literal(factura_id)))
+        gmess.add((node, ECSNS.comprador, Literal(comprador)))
+        for p in productos:
+            if p.get('vendedor', 'tienda') == nombre_vendedor:
+                pn = ECSNS['devprod-' + str(mss_cnt) + '-' + p['id']]
+                gmess.add((node, ECSNS.tieneProducto, pn))
+                gmess.add((pn, ECSNS.idProducto, Literal(p['id'])))
+        try:
+            send_message(
+                build_message(gmess, perf=ACL.request, sender=DevolucionAgent.uri,
+                              content=node, msgcnt=mss_cnt),
+                addr,
+            )
+            mss_cnt += 1
+            logger.info(f'[Devolucion] Devolución notificada a {nombre_vendedor}')
+        except Exception as e:
+            mss_cnt += 1
+            logger.warning(f'[Devolucion] Error notificando devolución a {nombre_vendedor}: {e}')
+
+
+def get_usuario_address():
+    global mss_cnt, usuario_address
+    if usuario_address is not None:
+        return usuario_address
+    gmess = Graph()
+    gmess.bind('dso', DSO)
+    search_obj = agn['SearchUser-' + str(mss_cnt)]
+    gmess.add((search_obj, RDF.type,      DSO.Search))
+    gmess.add((search_obj, DSO.AgentType, ECSNS['Ag.Usuario']))
+    msg = build_message(gmess, perf=ACL.request, sender=DevolucionAgent.uri,
+                        receiver=DirectoryAgent.uri, content=search_obj, msgcnt=mss_cnt)
+    mss_cnt += 1
+    try:
+        r = http_requests.get(DirectoryAgent.address,
+                              params={'content': msg.serialize(format='xml')}, timeout=5)
+        gr = Graph()
+        gr.parse(data=r.text, format='xml')
+        for s, p, o in gr:
+            if p == DSO.Address:
+                usuario_address = str(o)
+                return usuario_address
+    except Exception as e:
+        logger.warning(f'[Devolucion] No se pudo localizar AgenteUsuario: {e}')
+    return None
+
+
+def notificar_gestor_devolucion_aceptada(factura_id, comprador):
+    """Tells GestorPedidos to mark the invoice as returned."""
+    global mss_cnt
+    addr = get_gestor_address()
+    if addr is None:
+        logger.warning('[Devolucion] GestorPedidos no disponible para marcar factura devuelta')
+        return
+    gmess = Graph()
+    gmess.bind('ecsns', ECSNS)
+    node = ECSNS['dev-aceptada-gestor-' + str(mss_cnt)]
+    gmess.add((node, RDF.type,        ECSNS.DevolucionAceptada))
+    gmess.add((node, ECSNS.idFactura, Literal(factura_id)))
+    gmess.add((node, ECSNS.comprador, Literal(comprador)))
+    try:
+        send_message(
+            build_message(gmess, perf=ACL.inform, sender=DevolucionAgent.uri,
+                          receiver=agn.AgenteGestorPedidos, content=node, msgcnt=mss_cnt),
+            addr,
+        )
+        mss_cnt += 1
+    except Exception as e:
+        mss_cnt += 1
+        logger.warning(f'[Devolucion] Error notificando GestorPedidos para marcar factura: {e}')
+
+
+def notificar_usuario_devolucion(comprador, dev_id, motivo, empresa):
+    """Sends InformarDesicion to AgenteUsuario with the accepted return details."""
+    global mss_cnt
+    addr = get_usuario_address()
+    if addr is None:
+        logger.warning('[Devolucion] AgenteUsuario no disponible para notificar devolución')
+        return
+    gmess = Graph()
+    gmess.bind('ecsns', ECSNS)
+    node = ECSNS['dev-decision-' + dev_id]
+    gmess.add((node, RDF.type,               ECSNS.InformarDesicion))
+    gmess.add((node, ECSNS.comprador,        Literal(comprador)))
+    gmess.add((node, ECSNS.idDevolucion,     Literal(dev_id)))
+    gmess.add((node, ECSNS.motivoDevolucion, Literal(motivo)))
+    if empresa:
+        gmess.add((node, ECSNS.empresaMensajeria, Literal(empresa)))
+    try:
+        send_message(
+            build_message(gmess, perf=ACL.inform, sender=DevolucionAgent.uri,
+                          receiver=agn.AgenteUsuario, content=node, msgcnt=mss_cnt),
+            addr,
+        )
+        mss_cnt += 1
+        logger.info(f'[Devolucion] AgenteUsuario notificado — devolución {dev_id} aceptada')
+    except Exception as e:
+        mss_cnt += 1
+        logger.warning(f'[Devolucion] Error notificando AgenteUsuario devolución: {e}')
 
 
 def _parse_fecha_recepcion(fecha_str):
@@ -151,16 +366,11 @@ def _parse_fecha_recepcion(fecha_str):
     return datetime.combine(date.fromisoformat(s[:10]), datetime.min.time())
 
 
-def evaluar_devolucion(factura_id, razon, fecha_recepcion_str):
-    factura = buscar_factura(factura_id)
-    if factura is None:
-        return False, 'Factura no encontrada', None
-
+def evaluar_devolucion(razon, fecha_recepcion_str):
     razon_lower = razon.lower()
     siempre = ['defectuoso', 'defecto', 'equivocado', 'incorrecto', 'roto', 'danado', 'dañado']
     if any(r in razon_lower for r in siempre):
         return True, 'Devolución aceptada: producto defectuoso o equivocado', 'MensajeriaRapida S.L.'
-
     try:
         fecha_rec = _parse_fecha_recepcion(fecha_recepcion_str)
         hoy = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
@@ -183,19 +393,11 @@ def procesar_solicitud(gm, content):
     razon           = str(gm.value(content, ECSNS.razonDevolucion)  or 'insatisfaccion')
     fecha_recepcion = str(gm.value(content, ECSNS.fechaRecepcion)   or datetime.now().isoformat())
 
-    factura = buscar_factura(factura_id)
-    if factura is None:
-        aceptada, motivo, empresa = False, 'Devolución rechazada: factura no encontrada', None
-    elif _norm_comprador(comprador) != _norm_comprador(factura.get('comprador', '')):
-        aceptada, motivo, empresa = (
-            False,
-            'Devolución rechazada: el comprador no coincide con el de la factura',
-            None,
-        )
-    elif factura_tiene_devolucion_aceptada(factura_id):
-        aceptada, motivo, empresa = False, 'Devolución rechazada: esta factura ya fue devuelta', None
+    valida, motivo_verificacion, productos = verificar_compra_con_gestor(factura_id, comprador)
+    if not valida:
+        aceptada, motivo, empresa = False, motivo_verificacion, None
     else:
-        aceptada, motivo, empresa = evaluar_devolucion(factura_id, razon, fecha_recepcion)
+        aceptada, motivo, empresa = evaluar_devolucion(razon, fecha_recepcion)
 
     dev_id = 'DEV-' + str(uuid.uuid4())[:8].upper()
     devs   = cargar_devoluciones()
@@ -207,7 +409,10 @@ def procesar_solicitud(gm, content):
     })
     guardar_devoluciones(devs)
     if aceptada:
-        marcar_factura_devuelta(factura_id)
+        notificar_gestor_devolucion_aceptada(factura_id, comprador)
+        notificar_experiencia_devolucion(comprador, factura_id)
+        notificar_usuario_devolucion(comprador, dev_id, motivo, empresa)
+        notificar_devolucion_a_vendedores(factura_id, comprador, productos)
     logger.info(f'[Devolucion] {dev_id} — aceptada={aceptada} — {motivo}')
 
     gr = Graph()

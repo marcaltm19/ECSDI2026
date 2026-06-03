@@ -1,7 +1,6 @@
 import argparse
 import json
 import logging
-import math
 import os
 import random
 import socket
@@ -51,10 +50,8 @@ if not args.verbose:
 
 agn = Namespace('http://www.agentes.org#')
 mss_cnt = 0
-PEDIDOS_PATH  = os.path.join(os.path.dirname(__file__), 'data', 'pedidos.json')
-ENVIOS_PATH   = os.path.join(os.path.dirname(__file__), 'data', 'envios.json')
-CENTROS_PATH  = os.path.join(os.path.dirname(__file__), 'data', 'centros_logisticos.json')
-PRODUCTOS_PATH = os.path.join(os.path.dirname(__file__), 'data', 'productos.json')
+PEDIDOS_PATH = os.path.join(os.path.dirname(__file__), 'data', 'listado_pedidos.json')
+ENVIOS_PATH  = os.path.join(os.path.dirname(__file__), 'data', 'listado_envios.json')
 
 LogisticoAgent = Agent(
     'AgenteLogistico',
@@ -71,6 +68,18 @@ DirectoryAgent = Agent(
 
 cola1 = Queue()
 PRIORIDADES = {'urgente': 0, 'normal': 1, 'economica': 2}
+experiencia_address = None
+_envios = []  # in-memory envíos list, loaded once at startup
+
+
+def _init_envios():
+    global _envios
+    if os.path.exists(ENVIOS_PATH):
+        try:
+            with open(ENVIOS_PATH) as f:
+                _envios = json.load(f)
+        except Exception:
+            _envios = []
 
 
 def register_message():
@@ -105,54 +114,78 @@ def guardar_pedidos(pedidos):
         json.dump(pedidos, f, indent=2)
 
 
-def cargar_centros():
-    with open(CENTROS_PATH) as f:
-        return json.load(f)
+def get_experiencia_address():
+    global mss_cnt, experiencia_address
+    if experiencia_address is not None:
+        return experiencia_address
+    gmess = Graph()
+    gmess.bind('dso', DSO)
+    search_obj = agn[f'SearchExp-{mss_cnt}']
+    gmess.add((search_obj, RDF.type,      DSO.Search))
+    gmess.add((search_obj, DSO.AgentType, ECSNS['Ag.Experiencia']))
+    msg = build_message(gmess, perf=ACL.request, sender=LogisticoAgent.uri,
+                        receiver=DirectoryAgent.uri, content=search_obj, msgcnt=mss_cnt)
+    mss_cnt += 1
+    try:
+        r = http_requests.get(DirectoryAgent.address,
+                              params={'content': msg.serialize(format='xml')}, timeout=5)
+        gr = Graph()
+        gr.parse(data=r.text, format='xml')
+        for s, p, o in gr:
+            if p == DSO.Address:
+                experiencia_address = str(o)
+                return experiencia_address
+    except Exception as e:
+        logger.warning(f'[Logistico] No se pudo localizar AgenteExperiencia: {e}')
+    return None
 
 
-def cargar_productos_catalogo():
-    if not os.path.exists(PRODUCTOS_PATH):
-        return {}
-    with open(PRODUCTOS_PATH) as f:
-        productos = json.load(f)
-    return {p['id']: p for p in productos}
-
-
-def haversine(lat1, lon1, lat2, lon2):
-    R = 6371
-    d_lat = math.radians(lat2 - lat1)
-    d_lon = math.radians(lon2 - lon1)
-    a = (math.sin(d_lat / 2) ** 2 +
-         math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(d_lon / 2) ** 2)
-    return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-
-
-def elegir_centro_por_coords(lat, lon):
-    centros = cargar_centros()
-    return min(centros, key=lambda c: haversine(lat, lon, c['lat'], c['lon']))
-
-
-def obtener_centro_de_producto(producto_id):
-    catalogo = cargar_productos_catalogo()
-    centros   = {c['id']: c for c in cargar_centros()}
-    prod = catalogo.get(producto_id)
-    if prod and 'centro_logistico_id' in prod:
-        centro_id = prod['centro_logistico_id']
-        if centro_id in centros:
-            return centros[centro_id]
-    logger.warning(f'[Logistico] Producto {producto_id} sin centro asignado, usando CL-001')
-    return centros.get('CL-001', list(centros.values())[0])
-
-
-def agrupar_productos_por_centro(productos):
+def agrupar_productos_por_centro_asignado(productos):
+    """Groups products using the centre name pre-assigned by AgenteGestorPedidos."""
     grupos = {}
     for prod in productos:
-        centro = obtener_centro_de_producto(prod['id'])
-        cid = centro['id']
-        if cid not in grupos:
-            grupos[cid] = {'centro': centro, 'productos': []}
-        grupos[cid]['productos'].append(prod)
+        nombre = prod.get('centro_nombre', 'Centro Madrid')
+        if nombre not in grupos:
+            grupos[nombre] = {'centro': {'nombre': nombre}, 'productos': []}
+        grupos[nombre]['productos'].append(prod)
     return grupos
+
+
+def notificar_experiencia_envios(pedido, sub_envios):
+    global mss_cnt
+    addr = get_experiencia_address()
+    if addr is None:
+        logger.warning('[Logistico] AgenteExperiencia no disponible, omitiendo notificacion envíos')
+        return
+    comprador = pedido.get('comprador', 'Anonimo')
+    pedido_id = pedido['id']
+    productos = pedido.get('productos', [])
+    gmess = Graph()
+    gmess.bind('ecsns', ECSNS)
+    node = ECSNS['envios-' + pedido_id]
+    gmess.add((node, RDF.type,        ECSNS.EnviosAsignados))
+    gmess.add((node, ECSNS.comprador, Literal(comprador)))
+    gmess.add((node, ECSNS.idPedido,  Literal(pedido_id)))
+    for i, envio in enumerate(sub_envios):
+        en = ECSNS[f'env-sub-{pedido_id}-{i}']
+        gmess.add((node, ECSNS.tieneSubEnvio,   en))
+        gmess.add((en,   ECSNS.tieneFechaEntrega, Literal(envio.get('fecha_prevista', ''))))
+    for i, p in enumerate(productos):
+        pn = ECSNS[f'env-prod-{pedido_id}-{i}']
+        gmess.add((node, ECSNS.tieneProducto, pn))
+        gmess.add((pn,   ECSNS.idProducto,    Literal(p.get('id', ''))))
+        gmess.add((pn,   ECSNS.nombre,        Literal(p.get('nombre', ''))))
+    try:
+        send_message(
+            build_message(gmess, perf=ACL.inform, sender=LogisticoAgent.uri,
+                          receiver=agn.AgenteExperiencia, content=node, msgcnt=mss_cnt),
+            addr,
+        )
+        mss_cnt += 1
+        logger.info(f'[Logistico] AgenteExperiencia notificado — envíos pedido {pedido_id}')
+    except Exception as e:
+        mss_cnt += 1
+        logger.warning(f'[Logistico] Error notificando AgenteExperiencia: {e}')
 
 
 def _buscar_transportistas():
@@ -358,15 +391,9 @@ def realizar_envios():
     # write completed orders to pedidos.json without being overwritten later.
     guardar_pedidos([])
 
-    if os.path.exists(ENVIOS_PATH):
-        with open(ENVIOS_PATH) as f:
-            envios = json.load(f)
-    else:
-        envios = []
-
     for pedido in pedidos:
         logger.info(f'[Logistico] Procesando pedido {pedido["id"]}')
-        grupos = agrupar_productos_por_centro(pedido.get('productos', []))
+        grupos = agrupar_productos_por_centro_asignado(pedido.get('productos', []))
         n_grupos = len(grupos)
 
         if n_grupos == 0:
@@ -400,7 +427,7 @@ def realizar_envios():
                 'productos':        [p['id'] for p in productos_grupo],
                 'estado':           'enviado',
             }
-            envios.append(envio)
+            _envios.append(envio)
             sub_envios.append(envio)
 
             logger.info(
@@ -409,9 +436,10 @@ def realizar_envios():
             )
 
         notificar_gestor_multiples_envios(pedido, sub_envios)
+        notificar_experiencia_envios(pedido, sub_envios)
 
     with open(ENVIOS_PATH, 'w') as f:
-        json.dump(envios, f, indent=2)
+        json.dump(_envios, f, indent=2)
 
 
 def notificar_gestor_multiples_envios(pedido, sub_envios):
@@ -474,29 +502,31 @@ def notificar_gestor_multiples_envios(pedido, sub_envios):
 def procesar_pedido(gm, content):
     pedido_id = str(gm.value(subject=content, predicate=ECSNS.idPedido)
                     or 'PED-' + str(uuid.uuid4())[:8].upper())
+    comprador = str(gm.value(subject=content, predicate=ECSNS.comprador) or 'Anonimo')
     direccion = str(gm.value(subject=content, predicate=ECSNS.direccion) or '')
     prioridad = str(gm.value(subject=content, predicate=ECSNS.prioridad) or 'normal')
 
     productos = []
     for prod_node in gm.objects(content, ECSNS.tieneProducto):
         productos.append({
-            'id':       str(gm.value(prod_node, ECSNS.idProducto)),
-            'nombre':   str(gm.value(prod_node, ECSNS.nombre) or ''),
-            'cantidad': int(gm.value(prod_node, ECSNS.cantidad) or 1),
-            'peso':     float(gm.value(prod_node, ECSNS.peso) or 0),
+            'id':           str(gm.value(prod_node, ECSNS.idProducto)),
+            'nombre':       str(gm.value(prod_node, ECSNS.nombre)      or ''),
+            'cantidad':     int(gm.value(prod_node, ECSNS.cantidad)    or 1),
+            'peso':         float(gm.value(prod_node, ECSNS.peso)      or 0),
+            'centro_nombre': str(gm.value(prod_node, ECSNS.tieneCentro) or 'Centro Madrid'),
         })
 
     pedidos = cargar_pedidos()
-    pedidos.append({'id': pedido_id, 'productos': productos,
+    pedidos.append({'id': pedido_id, 'comprador': comprador, 'productos': productos,
                     'direccion': direccion, 'prioridad': prioridad})
     pedidos.sort(key=lambda p: PRIORIDADES.get(p.get('prioridad', 'normal'), 1))
     guardar_pedidos(pedidos)
     logger.info(f'[Logistico] Pedido {pedido_id} recibido ({len(productos)} productos)')
 
-    grupos = agrupar_productos_por_centro(productos)
-    for cid, grupo in grupos.items():
+    grupos = agrupar_productos_por_centro_asignado(productos)
+    for nombre, grupo in grupos.items():
         names = [p.get('nombre', p['id']) for p in grupo['productos']]
-        logger.info(f'  -> {grupo["centro"]["nombre"]}: {names}')
+        logger.info(f'  -> {nombre}: {names}')
 
     realizar_envios()
 
@@ -524,7 +554,7 @@ def comunicacion():
         content = msgdic.get('content')
         accion  = gm.value(subject=content, predicate=RDF.type)
 
-        if accion == ECSNS.Pedido:
+        if accion == ECSNS.SolicitudPedido:
             procesar_pedido(gm, content)
             gr = build_message(Graph(), ACL.inform,
                                sender=LogisticoAgent.uri,
@@ -539,6 +569,7 @@ def comunicacion():
 
 
 def agentbehavior1(cola):
+    _init_envios()
     register_message()
     logger.info('[Logistico] Registrado y escuchando')
     tick = 0

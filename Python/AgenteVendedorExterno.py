@@ -225,6 +225,31 @@ def procesar_pedido_externo(gm, content):
     return gr
 
 
+def procesar_devolucion(gm, content):
+    factura_id = str(gm.value(content, ECSNS.idFactura) or '')
+    comprador  = str(gm.value(content, ECSNS.comprador) or '')
+    ids_devueltos = [str(gm.value(pn, ECSNS.idProducto) or '')
+                     for pn in gm.objects(content, ECSNS.tieneProducto)]
+
+    pedidos = cargar_pedidos()
+    for p in pedidos:
+        if p.get('pedido_id') == factura_id:
+            p['estado'] = 'devuelto'
+            p['fecha_devolucion'] = datetime.now().isoformat()
+            break
+    guardar_pedidos(pedidos)
+    logger.info(f'[{nombre_vendedor}] Devolución registrada — factura {factura_id} '
+                f'productos {ids_devueltos}')
+
+    gr = Graph()
+    gr.bind('ecsns', ECSNS)
+    ack = ECSNS['ack-dev-' + factura_id]
+    gr.add((ack, RDF.type,          ECSNS.AckActualizacion))
+    gr.add((ack, ECSNS.idFactura,   Literal(factura_id)))
+    gr.add((ack, ECSNS.actualizado, Literal(True)))
+    return gr
+
+
 def procesar_actualizacion(gm, content):
     catalogo  = cargar_catalogo()
     prod_id   = str(gm.value(content, ECSNS.idProducto) or '')
@@ -279,6 +304,10 @@ def comunicacion():
                                  receiver=msgdic['sender'], msgcnt=mss_cnt)
         elif perf == ACL.request and accion == ECSNS.ActualizarCatalogo:
             resp = procesar_actualizacion(gm, content)
+            gr   = build_message(resp, ACL.inform, sender=VendedorAgent.uri,
+                                 receiver=msgdic['sender'], msgcnt=mss_cnt)
+        elif perf == ACL.request and accion == ECSNS.PedirReembolso:
+            resp = procesar_devolucion(gm, content)
             gr   = build_message(resp, ACL.inform, sender=VendedorAgent.uri,
                                  receiver=msgdic['sender'], msgcnt=mss_cnt)
         else:

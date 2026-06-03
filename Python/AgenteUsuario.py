@@ -48,16 +48,16 @@ agn = Namespace('http://www.agentes.org#')
 mss_cnt = 0
 
 DATA_DIR      = os.path.join(os.path.dirname(__file__), 'data')
-FACTURAS_PATH = os.path.join(DATA_DIR, 'facturas.json')
-PEDIDOS_PATH  = os.path.join(DATA_DIR, 'pedidos.json')
-VALORACIONES_PATH = os.path.join(DATA_DIR, 'valoraciones.json')
-PRODUCTOS_PATH    = os.path.join(DATA_DIR, 'productos.json')
-PRODUCTOS_EXT_PATH = os.path.join(DATA_DIR, 'productos_externos.json')
-DEVOLUCIONES_PATH  = os.path.join(DATA_DIR, 'devoluciones.json')
+FACTURAS_PATH      = os.path.join(DATA_DIR, 'listado_facturas.json')
+PEDIDOS_PATH       = os.path.join(DATA_DIR, 'listado_pedidos.json')
+VALORACIONES_PATH  = os.path.join(DATA_DIR, 'listado_opiniones.json')
+PRODUCTOS_PATH     = os.path.join(DATA_DIR, 'listado_productos_detallados.json')
+DEVOLUCIONES_PATH  = os.path.join(DATA_DIR, 'listado_devoluciones.json')
 
-_envios_notificados = {}
-_recomendaciones    = []
-_solicitudes_feedback = []
+_envios_notificados     = {}
+_recomendaciones        = []
+_solicitudes_feedback   = []
+_notificaciones_devolucion = []
 _addr_cache         = {}
 
 UsuarioAgent = Agent(
@@ -87,39 +87,6 @@ def _comprador_sesion():
         or (session.get('ultimo_pedido') or {}).get('comprador', '').strip()
     )
 
-
-def _registrar_busqueda_experiencia(comprador, categoria='', precio_max='', val_min=''):
-    global mss_cnt
-    comprador = (comprador or 'Anonimo').strip()
-    addr = get_agent_address('Ag.Experiencia')
-    if not addr:
-        return
-    gmess = Graph()
-    gmess.bind('ecsns', ECSNS)
-    node = ECSNS['busq-reg-' + str(mss_cnt)]
-    gmess.add((node, RDF.type, ECSNS.RegistroBusqueda))
-    gmess.add((node, ECSNS.comprador, Literal(comprador)))
-    if categoria.strip():
-        gmess.add((node, ECSNS.categoria, Literal(categoria.strip())))
-    if precio_max.strip():
-        try:
-            gmess.add((node, ECSNS.precioMaximo, Literal(float(precio_max.strip()))))
-        except ValueError:
-            pass
-    if val_min.strip():
-        try:
-            gmess.add((node, ECSNS.valoracionMinima, Literal(float(val_min.strip()))))
-        except ValueError:
-            pass
-    try:
-        send_message(
-            build_message(gmess, perf=ACL.inform, sender=UsuarioAgent.uri,
-                          receiver=agn.AgenteExperiencia, content=node, msgcnt=mss_cnt),
-            addr,
-        )
-        mss_cnt += 1
-    except Exception as e:
-        logger.warning(f'[Usuario] No se pudo registrar busqueda en Experiencia: {e}')
 
 
 def _añadir_solicitud_feedback(gm, content):
@@ -240,7 +207,7 @@ def load_json(path, default=None):
 
 
 def _catalogo_productos():
-    return load_json(PRODUCTOS_PATH, []) + load_json(PRODUCTOS_EXT_PATH, [])
+    return load_json(PRODUCTOS_PATH, [])
 
 
 def listar_categorias():
@@ -444,10 +411,12 @@ def buscar_productos(nombre='', categoria='', precio_max='', val_min=''):
     if not addr:
         return [], 'AgenteComprador no disponible en el sistema. ¿Está arrancado?'
 
+    comprador = _comprador_sesion() or 'Anonimo'
     gmess = Graph()
     gmess.bind('ecsns', ECSNS)
     busq = ECSNS['busqueda-' + str(mss_cnt)]
-    gmess.add((busq, RDF.type, ECSNS.Busqueda))
+    gmess.add((busq, RDF.type,           ECSNS.Busqueda))
+    gmess.add((busq, ECSNS.comprador,    Literal(comprador)))
     if categoria.strip():
         gmess.add((busq, ECSNS.categoria, Literal(categoria.strip())))
     if precio_max.strip():
@@ -476,15 +445,12 @@ def buscar_productos(nombre='', categoria='', precio_max='', val_min=''):
                 'precio':    float(gr_resp.value(s, ECSNS.precio)     or 0),
                 'peso':      float(gr_resp.value(s, ECSNS.peso)       or 0),
                 'valoracion':float(gr_resp.value(s, ECSNS.valoracion) or 0),
-                'vendedor':  str(gr_resp.value(s, ECSNS.vendedor)     or 'tienda'),
+                'vendedor':     str(gr_resp.value(s, ECSNS.vendedor)     or 'tienda'),
+                'gestion_envio': str(gr_resp.value(s, ECSNS.gestionEnvio) or 'tienda'),
             }
             if nombre.strip() and nombre.strip().lower() not in prod['nombre'].lower():
                 continue
             productos.append(prod)
-        comprador = _comprador_sesion() or 'Anonimo'
-        _registrar_busqueda_experiencia(
-            comprador, categoria=categoria, precio_max=precio_max, val_min=val_min,
-        )
         return productos, None
     except Exception as e:
         logger.warning(f'[Usuario] Error buscando productos: {e}')
@@ -501,7 +467,7 @@ def enviar_pedido(comprador, direccion, prioridad, metodo_pago, carrito):
     gmess = Graph()
     gmess.bind('ecsns', ECSNS)
     ped = ECSNS['pedido-ui-' + str(mss_cnt)]
-    gmess.add((ped, RDF.type,         ECSNS.Pedido))
+    gmess.add((ped, RDF.type,         ECSNS.SolicitudPedido))
     gmess.add((ped, ECSNS.comprador,  Literal(comprador)))
     gmess.add((ped, ECSNS.direccion,  Literal(direccion)))
     gmess.add((ped, ECSNS.prioridad,  Literal(prioridad)))
@@ -509,11 +475,13 @@ def enviar_pedido(comprador, direccion, prioridad, metodo_pago, carrito):
     for i, item in enumerate(carrito):
         pn = ECSNS[f'ui-prod-{mss_cnt}-{i}']
         gmess.add((ped, ECSNS.tieneProducto, pn))
-        gmess.add((pn, ECSNS.idProducto, Literal(item['id'])))
-        gmess.add((pn, ECSNS.nombre,     Literal(item.get('nombre', ''))))
-        gmess.add((pn, ECSNS.precio,     Literal(float(item.get('precio', 0)))))
-        gmess.add((pn, ECSNS.cantidad,   Literal(int(item.get('cantidad', 1)))))
-        gmess.add((pn, ECSNS.peso,       Literal(float(item.get('peso', 0)))))
+        gmess.add((pn, ECSNS.idProducto,  Literal(item['id'])))
+        gmess.add((pn, ECSNS.nombre,      Literal(item.get('nombre', ''))))
+        gmess.add((pn, ECSNS.precio,      Literal(float(item.get('precio', 0)))))
+        gmess.add((pn, ECSNS.cantidad,    Literal(int(item.get('cantidad', 1)))))
+        gmess.add((pn, ECSNS.peso,        Literal(float(item.get('peso', 0)))))
+        gmess.add((pn, ECSNS.vendedor,    Literal(item.get('vendedor', 'tienda'))))
+        gmess.add((pn, ECSNS.gestionEnvio, Literal(item.get('gestion_envio', 'tienda'))))
     try:
         gr_resp = send_message(
             build_message(gmess, perf=ACL.request, sender=UsuarioAgent.uri,
@@ -912,16 +880,6 @@ def comunicacion():
                 'productos':     [str(o) for o in gm.objects(en, ECSNS.tieneProductoId)],
             })
         _envios_notificados[pedido_id] = sub_envios
-        try:
-            facturas = load_json(FACTURAS_PATH)
-            for i, factura in enumerate(facturas):
-                if factura.get('id') == pedido_id:
-                    facturas[i]['envios_logistico'] = sub_envios
-                    with open(FACTURAS_PATH, 'w') as f:
-                        json.dump(facturas, f, indent=2)
-                    break
-        except Exception:
-            pass
         logger.info(f'[Usuario] NotificacionEnvios: pedido {pedido_id}, {len(sub_envios)} envío(s)')
         gr = build_message(Graph(), ACL.confirm, sender=UsuarioAgent.uri,
                            receiver=msgdic['sender'], msgcnt=mss_cnt)
@@ -937,6 +895,22 @@ def comunicacion():
         _añadir_solicitud_feedback(gm, content)
         gr = build_message(Graph(), ACL.confirm, sender=UsuarioAgent.uri,
                            receiver=msgdic['sender'], msgcnt=mss_cnt)
+
+    elif perf == ACL.inform and accion == ECSNS.InformarDesicion:
+        comprador  = str(gm.value(content, ECSNS.comprador)        or '')
+        dev_id     = str(gm.value(content, ECSNS.idDevolucion)      or '')
+        motivo     = str(gm.value(content, ECSNS.motivoDevolucion)  or '')
+        empresa    = str(gm.value(content, ECSNS.empresaMensajeria) or '')
+        _notificaciones_devolucion.append({
+            'comprador': comprador,
+            'id':        dev_id,
+            'motivo':    motivo,
+            'empresa':   empresa,
+        })
+        logger.info(f'[Usuario] Devolución aceptada recibida: {dev_id} — {motivo}')
+        gr = build_message(Graph(), ACL.confirm, sender=UsuarioAgent.uri,
+                           receiver=msgdic['sender'], msgcnt=mss_cnt)
+
     else:
         gr = build_message(Graph(), ACL['not-understood'], sender=UsuarioAgent.uri, msgcnt=mss_cnt)
 

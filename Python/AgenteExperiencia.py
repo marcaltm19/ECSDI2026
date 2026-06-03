@@ -50,11 +50,9 @@ agn = Namespace('http://www.agentes.org#')
 mss_cnt = 0
 
 DATA_DIR          = os.path.join(os.path.dirname(__file__), 'data')
-VALORACIONES_PATH = os.path.join(DATA_DIR, 'valoraciones.json')
+VALORACIONES_PATH = os.path.join(DATA_DIR, 'listado_opiniones.json')
 HISTORIAL_PATH    = os.path.join(DATA_DIR, 'historial_compras.json')
 BUSQUEDAS_PATH    = os.path.join(DATA_DIR, 'historial_busquedas.json')
-PRODUCTOS_PATH    = os.path.join(DATA_DIR, 'productos.json')
-PRODUCTOS_EXT_PATH = os.path.join(DATA_DIR, 'productos_externos.json')
 
 ExperienciaAgent = Agent(
     'AgenteExperiencia',
@@ -191,6 +189,34 @@ def obtener_valoraciones_producto(producto_id):
 
 # (timestamp, comprador, pedido_id, producto_id, nombre)
 feedback_tasks = []
+_comprador_address = None
+
+
+def _get_comprador_address():
+    global mss_cnt, _comprador_address
+    if _comprador_address is not None:
+        return _comprador_address
+    gmess = Graph()
+    gmess.bind('dso', DSO)
+    search_obj = agn[f'SearchComp-{mss_cnt}']
+    gmess.add((search_obj, RDF.type,      DSO.Search))
+    gmess.add((search_obj, DSO.AgentType, ECSNS['Ag.Comprador']))
+    msg = build_message(gmess, perf=ACL.request, sender=ExperienciaAgent.uri,
+                        receiver=DirectoryAgent.uri, content=search_obj, msgcnt=mss_cnt)
+    mss_cnt += 1
+    try:
+        r = http_requests.get(DirectoryAgent.address,
+                              params={'content': msg.serialize(format='xml')}, timeout=5)
+        gr_ds = Graph()
+        gr_ds.parse(data=r.text, format='xml')
+        for entry in gr_ds.subjects(DSO.Uri):
+            addr = gr_ds.value(entry, DSO.Address)
+            if addr:
+                _comprador_address = str(addr)
+                return _comprador_address
+    except Exception as e:
+        logger.warning(f'[Experiencia] Error buscando AgenteComprador: {e}')
+    return None
 
 
 def obtener_address_usuario():
@@ -215,6 +241,18 @@ def obtener_address_usuario():
     except Exception as e:
         logger.warning(f'[Experiencia] Error buscando AgenteUsuario: {e}')
     return None
+
+
+def eliminar_compra(comprador, pedido_id):
+    historial = _load_json(HISTORIAL_PATH, {})
+    entradas = historial.get(comprador, [])
+    nuevas = [e for e in entradas if e.get('pedido_id') != pedido_id]
+    if len(nuevas) == len(entradas):
+        logger.warning(f'[Experiencia] Compra {pedido_id} no encontrada en historial de {comprador}')
+        return
+    historial[comprador] = nuevas
+    _save_json(HISTORIAL_PATH, historial)
+    logger.info(f'[Experiencia] Compra {pedido_id} eliminada del historial de {comprador}')
 
 
 def registrar_compra(comprador, pedido_id, productos, total, fecha=None):
@@ -244,8 +282,8 @@ def _momento_feedback_tras_entrega(fecha_entrega_str):
         ts = trigger.timestamp()
         if ts <= time.time():
             return time.time() + 5
-        # En demo: si la entrega es lejana, solicitar feedback en ~45s tras asignar envío
-        max_demo = time.time() + 45
+        # En demo: solicitar feedback 20s después de recibir la notificación de envío
+        max_demo = time.time() + 20
         return min(ts, max_demo)
     except (ValueError, TypeError):
         return time.time() + 10
@@ -309,15 +347,35 @@ def obtener_historial(comprador):
 # ---------------------------------------------------------------------------
 
 def _cargar_catalogo():
-    catalogo = []
-    for path in (PRODUCTOS_PATH, PRODUCTOS_EXT_PATH):
-        if os.path.exists(path):
-            try:
-                with open(path) as f:
-                    catalogo.extend(json.load(f))
-            except (json.JSONDecodeError, ValueError):
-                pass
-    return catalogo
+    global mss_cnt
+    addr = _get_comprador_address()
+    if addr is None:
+        return []
+    gmess = Graph()
+    gmess.bind('ecsns', ECSNS)
+    req = ECSNS['listcat-' + str(mss_cnt)]
+    gmess.add((req, RDF.type, ECSNS.ListarProductos))
+    try:
+        resp = send_message(
+            build_message(gmess, perf=ACL.request, sender=ExperienciaAgent.uri,
+                          receiver=agn.AgenteComprador, content=req, msgcnt=mss_cnt),
+            addr,
+        )
+        mss_cnt += 1
+        catalogo = []
+        for s in resp.subjects(RDF.type, ECSNS.Producto):
+            catalogo.append({
+                'id':        str(resp.value(s, ECSNS.idProducto)  or ''),
+                'nombre':    str(resp.value(s, ECSNS.nombre)       or ''),
+                'categoria': str(resp.value(s, ECSNS.categoria)    or ''),
+                'precio':    float(resp.value(s, ECSNS.precio)     or 0),
+                'valoracion': float(resp.value(s, ECSNS.valoracion) or 0),
+            })
+        return catalogo
+    except Exception as e:
+        mss_cnt += 1
+        logger.warning(f'[Experiencia] Error obteniendo catálogo de AgenteComprador: {e}')
+        return []
 
 
 def _compras_del_comprador(historial, comprador):
@@ -687,6 +745,15 @@ def comunicacion():
                            sender=ExperienciaAgent.uri,
                            receiver=msgdic['sender'],
                            content=resp_node, msgcnt=mss_cnt)
+
+    elif perf == ACL.inform and accion == ECSNS.DevolucionAceptada:
+        comprador = str(gm.value(content, ECSNS.comprador) or '')
+        pedido_id = str(gm.value(content, ECSNS.idFactura) or '')
+        eliminar_compra(comprador, pedido_id)
+        gr = build_message(Graph(), ACL.inform,
+                           sender=ExperienciaAgent.uri,
+                           receiver=msgdic['sender'],
+                           msgcnt=mss_cnt)
 
     else:
         gr = build_message(Graph(), ACL['not-understood'],

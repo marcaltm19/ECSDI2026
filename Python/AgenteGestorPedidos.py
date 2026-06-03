@@ -48,8 +48,8 @@ if not args.verbose:
 
 agn = Namespace('http://www.agentes.org#')
 mss_cnt = 0
-FACTURAS_PATH = os.path.join(os.path.dirname(__file__), 'data', 'facturas.json')
-PEDIDOS_PATH  = os.path.join(os.path.dirname(__file__), 'data', 'pedidos.json')
+FACTURAS_PATH = os.path.join(os.path.dirname(__file__), 'data', 'listado_facturas.json')
+CENTROS_PATH  = os.path.join(os.path.dirname(__file__), 'data', 'centros_logisticos.json')
 
 logistico_address  = None
 experiencia_address = None
@@ -113,20 +113,21 @@ def get_agent_address(agent_type):
     return None
 
 
-def obtener_info_producto(prod_id):
-    propios_path = os.path.join(os.path.dirname(__file__), 'data', 'productos.json')
-    if os.path.exists(propios_path):
-        with open(propios_path) as f:
-            for p in json.load(f):
-                if p['id'] == prod_id:
-                    return p
-    externos_path = os.path.join(os.path.dirname(__file__), 'data', 'productos_externos.json')
-    if os.path.exists(externos_path):
-        with open(externos_path) as f:
-            for p in json.load(f):
-                if p['id'] == prod_id:
-                    return p
-    return None
+
+def cargar_centros_gp():
+    if not os.path.exists(CENTROS_PATH):
+        return []
+    with open(CENTROS_PATH) as f:
+        return json.load(f)
+
+
+def obtener_centro_de_producto_gp(producto_id):
+    centros = cargar_centros_gp()
+    for centro in centros:
+        if producto_id in centro.get('productos', []):
+            return centro
+    logger.warning(f'[GestorPedidos] Producto {producto_id} sin centro asignado, usando primero disponible')
+    return centros[0] if centros else {'id': 'CL-001', 'nombre': 'Centro Madrid', 'productos': []}
 
 
 def obtener_address_vendedor(vendedor_nombre):
@@ -230,34 +231,6 @@ def generar_factura(productos, comprador, direccion, metodo_pago, envios_vendedo
     return factura
 
 
-def guardar_pedido(pedido_id, comprador, productos, sub_envios):
-    """Persiste el resultado de envio en pedidos.json para trazabilidad."""
-    registro = {
-        'id':        pedido_id,
-        'comprador': comprador,
-        'fecha':     datetime.now().isoformat(),
-        'productos': productos,
-        'envios':    sub_envios,
-    }
-    os.makedirs(os.path.dirname(PEDIDOS_PATH), exist_ok=True)
-    if os.path.exists(PEDIDOS_PATH):
-        try:
-            with open(PEDIDOS_PATH) as f:
-                pedidos = json.load(f)
-        except (json.JSONDecodeError, ValueError):
-            pedidos = []
-    else:
-        pedidos = []
-    # Actualizar si ya existe (por segunda notificacion del logistico)
-    for i, p in enumerate(pedidos):
-        if p.get('id') == pedido_id:
-            pedidos[i] = registro
-            break
-    else:
-        pedidos.append(registro)
-    with open(PEDIDOS_PATH, 'w') as f:
-        json.dump(pedidos, f, indent=2)
-
 
 def actualizar_factura_envios_logistico(factura_id, sub_envios):
     """Persiste los envíos logísticos en facturas.json para que la UI los muestre al refrescar."""
@@ -288,18 +261,21 @@ def notificar_logistico(pedido):
     gmess = Graph()
     gmess.bind('ecsns', ECSNS)
     ped_obj = ECSNS['pedido-' + pedido['id']]
-    gmess.add((ped_obj, RDF.type,        ECSNS.Pedido))
+    gmess.add((ped_obj, RDF.type,        ECSNS.SolicitudPedido))
     gmess.add((ped_obj, ECSNS.idPedido,  Literal(pedido['id'])))
+    gmess.add((ped_obj, ECSNS.comprador, Literal(pedido.get('comprador', 'Anonimo'))))
     gmess.add((ped_obj, ECSNS.direccion, Literal(pedido['direccion'])))
     gmess.add((ped_obj, ECSNS.prioridad, Literal(pedido['prioridad'])))
     for i, p in enumerate(pedido['productos']):
-        prod_node = ECSNS['ped-prod-' + str(i)]
+        centro = obtener_centro_de_producto_gp(p['id'])
+        prod_node = ECSNS['ped-prod-' + pedido['id'] + '-' + str(i)]
         gmess.add((ped_obj,   ECSNS.tieneProducto, prod_node))
         gmess.add((prod_node, ECSNS.idProducto,    Literal(p['id'])))
         gmess.add((prod_node, ECSNS.nombre,        Literal(p.get('nombre', ''))))
         gmess.add((prod_node, ECSNS.cantidad,      Literal(p.get('cantidad', 1))))
         gmess.add((prod_node, ECSNS.peso,          Literal(p.get('peso', 0))))
         gmess.add((prod_node, ECSNS.precio,        Literal(p.get('precio', 0))))
+        gmess.add((prod_node, ECSNS.tieneCentro,   Literal(centro['nombre'])))
     send_message(
         build_message(gmess, perf=ACL.request, sender=GestorAgent.uri,
                       receiver=agn.AgenteLogistico, content=ped_obj, msgcnt=mss_cnt),
@@ -342,39 +318,6 @@ def notificar_experiencia_compra(comprador, factura, productos):
     mss_cnt += 1
     logger.info(f'[GestorPedidos] AgenteExperiencia notificado -- comprador: {comprador}')
 
-
-def notificar_experiencia_envios(comprador, pedido_id, sub_envios, productos):
-    """Programa feedback proactivo tras las fechas de entrega asignadas."""
-    global mss_cnt, experiencia_address
-    if not productos:
-        return
-    if experiencia_address is None:
-        experiencia_address = get_agent_address(ECSNS['Ag.Experiencia'])
-    if experiencia_address is None:
-        logger.warning('[GestorPedidos] AgenteExperiencia no encontrado para envíos')
-        return
-    gmess = Graph()
-    gmess.bind('ecsns', ECSNS)
-    node = ECSNS['envios-' + pedido_id]
-    gmess.add((node, RDF.type,        ECSNS.EnviosAsignados))
-    gmess.add((node, ECSNS.comprador, Literal(comprador)))
-    gmess.add((node, ECSNS.idPedido,  Literal(pedido_id)))
-    for i, envio in enumerate(sub_envios):
-        en = ECSNS[f'env-sub-{pedido_id}-{i}']
-        gmess.add((node, ECSNS.tieneSubEnvio, en))
-        gmess.add((en, ECSNS.tieneFechaEntrega, Literal(envio.get('fecha', ''))))
-    for i, p in enumerate(productos):
-        pn = ECSNS[f'env-prod-{pedido_id}-{i}']
-        gmess.add((node, ECSNS.tieneProducto, pn))
-        gmess.add((pn, ECSNS.idProducto, Literal(p.get('id', ''))))
-        gmess.add((pn, ECSNS.nombre,     Literal(p.get('nombre', ''))))
-    send_message(
-        build_message(gmess, perf=ACL.inform, sender=GestorAgent.uri,
-                      receiver=agn.AgenteExperiencia, content=node, msgcnt=mss_cnt),
-        experiencia_address,
-    )
-    mss_cnt += 1
-    logger.info(f'[GestorPedidos] Experiencia notificada envíos pedido {pedido_id}')
 
 
 def _productos_factura(pedido_id):
@@ -441,15 +384,14 @@ def procesar_compra(gm, content):
     productos = []
     for prod_node in gm.objects(content, ECSNS.tieneProducto):
         pid = str(gm.value(prod_node, ECSNS.idProducto))
-        pinfo = obtener_info_producto(pid) or {}
         productos.append({
-            'id':       pid,
-            'nombre':   str(gm.value(prod_node, ECSNS.nombre)   or pinfo.get('nombre', '')),
-            'precio':   float(gm.value(prod_node, ECSNS.precio) or pinfo.get('precio', 0)),
-            'cantidad': int(gm.value(prod_node, ECSNS.cantidad) or 1),
-            'peso':     float(gm.value(prod_node, ECSNS.peso)   or pinfo.get('peso', 0)),
-            'vendedor': pinfo.get('vendedor', 'tienda'),
-            'gestion_envio': pinfo.get('gestion_envio', 'tienda')
+            'id':          pid,
+            'nombre':      str(gm.value(prod_node, ECSNS.nombre)       or ''),
+            'precio':      float(gm.value(prod_node, ECSNS.precio)      or 0),
+            'cantidad':    int(gm.value(prod_node, ECSNS.cantidad)       or 1),
+            'peso':        float(gm.value(prod_node, ECSNS.peso)         or 0),
+            'vendedor':    str(gm.value(prod_node, ECSNS.vendedor)       or 'tienda'),
+            'gestion_envio': str(gm.value(prod_node, ECSNS.gestionEnvio) or 'tienda'),
         })
 
     shop_products = []
@@ -472,6 +414,7 @@ def procesar_compra(gm, content):
     if shop_products:
         shop_pedido = {
             'id':        factura_id,
+            'comprador': comprador,
             'productos': shop_products,
             'direccion': direccion,
             'prioridad': prioridad,
@@ -522,7 +465,7 @@ def procesar_compra(gm, content):
 
 def procesar_resultado_envio(gm, content):
     """
-    Recibe el ResultadoEnvio del AgenteLogistico, lo persiste en pedidos.json
+    Recibe el ResultadoEnvio del AgenteLogistico, actualiza la factura y notifica al usuario.
     y notifica al AgenteUsuario para que lo muestre al cliente.
     """
     pedido_id  = str(gm.value(content, ECSNS.idPedido)  or 'DESCONOCIDO')
@@ -548,14 +491,48 @@ def procesar_resultado_envio(gm, content):
 
     productos, comprador = _productos_factura(pedido_id)
 
-    guardar_pedido(pedido_id, comprador=comprador, productos=productos, sub_envios=sub_envios)
     actualizar_factura_envios_logistico(pedido_id, sub_envios)
 
     notificar_usuario_envios(pedido_id, sub_envios)
-    if comprador and productos:
-        notificar_experiencia_envios(comprador, pedido_id, sub_envios, productos)
-
     return sub_envios
+
+
+def marcar_factura_devuelta(factura_id):
+    if not os.path.exists(FACTURAS_PATH):
+        return
+    try:
+        with open(FACTURAS_PATH) as f:
+            facturas = json.load(f)
+    except (json.JSONDecodeError, ValueError):
+        return
+    for fac in facturas:
+        if fac.get('id') == factura_id:
+            fac['devuelta'] = True
+            fac['fecha_devolucion'] = datetime.now().isoformat()
+            break
+    else:
+        return
+    with open(FACTURAS_PATH, 'w') as f:
+        json.dump(facturas, f, indent=2)
+    logger.info(f'[GestorPedidos] Factura {factura_id} marcada como devuelta')
+
+
+def verificar_compra(factura_id, comprador):
+    if not os.path.exists(FACTURAS_PATH):
+        return False, 'Factura no encontrada', []
+    try:
+        with open(FACTURAS_PATH) as f:
+            facturas = json.load(f)
+    except (json.JSONDecodeError, ValueError):
+        return False, 'Error al leer facturas', []
+    for fac in facturas:
+        if fac.get('id') == factura_id:
+            if (fac.get('comprador') or '').strip().casefold() != (comprador or '').strip().casefold():
+                return False, 'El comprador no coincide con el de la factura', []
+            if fac.get('devuelta'):
+                return False, 'Esta factura ya fue devuelta', []
+            return True, 'Compra verificada', fac.get('productos', [])
+    return False, 'Factura no encontrada', []
 
 
 @app.route('/stop')
@@ -584,7 +561,7 @@ def comunicacion():
     content = msgdic.get('content')
     accion  = gm.value(subject=content, predicate=RDF.type) if content else None
 
-    if perf == ACL.request and accion == ECSNS.Pedido:
+    if perf == ACL.request and accion == ECSNS.SolicitudPedido:
         resp_graph, resp_node = procesar_compra(gm, content)
         gr = build_message(resp_graph, ACL.inform,
                            sender=GestorAgent.uri,
@@ -595,6 +572,36 @@ def comunicacion():
     elif perf == ACL.inform and accion == ECSNS.ResultadoEnvio:
         procesar_resultado_envio(gm, content)
         gr = build_message(Graph(), ACL.inform,
+                           sender=GestorAgent.uri,
+                           receiver=msgdic['sender'],
+                           msgcnt=mss_cnt)
+
+    elif perf == ACL.request and accion == ECSNS.VerificarCompra:
+        factura_id = str(gm.value(subject=content, predicate=ECSNS.idFactura) or '')
+        comprador  = str(gm.value(subject=content, predicate=ECSNS.comprador) or '')
+        valida, motivo, productos = verificar_compra(factura_id, comprador)
+        resp_gr = Graph()
+        resp_gr.bind('ecsns', ECSNS)
+        res_node = ECSNS['verificacion-' + str(mss_cnt)]
+        resp_gr.add((res_node, RDF.type,       ECSNS.ResultadoVerificacion))
+        resp_gr.add((res_node, ECSNS.aceptada, Literal(valida)))
+        resp_gr.add((res_node, ECSNS.motivo,   Literal(motivo)))
+        for i, p in enumerate(productos):
+            pn = ECSNS[f'verifprod-{mss_cnt}-{i}']
+            resp_gr.add((res_node, ECSNS.tieneProducto, pn))
+            resp_gr.add((pn, ECSNS.idProducto, Literal(p.get('id', ''))))
+            resp_gr.add((pn, ECSNS.vendedor,   Literal(p.get('vendedor', 'tienda'))))
+        gr = build_message(resp_gr, ACL.inform,
+                           sender=GestorAgent.uri,
+                           receiver=msgdic['sender'],
+                           content=res_node,
+                           msgcnt=mss_cnt)
+        logger.info(f'[GestorPedidos] Verificacion factura {factura_id}: valida={valida}')
+
+    elif perf == ACL.inform and accion == ECSNS.DevolucionAceptada:
+        factura_id = str(gm.value(subject=content, predicate=ECSNS.idFactura) or '')
+        marcar_factura_devuelta(factura_id)
+        gr = build_message(Graph(), ACL.confirm,
                            sender=GestorAgent.uri,
                            receiver=msgdic['sender'],
                            msgcnt=mss_cnt)
