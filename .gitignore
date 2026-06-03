@@ -26,3 +26,5 @@ Python/data/envios.json
 # OS
 .DS_Store
 Thumbs.db
+
+/data/
