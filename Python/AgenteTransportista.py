@@ -116,8 +116,19 @@ def _calcular_oferta_inicial(prioridad):
 def comunicacion():
     global mss_cnt, _ultima_oferta_precio
     message = request.args.get('content') or request.form.get('content')
-    gm = Graph()
-    gm.parse(data=message, format='xml')
+    if not message:
+        return ('<html><head><title>AgenteTransportista</title></head>'
+                '<body style="font-family:sans-serif;padding:32px"><h2>AgenteTransportista — ' + NOMBRE + '</h2>'
+                '<p><strong>Estado:</strong> activo &nbsp;|&nbsp; <strong>Puerto:</strong> ' + str(port) + '</p>'
+                '<p style="color:#666">Endpoint ACL/RDF entre agentes.</p>'
+                '</body></html>'), 200, {'Content-Type': 'text/html; charset=utf-8'}
+    try:
+        gm = Graph()
+        gm.parse(data=message, format='xml')
+    except Exception as e:
+        logger.warning(f'[Transportista] /comm parse error: {e}')
+        mss_cnt += 1
+        return Graph().serialize(format='xml')
     msgdic = get_message_properties(gm)
 
     perf    = msgdic.get('performative') if msgdic else None

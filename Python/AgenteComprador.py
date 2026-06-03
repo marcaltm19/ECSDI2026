@@ -184,8 +184,7 @@ def buscar_productos(gm, content):
     val_min    = gm.value(subject=content, predicate=ECSNS.valoracionMinima)
     incluir_externos = gm.value(subject=content, predicate=ECSNS.incluirExternos)
 
-    with open(DATA_PATH) as f:
-        productos = json.load(f)
+    productos = cargar_productos()
 
     resultados = []
     for p in productos:
@@ -225,8 +224,24 @@ def comunicacion():
     global mss_cnt
     logger.info('[Comprador] Mensaje recibido')
     message = request.args.get('content') or request.form.get('content')
-    gm = Graph()
-    gm.parse(data=message, format='xml')
+    if not message:
+        return ('<html><head><title>AgenteComprador</title></head>'
+                '<body style="font-family:sans-serif;padding:32px">'
+                '<h2>AgenteComprador</h2>'
+                '<p><strong>Estado:</strong> activo &nbsp;|&nbsp; <strong>Puerto:</strong> ' + str(port) + '</p>'
+                '<p style="color:#666">Endpoint ACL/RDF entre agentes. '
+                'La interfaz de usuario está en '
+                '<a href="http://localhost:9020/">localhost:9020</a>.</p>'
+                '</body></html>'), 200, {'Content-Type': 'text/html; charset=utf-8'}
+    try:
+        gm = Graph()
+        gm.parse(data=message, format='xml')
+    except Exception as e:
+        logger.warning(f'[Comprador] /comm parse error: {e}')
+        gr = build_message(Graph(), ACL['not-understood'],
+                           sender=CompradorAgent.uri, msgcnt=mss_cnt)
+        mss_cnt += 1
+        return gr.serialize(format='xml')
     msgdic = get_message_properties(gm)
 
     if msgdic is None:
@@ -239,8 +254,7 @@ def comunicacion():
 
         if perf == ACL.request and accion == ECSNS.ListarProductos:
             # Full catalogue query (e.g. from AgenteExperiencia) — no search registration
-            with open(DATA_PATH) as f:
-                todos = json.load(f)
+            todos = cargar_productos()
             gr_all = Graph()
             gr_all.bind('ecsns', ECSNS)
             for p in todos:

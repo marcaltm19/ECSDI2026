@@ -2,7 +2,7 @@
 {% block title %}Mis pedidos{% endblock %}
 {% block content %}
 <div class="page-header">
-  <h1>Mis pedidos</h1>
+  <h1>{% if comprador %}Pedidos de {{ comprador }}{% else %}Historial de pedidos{% endif %}</h1>
   <p>Pedidos activos (sin devolución aceptada). Las devoluciones están en <a href="/devolucion">Devoluciones</a>.</p>
 </div>
 

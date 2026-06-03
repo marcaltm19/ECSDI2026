@@ -28,7 +28,7 @@ from ontologia import ECSNS
 import requests as http_requests
 
 agn = Namespace('http://www.agentes.org#')
-LOGISTICO_URL = 'http://localhost:9003/comm'
+LOGISTICO_URL = 'http://192.168.68.121:9003/comm'
 mss_cnt = 0
 
 
@@ -38,7 +38,7 @@ def enviar_pedido(pedido_id, direccion, prioridad, productos):
     g.bind('ecsns', ECSNS)
 
     pedido_uri = agn[pedido_id]
-    g.add((pedido_uri, RDF.type, ECSNS.Pedido))
+    g.add((pedido_uri, RDF.type, ECSNS.SolicitudPedido))
     g.add((pedido_uri, ECSNS.idPedido, Literal(pedido_id)))
     g.add((pedido_uri, ECSNS.direccion, Literal(direccion)))
     g.add((pedido_uri, ECSNS.prioridad, Literal(prioridad)))
@@ -121,14 +121,14 @@ def jp5():
         t.start()
     for t in threads:
         t.join()
-    print('\nRevisa data/pedidos.json y data/envios.json para ver los 3 envios procesados.')
+    print('\nRevisa data/listado_pedidos.json y data/listado_envios.json para ver los 3 envios procesados.')
     print('Cada pedido debe haberse asignado a un transportista de forma independiente.')
 
 
 def jp6():
     print('\n=== JP6: Pedido multi-centro — dos sub-envios ===')
     print('Productos p001 (Madrid) y p002 (Barcelona) en un solo pedido.')
-    print('Espera a que el logistico procese; deben aparecer 2 envios en envios.json.\n')
+    print('Espera a que el logistico procese; deben aparecer 2 envios en listado_envios.json.\n')
     enviar_pedido(
         pedido_id='PED-JP6-001',
         direccion='Barcelona',
@@ -138,15 +138,15 @@ def jp6():
             {'id': 'p002', 'cantidad': 1, 'peso': 0.3},
         ],
     )
-    print('Revisa data/envios.json: dos envios con el mismo pedido_id y centros distintos.')
+    print('Revisa data/listado_envios.json: dos envios con el mismo pedido_id y centros distintos.')
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Juegos de prueba ECSDI 2026')
     parser.add_argument('--jp', type=int, required=True, choices=[1, 2, 3, 5, 6],
                         help='Numero del juego de prueba (1, 2, 3, 5 o 6)')
-    parser.add_argument('--host', default='localhost',
-                        help='Host del AgenteLogistico (default: localhost)')
+    parser.add_argument('--host', default='192.168.68.121',
+                        help='Host del AgenteLogistico (default: 192.168.68.121)')
     parser.add_argument('--port', type=int, default=9003,
                         help='Puerto del AgenteLogistico (default: 9003)')
     args = parser.parse_args()

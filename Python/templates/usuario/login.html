@@ -1,0 +1,23 @@
+{% extends 'usuario/base.html' %}
+{% block title %}Iniciar sesión{% endblock %}
+{% block content %}
+<div style="max-width:380px;margin:60px auto">
+  <div class="card">
+    <div class="page-header" style="margin-bottom:20px;border-bottom:none;padding-bottom:0">
+      <h1>Bienvenido</h1>
+      <p>Introduce tu nombre para entrar a la tienda.</p>
+    </div>
+    {% if error %}
+    <div class="alert alert-danger">{{ error }}</div>
+    {% endif %}
+    <form method="post">
+      <div class="form-group">
+        <label>Tu nombre</label>
+        <input class="form-control" type="text" name="username" autofocus required
+               placeholder="Ej. Ana García">
+      </div>
+      <button type="submit" class="btn btn-primary btn-full">Entrar</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -77,13 +77,17 @@ cola1 = Queue()
 
 
 @app.context_processor
-def inject_feedback_pendiente():
-    return {'solicitudes_feedback': list(_solicitudes_feedback)}
+def inject_globals():
+    return {
+        'solicitudes_feedback': list(_solicitudes_feedback),
+        'usuario_actual': session.get('usuario', ''),
+    }
 
 
 def _comprador_sesion():
     return (
-        session.get('comprador', '').strip()
+        session.get('usuario', '').strip()
+        or session.get('comprador', '').strip()
         or (session.get('ultimo_pedido') or {}).get('comprador', '').strip()
     )
 
@@ -586,6 +590,26 @@ def enviar_valoracion(comprador, producto_id, pedido_id, nombre_producto, puntua
 # Web routes
 # ---------------------------------------------------------------------------
 
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    error = None
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        if username:
+            session['usuario'] = username
+            return redirect(request.args.get('next') or url_for('index'))
+        error = 'Introduce un nombre de usuario.'
+    return render_template('usuario/login.html', num_carrito=_num_carrito(), error=error)
+
+
+@app.route('/logout')
+def logout():
+    session.pop('usuario', None)
+    session.pop('carrito', None)
+    session.pop('ultimo_pedido', None)
+    return redirect(url_for('login'))
+
+
 @app.route('/')
 def index():
     facturas = load_json(FACTURAS_PATH)
@@ -620,7 +644,9 @@ def buscar():
 @app.route('/recomendaciones', methods=['GET', 'POST'])
 def recomendaciones():
     error = None
-    comprador = request.form.get('comprador', '').strip() or request.args.get('comprador', '').strip()
+    comprador = (request.form.get('comprador', '').strip()
+                 or request.args.get('comprador', '').strip()
+                 or _comprador_sesion())
     recs_nuevas = []
     if request.method == 'POST' and comprador:
         recs_nuevas, error = solicitar_recomendaciones(comprador)
@@ -687,8 +713,9 @@ def pedido():
     if not carrito:
         return redirect(url_for('buscar'))
     error = None
+    comprador_default = _comprador_sesion()
     if request.method == 'POST':
-        comprador   = request.form.get('comprador', '').strip()
+        comprador   = request.form.get('comprador', '').strip() or comprador_default
         direccion   = request.form.get('direccion', '').strip()
         prioridad   = request.form.get('prioridad', 'normal')
         metodo_pago = request.form.get('metodo_pago', 'tarjeta')
@@ -710,6 +737,7 @@ def pedido():
         carrito=carrito,
         total=total,
         error=error,
+        comprador_default=comprador_default,
     )
 
 
@@ -738,13 +766,15 @@ def pedido_confirmado():
 
 @app.route('/historial')
 def historial():
-    facturas = facturas_para_vista()
+    comprador = _comprador_sesion()
+    facturas = facturas_para_vista(solo_comprador=comprador if comprador else None)
     for f in facturas:
         f['estado_envio'] = estado_envio_factura(f)
     return render_template(
         'usuario/historial.html',
         num_carrito=_num_carrito(),
         facturas=facturas,
+        comprador=comprador,
     )
 
 
@@ -754,6 +784,7 @@ def devolucion():
     comprador_form = (
         request.form.get('comprador', '').strip()
         or request.args.get('comprador', '').strip()
+        or _comprador_sesion()
     )
     if request.method == 'POST':
         comprador = comprador_form
@@ -855,8 +886,23 @@ def valorar():
 def comunicacion():
     global mss_cnt
     message = request.args.get('content') or request.form.get('content')
-    gm = Graph()
-    gm.parse(data=message, format='xml')
+    if not message:
+        return ('<html><head><title>AgenteUsuario</title></head>'
+                '<body style="font-family:sans-serif;padding:32px">'
+                '<h2>AgenteUsuario</h2>'
+                '<p><strong>Estado:</strong> activo &nbsp;|&nbsp; <strong>Puerto:</strong> ' + str(port) + '</p>'
+                '<p style="color:#666">Endpoint ACL/RDF entre agentes. '
+                'La interfaz web está en '
+                '<a href="http://localhost:9020/">localhost:9020</a>.</p>'
+                '</body></html>'), 200, {'Content-Type': 'text/html; charset=utf-8'}
+    try:
+        gm = Graph()
+        gm.parse(data=message, format='xml')
+    except Exception as e:
+        logger.warning(f'[Usuario] /comm parse error: {e}')
+        gr = build_message(Graph(), ACL['not-understood'], sender=UsuarioAgent.uri, msgcnt=mss_cnt)
+        mss_cnt += 1
+        return gr.serialize(format='xml')
     msgdic = get_message_properties(gm)
 
     if msgdic is None:

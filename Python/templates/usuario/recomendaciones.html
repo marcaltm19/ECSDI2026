@@ -7,13 +7,20 @@
 </div>
 
 <div class="card">
-  <div class="card-title">Solicitar recomendaciones</div>
+  <div class="card-title">Recomendaciones personalizadas</div>
   <p class="text-muted text-sm" style="margin-bottom:14px">
-    Indica el mismo nombre que usaste al tramitar el pedido. El agente de experiencia calculará
-    sugerencias personalizadas (productos bien valorados o populares que aún no has comprado).
+    El agente de experiencia analiza tu historial de compras y búsquedas para sugerirte
+    productos bien valorados que aún no has comprado.
   </p>
   <form method="post" action="/recomendaciones">
     <div class="form-grid">
+      {% if usuario_actual %}
+      <input type="hidden" name="comprador" value="{{ usuario_actual }}">
+      <div class="form-group" style="display:flex; align-items:center; gap:12px">
+        <span class="text-muted text-sm">Calculando para <strong>{{ usuario_actual }}</strong></span>
+        <button type="submit" class="btn btn-primary">Actualizar</button>
+      </div>
+      {% else %}
       <div class="form-group">
         <label>Nombre del comprador</label>
         <input class="form-control" type="text" name="comprador" value="{{ comprador }}" required>
@@ -21,6 +28,7 @@
       <div class="form-group" style="display:flex; align-items:flex-end">
         <button type="submit" class="btn btn-primary">Actualizar recomendaciones</button>
       </div>
+      {% endif %}
     </div>
   </form>
 </div>
@@ -55,8 +63,9 @@
 </div>
 {% elif not comprador %}
 <div class="empty-state">
-  <h3>Introduce tu nombre de comprador</h3>
-  <p>También puedes esperar a que el sistema envíe recomendaciones de forma automática tras una compra (aparecerán aquí y en el inicio).</p>
+  <h3>Inicia sesión para ver tus recomendaciones</h3>
+  <p>Tras realizar compras y búsquedas, el sistema generará sugerencias personalizadas automáticamente.</p>
+  <a href="/login" class="btn btn-primary mt-3">Iniciar sesión</a>
 </div>
 {% endif %}
 {% endblock %}

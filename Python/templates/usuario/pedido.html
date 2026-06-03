@@ -16,7 +16,12 @@
     <form method="post" action="/pedido">
       <div class="form-group">
         <label>Nombre del comprador</label>
-        <input class="form-control" type="text" name="comprador" required>
+        <input class="form-control" type="text" name="comprador"
+               value="{{ comprador_default }}" required
+               {% if comprador_default %}readonly style="background:#f5f7f8;color:#5d6d7e"{% endif %}>
+        {% if comprador_default %}
+        <span class="text-muted text-sm">Sesión activa como <strong>{{ comprador_default }}</strong>. <a href="/logout">Cambiar usuario</a></span>
+        {% endif %}
       </div>
       <div class="form-group">
         <label>Dirección de entrega</label>

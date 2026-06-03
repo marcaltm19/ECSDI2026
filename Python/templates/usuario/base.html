@@ -233,6 +233,12 @@ hr { border: none; border-top: 1px solid var(--border); margin: 18px 0; }
   <a href="/devolucion" {% if request.path == '/devolucion' %}class="active"{% endif %}>Devoluciones</a>
   <a href="/valorar" {% if request.path == '/valorar' %}class="active"{% endif %}>Valoraciones</a>
   <span class="nav-spacer"></span>
+  {% if usuario_actual %}
+  <span style="color:rgba(255,255,255,.78);font-size:13px;margin-right:4px">{{ usuario_actual }}</span>
+  <a href="/logout" style="color:rgba(255,255,255,.55);font-size:12px;padding:4px 8px;border-radius:3px;border:1px solid rgba(255,255,255,.2);margin-right:10px;text-decoration:none">Salir</a>
+  {% else %}
+  <a href="/login" style="color:rgba(255,255,255,.7);font-size:13px;margin-right:10px;text-decoration:none">Iniciar sesión</a>
+  {% endif %}
   <a href="/carrito" class="btn nav-cart">Carrito{% if num_carrito > 0 %} ({{ num_carrito }}){% endif %}</a>
 </nav>
 <div class="container">
