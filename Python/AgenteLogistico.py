@@ -32,17 +32,22 @@ parser.add_argument('--verbose', action='store_true', default=False)
 parser.add_argument('--port', type=int, default=9003)
 parser.add_argument('--dhost', default=None)
 parser.add_argument('--dport', type=int, default=9000)
+parser.add_argument('--centro', type=str, default='Centro Madrid',
+                    help='Nombre del centro logístico que representa este agente')
 args = parser.parse_args()
 
 logger = config_logger(level=1)
 port = args.port
 hostname = socket.gethostname()
-# flask_host: donde escucha Flask (0.0.0.0 si --open para aceptar conexiones externas)
 flask_host = '0.0.0.0' if args.open else hostname
-# hostaddr: direccion publica que se registra en el DS.
 hostaddr = os.environ.get('ECSDI_PUBLIC_HOST') or hostname
 dport = args.dport
 dhostname = os.environ.get('ECSDI_DHOST') or args.dhost or socket.gethostname()
+
+CENTRO_NOMBRE = args.centro
+CIUDAD        = CENTRO_NOMBRE.replace('Centro ', '').strip()
+_centro_slug  = CENTRO_NOMBRE.replace(' ', '_').lower()
+_agent_name   = f'AgenteLogistico_{CENTRO_NOMBRE.replace(" ", "_")}'
 
 app = Flask(__name__)
 if not args.verbose:
@@ -50,12 +55,12 @@ if not args.verbose:
 
 agn = Namespace('http://www.agentes.org#')
 mss_cnt = 0
-PEDIDOS_PATH = os.path.join(os.path.dirname(__file__), 'data', 'listado_pedidos.json')
-ENVIOS_PATH  = os.path.join(os.path.dirname(__file__), 'data', 'listado_envios.json')
+PEDIDOS_PATH = os.path.join(os.path.dirname(__file__), 'data', f'listado_pedidos_{_centro_slug}.json')
+ENVIOS_PATH  = os.path.join(os.path.dirname(__file__), 'data', f'listado_envios_{_centro_slug}.json')
 
 LogisticoAgent = Agent(
-    'AgenteLogistico',
-    agn.AgenteLogistico,
+    _agent_name,
+    agn[_agent_name],
     'http://%s:%d/comm' % (hostaddr, port),
     'http://%s:%d/Stop' % (hostaddr, port),
 )
@@ -92,7 +97,8 @@ def register_message():
     gmess.add((reg_obj, DSO.Uri, LogisticoAgent.uri))
     gmess.add((reg_obj, FOAF.name, Literal(LogisticoAgent.name)))
     gmess.add((reg_obj, DSO.Address, Literal(LogisticoAgent.address)))
-    gmess.add((reg_obj, DSO.AgentType, ECSNS['Ag.Logistico']))
+    gmess.add((reg_obj, DSO.AgentType,    ECSNS['Ag.Logistico']))
+    gmess.add((reg_obj, ECSNS.tieneCentro, Literal(CENTRO_NOMBRE)))
     gr = send_message(
         build_message(gmess, perf=ACL.request, sender=LogisticoAgent.uri,
                       receiver=DirectoryAgent.uri, content=reg_obj, msgcnt=mss_cnt),
@@ -387,56 +393,42 @@ def realizar_envios():
     if not pedidos:
         return
 
-    # Clear the queue now — pedidos already in memory, so GestorPedidos can
-    # write completed orders to pedidos.json without being overwritten later.
     guardar_pedidos([])
 
     for pedido in pedidos:
-        logger.info(f'[Logistico] Procesando pedido {pedido["id"]}')
-        grupos = agrupar_productos_por_centro_asignado(pedido.get('productos', []))
-        n_grupos = len(grupos)
-
-        if n_grupos == 0:
-            logger.warning(f'[Logistico] Pedido {pedido["id"]} sin productos, saltando')
+        productos = pedido.get('productos', [])
+        if not productos:
+            logger.warning(f'[{CENTRO_NOMBRE}] Pedido {pedido["id"]} sin productos, saltando')
             continue
 
-        sub_envios = []
-        for centro_id, grupo in grupos.items():
-            centro = grupo['centro']
-            productos_grupo = grupo['productos']
-            nombres_productos = [p.get('nombre', p['id']) for p in productos_grupo]
+        logger.info(f'[{CENTRO_NOMBRE}] Procesando pedido {pedido["id"]} '
+                    f'({len(productos)} producto/s)')
 
-            logger.info(
-                f'[Logistico] Sub-envio desde {centro["nombre"]} '
-                f'({len(productos_grupo)} producto/s: {nombres_productos})'
-            )
+        nombre_t, fecha = negociar_transporte(
+            pedido.get('prioridad', 'normal'),
+            pedido.get('direccion', ''),
+            {'nombre': CENTRO_NOMBRE},
+        )
 
-            nombre_t, fecha = negociar_transporte(
-                pedido.get('prioridad', 'normal'),
-                pedido.get('direccion', ''),
-                centro
-            )
+        envio_id = 'ENV-' + str(uuid.uuid4())[:8].upper()
+        envio = {
+            'id':               envio_id,
+            'pedido_id':        pedido['id'],
+            'centro_logistico': CENTRO_NOMBRE,
+            'transportista':    nombre_t,
+            'fecha_prevista':   fecha,
+            'productos':        [p['id'] for p in productos],
+            'estado':           'enviado',
+        }
+        _envios.append(envio)
 
-            envio_id = 'ENV-' + str(uuid.uuid4())[:8].upper()
-            envio = {
-                'id':               envio_id,
-                'pedido_id':        pedido['id'],
-                'centro_logistico': centro['nombre'],
-                'transportista':    nombre_t,
-                'fecha_prevista':   fecha,
-                'productos':        [p['id'] for p in productos_grupo],
-                'estado':           'enviado',
-            }
-            _envios.append(envio)
-            sub_envios.append(envio)
+        logger.info(
+            f'[{CENTRO_NOMBRE}] Envio {envio_id} | '
+            f'Transportista: {nombre_t} | Entrega: {fecha}'
+        )
 
-            logger.info(
-                f'[Logistico] Envio {envio_id} | Centro: {centro["nombre"]} | '
-                f'Transportista: {nombre_t} | Entrega: {fecha}'
-            )
-
-        notificar_gestor_multiples_envios(pedido, sub_envios)
-        notificar_experiencia_envios(pedido, sub_envios)
+        notificar_gestor_multiples_envios(pedido, [envio])
+        notificar_experiencia_envios(pedido, [envio])
 
     with open(ENVIOS_PATH, 'w') as f:
         json.dump(_envios, f, indent=2)
@@ -500,14 +492,15 @@ def notificar_gestor_multiples_envios(pedido, sub_envios):
 
 
 def procesar_pedido(gm, content):
-    pedido_id = str(gm.value(subject=content, predicate=ECSNS.idPedido)
+    ped_node  = gm.value(subject=content, predicate=ECSNS.tienePedido)
+    pedido_id = str(gm.value(subject=ped_node, predicate=ECSNS.idPedido)
                     or 'PED-' + str(uuid.uuid4())[:8].upper())
-    comprador = str(gm.value(subject=content, predicate=ECSNS.comprador) or 'Anonimo')
-    direccion = str(gm.value(subject=content, predicate=ECSNS.direccion) or '')
-    prioridad = str(gm.value(subject=content, predicate=ECSNS.prioridad) or 'normal')
+    comprador = str(gm.value(subject=ped_node, predicate=ECSNS.comprador) or 'Anonimo')
+    direccion = str(gm.value(subject=ped_node, predicate=ECSNS.direccion) or '')
+    prioridad = str(gm.value(subject=ped_node, predicate=ECSNS.prioridad) or 'normal')
 
     productos = []
-    for prod_node in gm.objects(content, ECSNS.tieneProducto):
+    for prod_node in gm.objects(ped_node, ECSNS.tieneProducto):
         productos.append({
             'id':           str(gm.value(prod_node, ECSNS.idProducto)),
             'nombre':       str(gm.value(prod_node, ECSNS.nombre)      or ''),
@@ -583,7 +576,7 @@ def comunicacion():
 def agentbehavior1(cola):
     _init_envios()
     register_message()
-    logger.info('[Logistico] Registrado y escuchando')
+    logger.info(f'[{CENTRO_NOMBRE}] Registrado y escuchando en puerto {port}')
     tick = 0
     fin = False
     while not fin:

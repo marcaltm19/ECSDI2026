@@ -943,7 +943,32 @@ def agentbehavior1(cola):
         if vencidos:
             user_addr = obtener_address_usuario()
             if user_addr:
-                _obtener_feedback_usuario(vencidos, user_addr)
+                for _, comprador, pedido_id, pid, pnombre in vencidos:
+                    logger.info(
+                        f'[Experiencia] SolicitudFeedback a {user_addr} -- '
+                        f'{comprador} / {pedido_id} / {pnombre}'
+                    )
+                    gmess = Graph()
+                    gmess.bind('ecsns', ECSNS)
+                    sol_id = uuid.uuid4()
+                    req = ECSNS[f'sol-feed-{sol_id}']
+                    fb  = ECSNS[f'feedback-{sol_id}']
+                    gmess.add((req, RDF.type,             ECSNS.SolicitudFeedback))
+                    gmess.add((req, ECSNS.tieneFeedback,  fb))
+                    gmess.add((fb,  RDF.type,             ECSNS.Feedback))
+                    gmess.add((fb,  ECSNS.comprador,      Literal(comprador)))
+                    gmess.add((fb,  ECSNS.idPedido,       Literal(pedido_id)))
+                    gmess.add((fb,  ECSNS.idProducto,     Literal(pid)))
+                    gmess.add((fb,  ECSNS.nombre,         Literal(pnombre)))
+                    try:
+                        send_message(
+                            build_message(gmess, perf=ACL.request, sender=ExperienciaAgent.uri,
+                                          receiver=agn.AgenteUsuario, content=req, msgcnt=mss_cnt),
+                            user_addr
+                        )
+                        mss_cnt += 1
+                    except Exception as e:
+                        logger.warning(f'[Experiencia] Fallo al enviar feedback proactivo: {e}')
                             
         # 2. Recomendaciones proactivas periódicas (cada 30s)
         if now - last_rec_time >= 30:

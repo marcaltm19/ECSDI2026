@@ -94,10 +94,11 @@ def _comprador_sesion():
 
 
 def _añadir_solicitud_feedback(gm, content):
-    comprador = str(gm.value(content, ECSNS.comprador) or '').strip()
-    pedido_id = str(gm.value(content, ECSNS.idPedido) or '').strip()
-    producto_id = str(gm.value(content, ECSNS.idProducto) or '').strip()
-    nombre = str(gm.value(content, ECSNS.nombre) or producto_id)
+    fb = gm.value(content, ECSNS.tieneFeedback)
+    comprador = str(gm.value(fb, ECSNS.comprador) or '').strip()
+    pedido_id = str(gm.value(fb, ECSNS.idPedido) or '').strip()
+    producto_id = str(gm.value(fb, ECSNS.idProducto) or '').strip()
+    nombre = str(gm.value(fb, ECSNS.nombre) or producto_id)
     if not comprador or not producto_id:
         return
     clave = (comprador.lower(), pedido_id, producto_id)
@@ -470,12 +471,15 @@ def enviar_pedido(comprador, direccion, prioridad, metodo_pago, carrito):
 
     gmess = Graph()
     gmess.bind('ecsns', ECSNS)
+    sol = ECSNS['sol-pedido-ui-' + str(mss_cnt)]
     ped = ECSNS['pedido-ui-' + str(mss_cnt)]
-    gmess.add((ped, RDF.type,         ECSNS.SolicitudPedido))
-    gmess.add((ped, ECSNS.comprador,  Literal(comprador)))
-    gmess.add((ped, ECSNS.direccion,  Literal(direccion)))
-    gmess.add((ped, ECSNS.prioridad,  Literal(prioridad)))
-    gmess.add((ped, ECSNS.metodoPago, Literal(metodo_pago)))
+    gmess.add((sol, RDF.type,          ECSNS.SolicitudPedido))
+    gmess.add((sol, ECSNS.tienePedido, ped))
+    gmess.add((ped, RDF.type,          ECSNS.Pedido))
+    gmess.add((ped, ECSNS.comprador,   Literal(comprador)))
+    gmess.add((ped, ECSNS.direccion,   Literal(direccion)))
+    gmess.add((ped, ECSNS.prioridad,   Literal(prioridad)))
+    gmess.add((ped, ECSNS.metodoPago,  Literal(metodo_pago)))
     for i, item in enumerate(carrito):
         pn = ECSNS[f'ui-prod-{mss_cnt}-{i}']
         gmess.add((ped, ECSNS.tieneProducto, pn))
@@ -489,7 +493,7 @@ def enviar_pedido(comprador, direccion, prioridad, metodo_pago, carrito):
     try:
         gr_resp = send_message(
             build_message(gmess, perf=ACL.request, sender=UsuarioAgent.uri,
-                          receiver=agn.AgenteGestorPedidos, content=ped, msgcnt=mss_cnt),
+                          receiver=agn.AgenteGestorPedidos, content=sol, msgcnt=mss_cnt),
             addr
         )
         mss_cnt += 1
@@ -925,7 +929,12 @@ def comunicacion():
                 'fecha':         str(gm.value(en, ECSNS.tieneFechaEntrega)  or ''),
                 'productos':     [str(o) for o in gm.objects(en, ECSNS.tieneProductoId)],
             })
-        _envios_notificados[pedido_id] = sub_envios
+        existentes = _envios_notificados.get(pedido_id, [])
+        ids_existentes = {e.get('id') for e in existentes}
+        for e in sub_envios:
+            if e.get('id') not in ids_existentes:
+                existentes.append(e)
+        _envios_notificados[pedido_id] = existentes
         logger.info(f'[Usuario] NotificacionEnvios: pedido {pedido_id}, {len(sub_envios)} envío(s)')
         gr = build_message(Graph(), ACL.confirm, sender=UsuarioAgent.uri,
                            receiver=msgdic['sender'], msgcnt=mss_cnt)

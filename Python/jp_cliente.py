@@ -37,11 +37,14 @@ def enviar_pedido(pedido_id, direccion, prioridad, productos):
     g = Graph()
     g.bind('ecsns', ECSNS)
 
+    sol_uri    = agn[f'sol-{pedido_id}']
     pedido_uri = agn[pedido_id]
-    g.add((pedido_uri, RDF.type, ECSNS.SolicitudPedido))
-    g.add((pedido_uri, ECSNS.idPedido, Literal(pedido_id)))
-    g.add((pedido_uri, ECSNS.direccion, Literal(direccion)))
-    g.add((pedido_uri, ECSNS.prioridad, Literal(prioridad)))
+    g.add((sol_uri,    RDF.type,          ECSNS.SolicitudPedido))
+    g.add((sol_uri,    ECSNS.tienePedido, pedido_uri))
+    g.add((pedido_uri, RDF.type,          ECSNS.Pedido))
+    g.add((pedido_uri, ECSNS.idPedido,    Literal(pedido_id)))
+    g.add((pedido_uri, ECSNS.direccion,   Literal(direccion)))
+    g.add((pedido_uri, ECSNS.prioridad,   Literal(prioridad)))
 
     for i, prod in enumerate(productos):
         prod_uri = agn[f'{pedido_id}-prod{i}']
@@ -53,7 +56,7 @@ def enviar_pedido(pedido_id, direccion, prioridad, productos):
     msg = build_message(g, perf=ACL.request,
                         sender=agn.ClienteTest,
                         receiver=agn.AgenteLogistico,
-                        content=pedido_uri,
+                        content=sol_uri,
                         msgcnt=mss_cnt)
     mss_cnt += 1
 

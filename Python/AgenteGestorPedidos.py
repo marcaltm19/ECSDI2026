@@ -51,9 +51,9 @@ mss_cnt = 0
 FACTURAS_PATH = os.path.join(os.path.dirname(__file__), 'data', 'listado_facturas.json')
 CENTROS_PATH  = os.path.join(os.path.dirname(__file__), 'data', 'centros_logisticos.json')
 
-logistico_address  = None
-experiencia_address = None
-usuario_address    = None
+_logistico_addresses = {}   # centro_nombre -> address
+experiencia_address  = None
+usuario_address      = None
 
 GestorAgent = Agent(
     'AgenteGestorPedidos',
@@ -243,7 +243,12 @@ def actualizar_factura_envios_logistico(factura_id, sub_envios):
         return
     for factura in facturas:
         if factura.get('id') == factura_id:
-            factura['envios_logistico'] = sub_envios
+            existentes = factura.get('envios_logistico', [])
+            ids_existentes = {e.get('id') for e in existentes}
+            for e in sub_envios:
+                if e.get('id') not in ids_existentes:
+                    existentes.append(e)
+            factura['envios_logistico'] = existentes
             break
     else:
         return
@@ -251,37 +256,90 @@ def actualizar_factura_envios_logistico(factura_id, sub_envios):
         json.dump(facturas, f, indent=2)
 
 
-def notificar_logistico(pedido):
-    global mss_cnt, logistico_address
-    if logistico_address is None:
-        logistico_address = get_agent_address(ECSNS['Ag.Logistico'])
-    if logistico_address is None:
-        logger.warning('[GestorPedidos] AgenteLogistico no encontrado en DS')
-        return
+def get_logistico_address_for_centro(centro_nombre):
+    global mss_cnt
+    if centro_nombre in _logistico_addresses:
+        return _logistico_addresses[centro_nombre]
     gmess = Graph()
-    gmess.bind('ecsns', ECSNS)
-    ped_obj = ECSNS['pedido-' + pedido['id']]
-    gmess.add((ped_obj, RDF.type,        ECSNS.SolicitudPedido))
-    gmess.add((ped_obj, ECSNS.idPedido,  Literal(pedido['id'])))
-    gmess.add((ped_obj, ECSNS.comprador, Literal(pedido.get('comprador', 'Anonimo'))))
-    gmess.add((ped_obj, ECSNS.direccion, Literal(pedido['direccion'])))
-    gmess.add((ped_obj, ECSNS.prioridad, Literal(pedido['prioridad'])))
-    for i, p in enumerate(pedido['productos']):
-        centro = obtener_centro_de_producto_gp(p['id'])
-        prod_node = ECSNS['ped-prod-' + pedido['id'] + '-' + str(i)]
-        gmess.add((ped_obj,   ECSNS.tieneProducto, prod_node))
-        gmess.add((prod_node, ECSNS.idProducto,    Literal(p['id'])))
-        gmess.add((prod_node, ECSNS.nombre,        Literal(p.get('nombre', ''))))
-        gmess.add((prod_node, ECSNS.cantidad,      Literal(p.get('cantidad', 1))))
-        gmess.add((prod_node, ECSNS.peso,          Literal(p.get('peso', 0))))
-        gmess.add((prod_node, ECSNS.precio,        Literal(p.get('precio', 0))))
-        gmess.add((prod_node, ECSNS.tieneCentro,   Literal(centro['nombre'])))
-    send_message(
-        build_message(gmess, perf=ACL.request, sender=GestorAgent.uri,
-                      receiver=agn.AgenteLogistico, content=ped_obj, msgcnt=mss_cnt),
-        logistico_address,
-    )
+    gmess.bind('dso', DSO)
+    search_obj = agn[f'SearchLog-{mss_cnt}']
+    gmess.add((search_obj, RDF.type,      DSO.Search))
+    gmess.add((search_obj, DSO.AgentType, ECSNS['Ag.Logistico']))
+    msg = build_message(gmess, perf=ACL.request, sender=GestorAgent.uri,
+                        receiver=DirectoryAgent.uri, content=search_obj, msgcnt=mss_cnt)
     mss_cnt += 1
+    try:
+        r = http_requests.get(DirectoryAgent.address,
+                              params={'content': msg.serialize(format='xml')}, timeout=5)
+        gr_ds = Graph()
+        gr_ds.parse(data=r.text, format='xml')
+        # Buscar el logístico cuyo tieneCentro coincide
+        for entry in gr_ds.subjects(ECSNS.tieneCentro, Literal(centro_nombre)):
+            addr = gr_ds.value(entry, DSO.Address)
+            if addr:
+                _logistico_addresses[centro_nombre] = str(addr)
+                logger.info(f'[GestorPedidos] Logístico para {centro_nombre}: {addr}')
+                return str(addr)
+        # Fallback: cualquier logístico registrado
+        for s, p, o in gr_ds:
+            if p == DSO.Address:
+                logger.warning(f'[GestorPedidos] No hay logístico específico para {centro_nombre}, usando fallback')
+                return str(o)
+    except Exception as e:
+        logger.warning(f'[GestorPedidos] Error buscando logístico para {centro_nombre}: {e}')
+    return None
+
+
+def notificar_logistico(pedido):
+    global mss_cnt
+    # Agrupar productos por centro logístico
+    grupos = {}
+    for p in pedido['productos']:
+        centro = obtener_centro_de_producto_gp(p['id'])
+        cn = centro['nombre']
+        if cn not in grupos:
+            grupos[cn] = []
+        grupos[cn].append(p)
+
+    if not grupos:
+        logger.warning('[GestorPedidos] Pedido sin productos para logístico')
+        return
+
+    for centro_nombre, productos_centro in grupos.items():
+        addr = get_logistico_address_for_centro(centro_nombre)
+        if addr is None:
+            logger.warning(f'[GestorPedidos] No hay logístico para {centro_nombre}, omitiendo')
+            continue
+
+        sub_id    = f'{pedido["id"]}-{centro_nombre.replace(" ", "")}'
+        agent_uri = agn[f'AgenteLogistico_{centro_nombre.replace(" ", "_")}']
+        gmess     = Graph()
+        gmess.bind('ecsns', ECSNS)
+        sol_obj = ECSNS[f'sol-pedido-{sub_id}']
+        ped_obj = ECSNS[f'pedido-{sub_id}']
+        gmess.add((sol_obj, RDF.type,           ECSNS.SolicitudPedido))
+        gmess.add((sol_obj, ECSNS.tienePedido,  ped_obj))
+        gmess.add((ped_obj, RDF.type,           ECSNS.Pedido))
+        gmess.add((ped_obj, ECSNS.idPedido,     Literal(pedido['id'])))
+        gmess.add((ped_obj, ECSNS.comprador,    Literal(pedido.get('comprador', 'Anonimo'))))
+        gmess.add((ped_obj, ECSNS.direccion,    Literal(pedido['direccion'])))
+        gmess.add((ped_obj, ECSNS.prioridad,    Literal(pedido['prioridad'])))
+        for i, p in enumerate(productos_centro):
+            prod_node = ECSNS[f'ped-prod-{sub_id}-{i}']
+            gmess.add((ped_obj,   ECSNS.tieneProducto, prod_node))
+            gmess.add((prod_node, ECSNS.idProducto,    Literal(p['id'])))
+            gmess.add((prod_node, ECSNS.nombre,        Literal(p.get('nombre', ''))))
+            gmess.add((prod_node, ECSNS.cantidad,      Literal(p.get('cantidad', 1))))
+            gmess.add((prod_node, ECSNS.peso,          Literal(p.get('peso', 0))))
+            gmess.add((prod_node, ECSNS.precio,        Literal(p.get('precio', 0))))
+            gmess.add((prod_node, ECSNS.tieneCentro,   Literal(centro_nombre)))
+        send_message(
+            build_message(gmess, perf=ACL.request, sender=GestorAgent.uri,
+                          receiver=agent_uri, content=sol_obj, msgcnt=mss_cnt),
+            addr,
+        )
+        mss_cnt += 1
+        logger.info(f'[GestorPedidos] Sub-pedido → {centro_nombre} ({len(productos_centro)} producto/s)')
 
 
 def notificar_experiencia_compra(comprador, factura, productos):
@@ -376,13 +434,14 @@ def notificar_usuario_envios(pedido_id, sub_envios):
 
 
 def procesar_compra(gm, content):
-    comprador   = str(gm.value(subject=content, predicate=ECSNS.comprador)  or 'Anonimo')
-    direccion   = str(gm.value(subject=content, predicate=ECSNS.direccion)  or '')
-    prioridad   = str(gm.value(subject=content, predicate=ECSNS.prioridad)  or 'normal')
-    metodo_pago = str(gm.value(subject=content, predicate=ECSNS.metodoPago) or '')
+    ped_node    = gm.value(subject=content, predicate=ECSNS.tienePedido)
+    comprador   = str(gm.value(subject=ped_node, predicate=ECSNS.comprador)  or 'Anonimo')
+    direccion   = str(gm.value(subject=ped_node, predicate=ECSNS.direccion)  or '')
+    prioridad   = str(gm.value(subject=ped_node, predicate=ECSNS.prioridad)  or 'normal')
+    metodo_pago = str(gm.value(subject=ped_node, predicate=ECSNS.metodoPago) or '')
 
     productos = []
-    for prod_node in gm.objects(content, ECSNS.tieneProducto):
+    for prod_node in gm.objects(ped_node, ECSNS.tieneProducto):
         pid = str(gm.value(prod_node, ECSNS.idProducto))
         productos.append({
             'id':          pid,
