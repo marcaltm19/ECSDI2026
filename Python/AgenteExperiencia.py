@@ -125,30 +125,165 @@ def _pedido_key(pedido_id):
     return (pedido_id or '').strip().upper()
 
 
+def _norm_comprador(comprador):
+    return (comprador or '').strip().lower()
+
+
+def _ensure_producto_opiniones(valoraciones, producto_id, nombre=''):
+    if producto_id not in valoraciones:
+        valoraciones[producto_id] = {'nombre': nombre, 'valoraciones': [], 'pendientes': []}
+    else:
+        datos = valoraciones[producto_id]
+        if 'valoraciones' not in datos:
+            datos['valoraciones'] = []
+        if 'pendientes' not in datos:
+            datos['pendientes'] = []
+        if nombre and not datos.get('nombre'):
+            datos['nombre'] = nombre
+
+
 def ya_valorado_en_pedido(comprador, producto_id, pedido_id, valoraciones=None):
     """Un comprador puede valorar el mismo producto en pedidos distintos, una vez por pedido."""
-    comprador_norm = (comprador or '').strip().lower()
+    comprador_norm = _norm_comprador(comprador)
     if not comprador_norm:
         return False
     if valoraciones is None:
         valoraciones = _load_json(VALORACIONES_PATH, {})
     pk = _pedido_key(pedido_id)
     for v in valoraciones.get(producto_id, {}).get('valoraciones', []):
-        if (v.get('comprador') or '').strip().lower() != comprador_norm:
+        if _norm_comprador(v.get('comprador')) != comprador_norm:
             continue
         if _pedido_key(v.get('pedido_id')) == pk:
             return True
     return False
 
 
+def _pendiente_activo(pendiente, comprador_norm, pedido_key):
+    if _norm_comprador(pendiente.get('comprador')) != comprador_norm:
+        return False
+    if _pedido_key(pendiente.get('pedido_id')) != pedido_key:
+        return False
+    return pendiente.get('estado') in ('activado', 'solicitado')
+
+
+def activar_proceso_feedback(comprador, pedido_id, sub_envios, productos):
+    """
+    Capacidad Activar: escribe en listado_opiniones que el usuario puede valorar
+    (pendiente con fecha programada para la percepción Hora de valorar).
+    """
+    if not productos:
+        return
+    comprador = (comprador or 'Anonimo').strip()
+    pedido_id = _pedido_key(pedido_id)
+    fechas_envio = [
+        e.get('fecha') or e.get('fecha_prevista', '')
+        for e in (sub_envios or [])
+        if e.get('fecha') or e.get('fecha_prevista')
+    ]
+    fecha_ref = max(fechas_envio) if fechas_envio else ''
+    programado_iso, programado_ts = _fecha_programada_feedback(fecha_ref)
+    valoraciones = _load_json(VALORACIONES_PATH, {})
+    comprador_norm = _norm_comprador(comprador)
+    activados = 0
+    for p in productos:
+        pid = p.get('id') or p.get('producto_id', '')
+        if not pid:
+            continue
+        if ya_valorado_en_pedido(comprador, pid, pedido_id, valoraciones):
+            continue
+        nombre = p.get('nombre', pid)
+        _ensure_producto_opiniones(valoraciones, pid, nombre)
+        pendientes = valoraciones[pid]['pendientes']
+        if any(_pendiente_activo(pe, comprador_norm, pedido_id) for pe in pendientes):
+            for pe in pendientes:
+                if _pendiente_activo(pe, comprador_norm, pedido_id):
+                    pe['programado_para'] = programado_iso
+                    pe['programado_ts'] = programado_ts
+                    pe['estado'] = 'activado'
+            activados += 1
+            continue
+        pendientes.append({
+            'id':              'PEN-' + str(uuid.uuid4())[:8].upper(),
+            'comprador':       comprador,
+            'pedido_id':       pedido_id,
+            'programado_para': programado_iso,
+            'programado_ts':   programado_ts,
+            'estado':          'activado',
+            'activado_en':     datetime.now().isoformat(),
+            'solicitado_en':   None,
+        })
+        activados += 1
+    if activados:
+        _save_json(VALORACIONES_PATH, valoraciones)
+        logger.info(
+            f'[Experiencia] Activar feedback: {activados} pendiente(s) en listado_opiniones — '
+            f'{comprador} pedido {pedido_id} (valorar tras {int(programado_ts - time.time())}s)'
+        )
+
+
+def pendientes_feedback_vencidos(now=None):
+    """Pendientes en estado activado cuya Hora de valorar ya ha llegado."""
+    now = now if now is not None else time.time()
+    valoraciones = _load_json(VALORACIONES_PATH, {})
+    vencidos = []
+    for producto_id, datos in valoraciones.items():
+        nombre = datos.get('nombre', producto_id)
+        for pen in datos.get('pendientes', []):
+            if pen.get('estado') != 'activado':
+                continue
+            if float(pen.get('programado_ts', float('inf'))) <= now:
+                vencidos.append({
+                    'producto_id':  producto_id,
+                    'nombre':       nombre,
+                    'pendiente_id': pen.get('id', ''),
+                    'comprador':    pen.get('comprador', ''),
+                    'pedido_id':    pen.get('pedido_id', ''),
+                })
+    return vencidos
+
+
+def marcar_pendiente_solicitado(producto_id, pendiente_id):
+    """Tras Obtener feedback (A): el pendiente pasa a solicitado."""
+    valoraciones = _load_json(VALORACIONES_PATH, {})
+    datos = valoraciones.get(producto_id, {})
+    for pen in datos.get('pendientes', []):
+        if pen.get('id') == pendiente_id:
+            pen['estado'] = 'solicitado'
+            pen['solicitado_en'] = datetime.now().isoformat()
+            _save_json(VALORACIONES_PATH, valoraciones)
+            return
+
+
+def quitar_pendientes_feedback(comprador, pedido_id, producto_id=None):
+    valoraciones = _load_json(VALORACIONES_PATH, {})
+    comprador_norm = _norm_comprador(comprador)
+    pk = _pedido_key(pedido_id)
+    cambio = False
+    for pid, datos in valoraciones.items():
+        if producto_id and pid != producto_id:
+            continue
+        nuevos = [
+            p for p in datos.get('pendientes', [])
+            if not (
+                _norm_comprador(p.get('comprador')) == comprador_norm
+                and _pedido_key(p.get('pedido_id')) == pk
+            )
+        ]
+        if len(nuevos) != len(datos.get('pendientes', [])):
+            datos['pendientes'] = nuevos
+            cambio = True
+    if cambio:
+        _save_json(VALORACIONES_PATH, valoraciones)
+
+
 def guardar_valoracion(comprador, producto_id, nombre_producto, puntuacion, comentario, pedido_id=''):
+    """Capacidad Generar (percepción Feedback del usuario): escribe la valoración."""
     if not (1 <= int(puntuacion) <= 5):
         raise ValueError(f'Puntuacion invalida: {puntuacion}. Debe ser 1-5.')
     valoraciones = _load_json(VALORACIONES_PATH, {})
     if ya_valorado_en_pedido(comprador, producto_id, pedido_id, valoraciones):
         raise ValueError('ya_valorado_pedido')
-    if producto_id not in valoraciones:
-        valoraciones[producto_id] = {'nombre': nombre_producto, 'valoraciones': []}
+    _ensure_producto_opiniones(valoraciones, producto_id, nombre_producto)
     entrada = {
         'id':         'VAL-' + str(uuid.uuid4())[:8].upper(),
         'comprador':  comprador,
@@ -158,6 +293,15 @@ def guardar_valoracion(comprador, producto_id, nombre_producto, puntuacion, come
         'fecha':      datetime.now().isoformat(),
     }
     valoraciones[producto_id]['valoraciones'].append(entrada)
+    pk = _pedido_key(pedido_id)
+    cn = _norm_comprador(comprador)
+    valoraciones[producto_id]['pendientes'] = [
+        p for p in valoraciones[producto_id].get('pendientes', [])
+        if not (
+            _norm_comprador(p.get('comprador')) == cn
+            and _pedido_key(p.get('pedido_id')) == pk
+        )
+    ]
     _save_json(VALORACIONES_PATH, valoraciones)
     media = calcular_media(valoraciones[producto_id]['valoraciones'])
     logger.info(
@@ -187,8 +331,6 @@ def obtener_valoraciones_producto(producto_id):
 # Historial de compras
 # ---------------------------------------------------------------------------
 
-# (timestamp, comprador, pedido_id, producto_id, nombre)
-feedback_tasks = []
 _comprador_address = None
 
 
@@ -252,6 +394,7 @@ def eliminar_compra(comprador, pedido_id):
         return
     historial[comprador] = nuevas
     _save_json(HISTORIAL_PATH, historial)
+    quitar_pendientes_feedback(comprador, pedido_id)
     logger.info(f'[Experiencia] Compra {pedido_id} eliminada del historial de {comprador}')
 
 
@@ -274,52 +417,20 @@ def registrar_compra(comprador, pedido_id, productos, total, fecha=None):
     return entrada
 
 
-def _momento_feedback_tras_entrega(fecha_entrega_str):
-    """Programa feedback un día después de la fecha prevista de entrega."""
+def _fecha_programada_feedback(fecha_entrega_str):
+    """Fecha para la percepción Hora de valorar (ISO + unix). Demo: máx. 20s tras activar."""
     try:
         fecha_ent = datetime.strptime(str(fecha_entrega_str)[:10], '%Y-%m-%d')
-        trigger = fecha_ent + timedelta(days=1)
-        ts = trigger.timestamp()
+        trigger_dt = fecha_ent + timedelta(days=1)
+        ts = trigger_dt.timestamp()
         if ts <= time.time():
-            return time.time() + 5
-        # En demo: solicitar feedback 20s después de recibir la notificación de envío
+            ts = time.time() + 5
         max_demo = time.time() + 20
-        return min(ts, max_demo)
+        ts = min(ts, max_demo)
+        return datetime.fromtimestamp(ts).isoformat(), ts
     except (ValueError, TypeError):
-        return time.time() + 10
-
-
-def programar_feedback_tras_entrega(comprador, pedido_id, sub_envios, productos):
-    """Encola solicitudes de feedback por producto tras la fecha de entrega prevista."""
-    if not productos:
-        return
-    fechas_envio = [
-        e.get('fecha') or e.get('fecha_prevista', '')
-        for e in (sub_envios or [])
-        if e.get('fecha') or e.get('fecha_prevista')
-    ]
-    fecha_ref = max(fechas_envio) if fechas_envio else ''
-    trigger = _momento_feedback_tras_entrega(fecha_ref)
-    for p in productos:
-        pid = p.get('id') or p.get('producto_id', '')
-        if not pid:
-            continue
-        clave = (comprador.strip().lower(), pedido_id, pid)
-        feedback_tasks[:] = [
-            t for t in feedback_tasks
-            if (t[1].strip().lower(), t[2], t[3]) != clave
-        ]
-        feedback_tasks.append((
-            trigger,
-            comprador,
-            pedido_id,
-            pid,
-            p.get('nombre', pid),
-        ))
-    logger.info(
-        f'[Experiencia] Feedback programado para {comprador} pedido {pedido_id} '
-        f'({len(productos)} producto/s, trigger en {int(trigger - time.time())}s)'
-    )
+        ts = time.time() + 10
+        return datetime.fromtimestamp(ts).isoformat(), ts
 
 
 def registrar_busqueda(comprador, categoria='', precio_max=None, valoracion_min=None):
@@ -719,7 +830,7 @@ def comunicacion():
                 'id':     str(gm.value(pn, ECSNS.idProducto) or ''),
                 'nombre': str(gm.value(pn, ECSNS.nombre)     or ''),
             })
-        programar_feedback_tras_entrega(comprador, pedido_id, sub_envios, productos)
+        activar_proceso_feedback(comprador, pedido_id, sub_envios, productos)
         gr = build_message(Graph(), ACL.inform,
                            sender=ExperienciaAgent.uri,
                            receiver=msgdic['sender'],
@@ -779,8 +890,41 @@ def comunicacion():
 # Main
 # ---------------------------------------------------------------------------
 
+def _obtener_feedback_usuario(vencidos, user_addr):
+    """Acción Obtener feedback (A): percepción Hora de valorar → SolicitudFeedback."""
+    global mss_cnt
+    for item in vencidos:
+        comprador = item['comprador']
+        pedido_id = item['pedido_id']
+        pid = item['producto_id']
+        pnombre = item['nombre']
+        pendiente_id = item['pendiente_id']
+        logger.info(
+            f'[Experiencia] Obtener feedback (A) → SolicitudFeedback a {user_addr} -- '
+            f'{comprador} / {pedido_id} / {pnombre}'
+        )
+        gmess = Graph()
+        gmess.bind('ecsns', ECSNS)
+        req = ECSNS[f'sol-feed-{uuid.uuid4()}']
+        gmess.add((req, RDF.type,          ECSNS.SolicitudFeedback))
+        gmess.add((req, ECSNS.comprador,   Literal(comprador)))
+        gmess.add((req, ECSNS.idPedido,    Literal(pedido_id)))
+        gmess.add((req, ECSNS.idProducto,  Literal(pid)))
+        gmess.add((req, ECSNS.nombre,      Literal(pnombre)))
+        try:
+            send_message(
+                build_message(gmess, perf=ACL.request, sender=ExperienciaAgent.uri,
+                              receiver=agn.AgenteUsuario, content=req, msgcnt=mss_cnt),
+                user_addr,
+            )
+            mss_cnt += 1
+            marcar_pendiente_solicitado(pid, pendiente_id)
+        except Exception as e:
+            logger.warning(f'[Experiencia] Fallo al enviar feedback proactivo: {e}')
+
+
 def agentbehavior1(cola):
-    global mss_cnt, feedback_tasks
+    global mss_cnt
     register_message()
     logger.info('[Experiencia] Registrado y escuchando en puerto %d', port)
     
@@ -794,35 +938,12 @@ def agentbehavior1(cola):
             
         now = time.time()
         
-        # 1. Feedback proactivo (tras fecha de entrega prevista)
-        vencidos = [t for t in feedback_tasks if t[0] <= now]
-        feedback_tasks[:] = [t for t in feedback_tasks if t[0] > now]
-
+        # Generar feedback: percepción Hora de valorar → leer listado_opiniones → Obtener feedback (A)
+        vencidos = pendientes_feedback_vencidos(now)
         if vencidos:
             user_addr = obtener_address_usuario()
             if user_addr:
-                for _, comprador, pedido_id, pid, pnombre in vencidos:
-                    logger.info(
-                        f'[Experiencia] SolicitudFeedback a {user_addr} -- '
-                        f'{comprador} / {pedido_id} / {pnombre}'
-                    )
-                    gmess = Graph()
-                    gmess.bind('ecsns', ECSNS)
-                    req = ECSNS[f'sol-feed-{uuid.uuid4()}']
-                    gmess.add((req, RDF.type,          ECSNS.SolicitudFeedback))
-                    gmess.add((req, ECSNS.comprador,   Literal(comprador)))
-                    gmess.add((req, ECSNS.idPedido,    Literal(pedido_id)))
-                    gmess.add((req, ECSNS.idProducto,  Literal(pid)))
-                    gmess.add((req, ECSNS.nombre,      Literal(pnombre)))
-                    try:
-                        send_message(
-                            build_message(gmess, perf=ACL.request, sender=ExperienciaAgent.uri,
-                                          receiver=agn.AgenteUsuario, content=req, msgcnt=mss_cnt),
-                            user_addr
-                        )
-                        mss_cnt += 1
-                    except Exception as e:
-                        logger.warning(f'[Experiencia] Fallo al enviar feedback proactivo: {e}')
+                _obtener_feedback_usuario(vencidos, user_addr)
                             
         # 2. Recomendaciones proactivas periódicas (cada 30s)
         if now - last_rec_time >= 30:
