@@ -1,28 +1,91 @@
 # Juegos de Prueba — ECSDI 2026
 
-Este documento describe los juegos de prueba del sistema multiagente de e-commerce con gestión logística distribuida. Para ejecutarlos, primero arranca el sistema con `cd Python && bash start_demo.sh` y luego usa `python jp_cliente.py --jp <N>`.
+## 1. Introducción
+
+Este documento describe los juegos de prueba definidos para validar el funcionamiento del sistema multiagente de comercio electrónico desarrollado en ECSDI 2026. El sistema implementa una plataforma de e-commerce distribuida basada en el paradigma de sistemas multiagente (SMA), donde cada componente funcional —catálogo, gestión de pedidos, logística, transporte, experiencia de usuario y devoluciones— está encapsulado en un agente autónomo que se comunica mediante mensajes ACL sobre grafos RDF.
+
+El subsistema que centra los juegos de prueba es la **negociación logística**, implementada como un protocolo Contract Net en dos rondas entre el `AgenteLogistico` y los `AgenteTransportista` registrados en el `DirectoryService`.
 
 ---
 
-## JP1 — Selección del transportista más barato
+## 2. Protocolo de negociación: Contract Net en dos rondas
 
-**Propósito:** Verificar que el agente logístico implementa correctamente el protocolo Contract Net y selecciona la propuesta con menor precio entre varios transportistas cuando la prioridad es `normal`.
+Antes de describir los juegos de prueba, se detalla el protocolo que se valida, pues es el núcleo funcional que todos ellos ejercitan.
 
-**Entrada:**
-- 1 pedido con prioridad `normal`, destino `Barcelona`, 1 producto de 5 kg.
-- 3 transportistas activos (RapidExpress, EcoEnvios, MensajeriaPlus) con rangos de precio aleatorios dentro del rango `normal` (8–15€).
+### Ronda 1 — Solicitud de oferta inicial (CFP)
+
+1. El `AgenteLogistico` consulta el `DirectoryService` para obtener las direcciones de todos los `AgenteTransportista` registrados con tipo `ECSNS['Ag.Transportista']`.
+2. Para cada transportista, envía un mensaje `ACL.request` con acción `ECSNS.CFP` que contiene `ECSNS.tieneDestino` y `ECSNS.tienePrioridad`.
+3. Cada transportista genera una oferta aleatoria dentro del rango de precio correspondiente a la prioridad recibida:
+   - `normal`: 8–15 €, 2–4 días
+   - `urgente`: 15–30 €, 1–2 días
+   - `economica`: 3–8 €, 4–6 días
+4. El transportista responde con `ACL.propose` conteniendo `ECSNS.tienePrecio`, `ECSNS.tieneTransportista` y `ECSNS.tieneFechaEntrega`.
+
+### Ronda 2 — Contraoferta
+
+5. El logístico calcula la **contraoferta** como el 90 % del precio mínimo recibido en R1: `contra_precio = min_R1 × 0,90`.
+6. Envía la contraoferta a cada transportista que respondió, mediante `ACL.propose` con acción `ECSNS.ContraOferta`.
+7. Cada transportista responde de forma aleatoria con una de las tres acciones del protocolo:
+   - **ACEPTA** (`ACL.inform`): acepta el precio de la contraoferta.
+   - **PROPONE** (`ACL.propose`): propone un precio intermedio estrictamente entre la contraoferta y su oferta inicial.
+   - **RECHAZA** (`ACL['reject-proposal']`): rechaza la contraoferta, quedando excluido del pool final.
+8. Si ningún transportista acepta la contraoferta, el logístico utiliza las ofertas de la Ronda 1 como pool final.
+
+### Selección del ganador
+
+9. El criterio de selección depende de la prioridad del pedido:
+   - `normal` / `economica`: gana el transportista con el **precio más bajo** del pool final.
+   - `urgente`: gana el transportista con el **menor número de días** hasta la entrega; en caso de empate, se aplica el criterio de precio mínimo.
+10. El logístico envía `ACL.accept-proposal` al ganador y `ACL.reject-proposal` al resto.
+11. Se registra el envío en `data/listado_envios_<centro>.json` y se notifica al `AgenteGestorPedidos` y al `AgenteExperiencia`.
+
+---
+
+## 3. Metodología de selección de los juegos de prueba
+
+Los juegos de prueba han sido seleccionados aplicando una estrategia de **cobertura por categorías de comportamiento**, combinando técnicas de caja negra (particiones de equivalencia, análisis de valores límite) con la cobertura de los requisitos funcionales explícitos de la práctica:
+
+| JP | Categoría | Justificación |
+|----|-----------|---------------|
+| JP1 | Camino feliz — criterio precio | Valida el flujo completo del Contract Net con prioridad `normal`; establece la línea base de funcionamiento correcto. |
+| JP2 | Variación de parámetro clave | La prioridad `urgente` activa la rama alternativa del criterio de selección (días vs. precio), ejercitando una partición de equivalencia diferente del mismo flujo. |
+| JP3 | Caso límite / robustez | La ausencia de transportistas en el DS es la condición de fallo más extrema; verifica que el sistema degrada con elegancia sin bloqueos ni excepciones. |
+| JP5 | Concurrencia | Tres pedidos simultáneos con prioridades distintas ejercitan el acceso concurrente a las estructuras de datos y detectan posibles condiciones de carrera. |
+| JP6 | Funcionalidad avanzada §3.4 | Un pedido con productos de dos centros logísticos distintos debe generar sub-envíos independientes; valida el agrupamiento por centro y la ejecución de múltiples negociaciones. |
+| JP4 | Interoperabilidad §3.5 | Un transportista externo de otro grupo compite en la negociación usando la ontología y el protocolo acordados, sin modificar el código del sistema. |
+
+Esta selección cubre: el flujo nominal completo, las ramas de decisión principales, los casos frontera de fallo de dependencias externas, la concurrencia, y los dos requisitos de nivel avanzado e interoperabilidad.
+
+---
+
+## 4. Descripción detallada de los juegos de prueba
+
+### JP1 — Selección del transportista más barato (prioridad normal)
+
+**Objetivo:** Verificar que el `AgenteLogistico` ejecuta correctamente el protocolo Contract Net en dos rondas y selecciona al transportista de menor precio cuando la prioridad del pedido es `normal`.
+
+**Configuración inicial:**
+- Sistema completo arrancado con `start_demo.sh`: DirectoryService, cuatro AgenteLogistico (Madrid, Barcelona, Valencia, Sevilla) y cuatro AgenteTransportista (RapidExpress·Madrid, EcoEnvios·Barcelona, MensajeriaPlus·Valencia, SurExpress·Sevilla).
+- El `jp_cliente.py` envía un pedido con prioridad `normal`, destino `Barcelona`, un producto de 5 kg.
+
+**Flujo detallado:**
+
+1. El `AgenteLogistico` de Centro Madrid recibe el pedido (mensaje `ACL.request`, acción `ECSNS.SolicitudPedido`) y lo almacena en `data/listado_pedidos_centro_madrid.json`.
+2. En el ciclo periódico (cada 20 s), invoca `negociar_transporte('normal', 'Barcelona', {'nombre': 'Centro Madrid'})`.
+3. Consulta el DS: obtiene la lista de transportistas filtrada por ciudad de cobertura; si no hay coincidencia exacta, negocia con todos.
+4. **R1:** envía CFP a cada transportista; cada uno responde con `ACL.propose` conteniendo precio aleatorio en [8, 15] € y fecha en [2, 4] días.
+5. Calcula `contra_precio = min_R1 × 0,90` y envía la contraoferta a todos.
+6. **R2:** cada transportista acepta, propone precio intermedio o rechaza.
+7. El logístico selecciona el ganador por precio mínimo del pool final (o R1 si nadie aceptó).
+8. Envía `ACL.accept-proposal` al ganador y `ACL.reject-proposal` al resto.
+9. Registra el envío en `data/listado_envios_centro_madrid.json`.
 
 **Salida esperada:**
-- El transportista con el precio más bajo recibe `ACL.accept-proposal`.
-- Los otros dos reciben `ACL.reject-proposal`.
-- En `data/envios.json` aparece un registro con el nombre del transportista ganador.
+- Log del AgenteLogistico: líneas `Oferta R1 de <nombre>: <precio>EUR`, `Contra-oferta: <valor>EUR`, `GANADOR: <nombre> -- <precio>EUR`.
+- `data/listado_envios_*.json`: un registro con el transportista ganador y la fecha de entrega.
 
-**Lo que ocurre durante la ejecución:**
-1. El AgenteLogistico consulta el DirectoryService para obtener las direcciones de los transportistas.
-2. Envía un mensaje CFP (`ECSNS.CFP`) con destino y prioridad a cada transportista.
-3. Cada transportista responde con un `ACL.propose` conteniendo precio y fecha de entrega.
-4. El logístico compara precios y acepta la oferta más barata, rechazando el resto.
-5. Se registra el envío en `data/envios.json`.
+**Criterio de superación:** el transportista con el precio más bajo en el pool final es el registrado como ganador.
 
 **Comando:**
 ```bash
@@ -31,24 +94,28 @@ python jp_cliente.py --jp 1
 
 ---
 
-## JP2 — Prioridad urgente: gana el más rápido
+### JP2 — Prioridad urgente: gana el más rápido
 
-**Propósito:** Verificar que cuando la prioridad del pedido es `urgente`, el criterio de selección cambia de precio mínimo a días de entrega mínimos, priorizando la rapidez sobre el coste.
+**Objetivo:** Verificar que cuando la prioridad del pedido es `urgente`, el criterio de selección cambia de precio mínimo a número de días mínimo, priorizando la rapidez de entrega sobre el coste.
 
-**Entrada:**
-- 1 pedido con prioridad `urgente`, destino `Madrid`, 1 producto de 2 kg.
-- 3 transportistas activos. Con prioridad `urgente`, cada transportista genera precios en el rango 15–30€ y plazos de 1–2 días.
+**Configuración inicial:** idéntica a JP1.
+
+**Flujo detallado:**
+
+1. El pedido llega con `prioridad = urgente`, destino `Madrid`, 1 producto de 2 kg.
+2. En R1, cada transportista genera precios en [15, 30] € y plazos en [1, 2] días (rango para `urgente`).
+3. La contraoferta se calcula igualmente como el 90 % del precio mínimo R1.
+4. El pool final se construye con las mismas reglas de R2.
+5. La función `escoger_mejor_oferta(pool_final, 'urgente')` ordena por `dias` (no por `precio`). En caso de empate en días, desempata por precio mínimo.
+6. El log muestra: `GANADOR (urgente): <nombre> -- <dias> dias -- <precio>EUR`.
+
+**Diferencia observable respecto a JP1:** es posible que el transportista ganador no sea el más barato, pero sí el que ofrece entrega en menos días. Si se observa que el ganador tiene el precio más bajo *y* el menor número de días, el resultado es también correcto (coinciden ambos criterios por azar).
 
 **Salida esperada:**
-- El transportista con el menor número de días de entrega recibe `ACL.accept-proposal`.
-- Si dos transportistas ofrecen el mismo plazo, gana el de menor precio como desempate.
-- El log del AgenteLogistico muestra `GANADOR (urgente): <nombre>` con el menor número de días.
+- Log: `GANADOR (urgente): <nombre>` con el valor de días más bajo del pool.
+- `data/listado_envios_*.json`: fecha de entrega más próxima entre todas las ofertas.
 
-**Lo que ocurre durante la ejecución:**
-1. El pedido llega con `prioridad = urgente`.
-2. El AgenteLogistico ejecuta `escoger_mejor_oferta(ofertas, 'urgente')`, que ordena por días en lugar de por precio.
-3. Se acepta la oferta con la fecha de entrega más próxima.
-4. El envío queda registrado con la fecha más temprana posible.
+**Criterio de superación:** el ganador tiene el número de días de entrega mínimo del pool final.
 
 **Comando:**
 ```bash
@@ -57,30 +124,32 @@ python jp_cliente.py --jp 2
 
 ---
 
-## JP3 — Ningún transportista disponible (caso límite)
+### JP3 — Ningún transportista disponible (caso límite)
 
-**Propósito:** Verificar que el sistema es robusto ante la ausencia de transportistas registrados: no se bloquea, no lanza excepción y responde de forma controlada al agente que realizó el pedido.
+**Objetivo:** Verificar que el sistema es robusto ante la ausencia total de transportistas registrados en el DirectoryService: no se bloquea, no lanza excepción y retorna un resultado de fallback controlado.
 
-**Entrada:**
-- 1 pedido con prioridad `normal`, destino `Valencia`.
-- **Ningún** AgenteTransportista registrado en el DirectoryService.
+**Configuración especial:** arrancar únicamente el DS y un AgenteLogistico, sin ningún AgenteTransportista.
 
-**Para prepararlo:**
 ```bash
-# Arrancar solo DS y Logistico, sin transportistas
-python DirectoryService.py --port 9000 &
-python AgenteLogistico.py --port 9003 --dport 9000 &
+python DirectoryService.py --port 9000
+# (en otra terminal)
+python AgenteLogistico.py --port 9003 --dport 9000 --centro "Centro Madrid"
 ```
 
-**Salida esperada:**
-- El log del AgenteLogistico muestra `No hay transportistas en el DS`.
-- En `data/envios.json` aparece un registro con `transportista: "Desconocido"` y una fecha calculada por defecto (+3 días).
-- El sistema sigue respondiendo a peticiones posteriores sin necesidad de reinicio.
+**Flujo detallado:**
 
-**Lo que ocurre durante la ejecución:**
-1. El logístico consulta el DirectoryService y recibe lista vacía de transportistas.
-2. La función `negociar_transporte` detecta que `transportistas_addr` está vacío y devuelve el valor de fallback.
-3. Se genera el envío con datos por defecto y se registra.
+1. El logístico recibe el pedido y llama a `negociar_transporte`.
+2. La función `_buscar_transportistas()` consulta el DS y recibe una lista vacía.
+3. Se ejecuta el bloque de fallback: devuelve `('Desconocido', fecha_actual + 3 días)` sin realizar ningún CFP.
+4. Se registra un envío con `transportista: "Desconocido"` y fecha a +3 días.
+5. Se notifica igualmente al GestorPedidos y al AgenteExperiencia (si están disponibles).
+
+**Salida esperada:**
+- Log: `[Logistico] No hay transportistas en el DS, usando fallback`.
+- `data/listado_envios_*.json`: registro con `"transportista": "Desconocido"` y fecha calculada por defecto.
+- El agente continúa respondiendo a peticiones posteriores sin necesidad de reinicio.
+
+**Criterio de superación:** el sistema responde sin excepción y el pedido queda registrado con los valores de fallback.
 
 **Comando:**
 ```bash
@@ -89,57 +158,64 @@ python jp_cliente.py --jp 3
 
 ---
 
-## JP4 — Integración con agente externo (otro grupo)
+### JP4 — Integración con agente transportista externo (interoperabilidad)
 
-**Propósito:** Verificar la interoperabilidad entre sistemas de distintos grupos usando la ontología acordada. El agente transportista externo debe participar en la negociación Contract Net y ser seleccionado si ofrece la mejor propuesta.
+**Objetivo:** Verificar la interoperabilidad entre sistemas de distintos grupos mediante la ontología y el protocolo Contract Net acordados. Un AgenteTransportista del otro grupo debe poder participar en la negociación y ser seleccionado si ofrece la mejor propuesta.
 
 **Requisitos previos:**
-- Servidor XMPP o DirectoryService compartido con el otro grupo.
-- El AgenteTransportista externo está registrado en el mismo DirectoryService con tipo `ECSNS['Ag.Transportista']`.
-- Ambos grupos usan el namespace `http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#` y los predicados: `tienePrecio`, `tieneDestino`, `tienePrioridad`, `tieneTransportista`, `tieneFechaEntrega`.
+- El otro grupo tiene su AgenteTransportista externo accesible en la red local (LAN).
+- El transportista externo se registra en el DirectoryService del grupo anfitrión con tipo `ECSNS['Ag.Transportista']`.
+- Ambos grupos utilizan el namespace `http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#` y los predicados: `tienePrecio`, `tieneDestino`, `tienePrioridad`, `tieneTransportista`, `tieneFechaEntrega`.
 
-**Entrada:**
-- 1 pedido con prioridad `normal`, destino `Zaragoza`.
-- 2 transportistas propios + 1 transportista externo del otro grupo (registrado en el DS compartido con precio inferior al de los propios).
+**Arranque del transportista externo** (ejecutado desde el PC del otro grupo):
+```bash
+export PYTHONPATH="$(pwd)/..:$PYTHONPATH"
+python3 AgenteTransportista.py --port 9014 --dhost <IP_anfitrión> --dport 9000 \
+  --nombre TransportistaExterno --ciudad Madrid --open
+```
+
+**Flujo detallado:**
+
+1. El logístico consulta el DS y obtiene la lista que incluye al transportista externo junto a los propios.
+2. Envía el mismo CFP a todos los transportistas (propios y externos) sin distinción de origen.
+3. El transportista externo responde con `ACL.propose` usando la ontología acordada.
+4. El logístico evalúa todas las propuestas con el mismo criterio y selecciona la mejor.
+5. Si el transportista externo ofrece el precio más bajo (o los menos días, si la prioridad es urgente), recibe `ACL.accept-proposal`.
 
 **Salida esperada:**
-- El transportista externo recibe `ACL.accept-proposal`.
-- Los transportistas propios reciben `ACL.reject-proposal`.
-- El envío registrado en `data/envios.json` muestra el nombre del transportista externo.
+- El DS (`/info`) muestra al transportista externo registrado junto a los propios.
+- Log del logístico: el nombre del transportista externo aparece en la línea de oferta R1.
+- `data/listado_envios_*.json`: si el externo gana, su nombre aparece como `transportista`.
 
-**Lo que ocurre durante la ejecución:**
-1. El logístico obtiene del DS la lista de todos los transportistas (propios + externo).
-2. Envía el mismo CFP a todos por igual, sin distinguir si son locales o externos.
-3. El transportista externo responde con un PROPOSE usando la ontología acordada.
-4. El logístico evalúa todas las propuestas con el mismo criterio y selecciona la mejor.
+**Criterio de superación:** el transportista externo participa en la negociación y puede ganarla, sin que sea necesario ningún cambio en el código del AgenteLogistico.
 
-**Nota:** Este JP requiere coordinación previa con el otro grupo para registrar su agente y verificar conectividad de red.
+**Nota:** este JP requiere coordinación previa con el otro grupo para verificar conectividad de red y compatibilidad de la ontología.
 
 ---
 
-## JP5 — Múltiples pedidos simultáneos
+### JP5 — Múltiples pedidos simultáneos
 
-**Propósito:** Verificar que el sistema gestiona correctamente varios pedidos concurrentes sin que las negociaciones se interfieran entre sí, y que cada pedido se asigna de forma independiente al transportista correcto según su prioridad.
+**Objetivo:** Verificar que el sistema gestiona correctamente varios pedidos concurrentes sin que las negociaciones se interfieran entre sí, y que cada pedido se asigna de forma independiente al transportista correcto según su prioridad.
 
-**Entrada:**
-- 3 pedidos enviados simultáneamente:
-  - Pedido 1: prioridad `normal`, destino `Barcelona`, 1 producto.
-  - Pedido 2: prioridad `urgente`, destino `Madrid`, 3 productos.
-  - Pedido 3: prioridad `economica`, destino `Sevilla`, 1 producto.
-- 3 transportistas activos.
+**Configuración inicial:** sistema completo arrancado con `start_demo.sh`.
+
+**Flujo detallado:**
+
+1. El script `jp_cliente.py --jp 5` lanza tres hilos simultáneos, cada uno enviando un pedido:
+   - Pedido 1: `prioridad = normal`, destino `Barcelona`.
+   - Pedido 2: `prioridad = urgente`, destino `Madrid`.
+   - Pedido 3: `prioridad = economica`, destino `Sevilla`.
+2. Los tres pedidos llegan casi simultáneamente al AgenteLogistico correspondiente y son almacenados en `listado_pedidos_<centro>.json`.
+3. La función `guardar_pedidos` aplica un `sort` por prioridad (`urgente=0`, `normal=1`, `economica=2`), garantizando que el pedido urgente se procesa primero.
+4. En el ciclo periódico, `realizar_envios()` procesa cada pedido secuencialmente: para cada uno se realiza una negociación Contract Net independiente con su propio conjunto de mensajes CFP y contraoferta.
+5. Se generan tres envíos separados, uno por pedido.
 
 **Salida esperada:**
-- En `data/pedidos.json` aparecen los 3 pedidos ordenados por prioridad (urgente → normal → economica).
-- En `data/envios.json` aparecen 3 registros distintos, uno por pedido, cada uno con su transportista asignado.
-- El pedido urgente tiene la fecha de entrega más próxima.
-- No hay mezcla de propuestas entre pedidos.
+- `data/listado_envios_*.json`: tres registros con `pedido_id` distintos.
+- El pedido urgente tiene la fecha de entrega más próxima entre los tres.
+- No hay mezcla de transportistas ni de ofertas entre pedidos distintos.
 
-**Lo que ocurre durante la ejecución:**
-1. Los 3 pedidos llegan casi simultáneamente al AgenteLogistico.
-2. Se almacenan y ordenan en `data/pedidos.json` por prioridad.
-3. Cada 20 segundos (tick), el logístico procesa todos los pedidos pendientes secuencialmente.
-4. Para cada pedido se realiza una negociación Contract Net independiente.
-5. Se generan 3 envíos separados en `data/envios.json`.
+**Criterio de superación:** tres envíos registrados, el urgente con menor fecha, sin mezcla de datos entre pedidos.
 
 **Comando:**
 ```bash
@@ -148,17 +224,27 @@ python jp_cliente.py --jp 5
 
 ---
 
-## JP6 — Pedido multi-centro (dos sub-envíos)
+### JP6 — Pedido multi-centro (dos sub-envíos independientes)
 
-**Propósito:** Verificar que un pedido con productos de centros logísticos distintos genera varias negociaciones y el usuario recibe varios transportistas y fechas.
+**Objetivo:** Verificar que un pedido con productos pertenecientes a centros logísticos distintos genera negociaciones y envíos independientes, uno por centro, tal como exige el nivel avanzado §3.4 de la práctica.
 
-**Entrada:**
-- 1 pedido con productos `p001` (centro Madrid) y `p002` (centro Barcelona).
-- 3 transportistas activos con filtrado por ciudad.
+**Configuración inicial:** sistema completo arrancado con `start_demo.sh` (incluye AgenteLogistico para Madrid y para Barcelona).
+
+**Flujo detallado:**
+
+1. El pedido incluye dos productos: `p001` (asignado a Centro Madrid) y `p002` (asignado a Centro Barcelona).
+2. El `AgenteGestorPedidos` enruta cada producto al AgenteLogistico del centro correspondiente mediante el campo `ECSNS.tieneCentro` de cada nodo producto.
+3. El AgenteLogistico de Madrid recibe `p001` y ejecuta la negociación filtrando transportistas con `ciudad = Madrid` → negocia con RapidExpress.
+4. El AgenteLogistico de Barcelona recibe `p002` y ejecuta la negociación filtrando transportistas con `ciudad = Barcelona` → negocia con EcoEnvios.
+5. Cada logístico genera su propio envío (con ID distinto) y lo notifica al GestorPedidos con `ECSNS.ResultadoEnvio`.
+6. El GestorPedidos acumula los sub-envíos y asocia ambos al mismo `pedido_id` original.
 
 **Salida esperada:**
-- En `data/envios.json`, dos registros con el mismo `pedido_id` y `centro_logistico` distinto.
-- En el historial de la UI, dos líneas de envío por factura.
+- `data/listado_envios_centro_madrid.json`: un envío con `pedido_id = PED-JP6-001` y `centro_logistico = Centro Madrid`.
+- `data/listado_envios_centro_barcelona.json`: un envío con el mismo `pedido_id` y `centro_logistico = Centro Barcelona`.
+- En la interfaz web (http://localhost:9020/), el historial del pedido muestra dos líneas de envío con transportistas y fechas distintos.
+
+**Criterio de superación:** dos registros de envío con el mismo `pedido_id`, centros distintos y transportistas distintos.
 
 **Comando:**
 ```bash
@@ -167,101 +253,52 @@ python jp_cliente.py --jp 6
 
 ---
 
-## JP7 — Búsqueda de productos con filtros
-
-**Propósito:** Verificar que el AgenteComprador aplica correctamente los filtros de búsqueda (categoría, precio máximo y valoración mínima) sobre el catálogo de productos, devolviendo únicamente los artículos que cumplen todas las condiciones especificadas, y que responde con una lista vacía cuando ningún producto satisface los criterios sin producir errores.
-
-**Entrada:**
-- El catálogo de productos cargado en `data/listado_productos_detallados.json` (incluye productos de distintas categorías, precios y valoraciones).
-- Cinco búsquedas independientes enviadas como mensajes ACL `ECSNS.Busqueda` al AgenteComprador:
-  - JP7a: filtro por categoría `Electronica` (sin restricción de precio ni valoración).
-  - JP7b: precio máximo de 50 €, sin otros filtros.
-  - JP7c: valoración mínima de 4.5 estrellas, sin otros filtros.
-  - JP7d: combinación de los tres filtros: categoría `Electronica`, precio máximo 500 €, valoración mínima 4.0.
-  - JP7e: precio máximo de 0.01 € (filtro imposible, sin resultados esperados).
-
-**Salida esperada:**
-- JP7a: todos los productos devueltos tienen `categoria = Electronica`; cualquier producto de otra categoría indica fallo.
-- JP7b: todos los productos devueltos tienen `precio ≤ 50`; cualquier producto más caro indica fallo.
-- JP7c: todos los productos devueltos tienen `valoracion ≥ 4.5`; cualquier resultado inferior indica fallo.
-- JP7d: todos los productos devueltos cumplen simultáneamente los tres filtros; cualquier incumplimiento indica fallo.
-- JP7e: la respuesta contiene una lista de productos vacía; el agente no lanza ninguna excepción.
-- En todos los casos el script muestra `[ OK ]` si el resultado coincide con lo esperado, o `[FAIL]` con detalle del error.
-
-**Lo que ocurre durante la ejecución:**
-1. El script envía un mensaje ACL `ECSNS.Busqueda` al AgenteComprador con los parámetros de filtrado.
-2. El AgenteComprador carga el catálogo desde `data/listado_productos_detallados.json` y recorre cada producto aplicando los filtros recibidos.
-3. Los productos que superan todos los filtros se añaden a un grafo RDF y se devuelven en la respuesta ACL.
-4. El AgenteComprador notifica la búsqueda al AgenteExperiencia (`ECSNS.RegistroBusqueda`) para actualizar el historial del usuario.
-5. El script parsea el grafo RDF de la respuesta, comprueba atributo a atributo que cada producto cumple los criterios y presenta el resultado del test por pantalla.
-
----
-
-## JP8 — Devolución de un pedido
-
-**Propósito:** Verificar el flujo completo de devolución del AgenteDevolucion: que acepta automáticamente devoluciones por producto defectuoso, que acepta devoluciones dentro del plazo legal de 15 días, y que rechaza correctamente los casos de fuera de plazo, factura inexistente y solicitud duplicada sobre una factura ya devuelta.
-
-**Entrada:**
-- Una factura de prueba (`FAC-JPTEST-001`, comprador `TestUser`, producto `p001 – Laptop Pro 15`) insertada directamente en `data/listado_facturas.json` antes de ejecutar los subtests.
-- Cinco solicitudes de devolución enviadas como mensajes ACL `ECSNS.SolicitudDevolucion` al AgenteDevolucion:
-  - JP8a: factura `FAC-JPTEST-001`, razón `"El producto llegó defectuoso"`, recepción hace 3 días.
-  - JP8b: factura `FAC-JPTEST-001`, razón neutra `"No me convence"`, recepción hace 7 días.
-  - JP8c: factura `FAC-JPTEST-001`, razón neutra `"Ya no me gusta"`, recepción hace 20 días.
-  - JP8d: factura `FAC-NOEXISTE-999` (no registrada en el sistema), razón cualquiera.
-  - JP8e: factura `FAC-JPTEST-001` previamente marcada como `devuelta = true`, razón `"defectuoso"`.
-
-**Salida esperada:**
-- JP8a: devolución **aceptada** — la palabra clave `"defectuoso"` activa la aprobación automática independientemente del plazo; empresa asignada: `MensajeriaRapida S.L.`
-- JP8b: devolución **aceptada** — 7 días está dentro del plazo de 15 días; empresa asignada: `MensajeriaEstandar S.A.`
-- JP8c: devolución **rechazada** — han transcurrido 20 días, superando el plazo establecido.
-- JP8d: devolución **rechazada** — el AgenteGestorPedidos no encuentra la factura y devuelve verificación negativa.
-- JP8e: devolución **rechazada** — el AgenteGestorPedidos detecta que la factura ya fue devuelta con anterioridad.
-- En todos los casos el script muestra `[ OK ]` si el resultado coincide con lo esperado, o `[FAIL]` con el motivo recibido.
-- Las devoluciones aceptadas quedan registradas en `data/listado_devoluciones.json`.
-
-**Lo que ocurre durante la ejecución:**
-1. El script inserta la factura de prueba `FAC-JPTEST-001` en `data/listado_facturas.json`.
-2. Para cada subtest, envía un mensaje `ECSNS.SolicitudDevolucion` al AgenteDevolucion con la factura, la razón y la fecha de recepción correspondientes.
-3. El AgenteDevolucion consulta al AgenteGestorPedidos mediante `ECSNS.VerificarCompra` para comprobar que la factura existe, pertenece al comprador indicado y no ha sido devuelta antes.
-4. Si la verificación es positiva, evalúa la razón: primero busca palabras clave de producto defectuoso (`defectuoso`, `roto`, `dañado`, etc.); si no hay coincidencia, calcula los días transcurridos desde la fecha de recepción y los compara con el plazo de 15 días.
-5. Si la devolución se acepta, el AgenteDevolucion notifica al AgenteGestorPedidos para marcar la factura como devuelta, al AgenteExperiencia para eliminar la compra del historial del usuario, y al AgenteUsuario con el ID de devolución y la empresa de mensajería asignada.
-6. El resultado (aceptada o rechazada, con su motivo) se persiste en `data/listado_devoluciones.json` y se devuelve al script en un grafo RDF.
-7. El script parsea el campo `aceptada` de la respuesta, lo compara con el valor esperado y muestra el veredicto.
-8. Al finalizar todos los subtests, el script elimina la factura de prueba del sistema.
-
----
-
-## Guía de ejecución rápida para la demo
+## 5. Guía de ejecución para la demo
 
 ```bash
 # 1. Arrancar el sistema completo
 cd Python
 bash start_demo.sh
 
-# 2. Esperar ~3s a que todos los agentes estén registrados
+# 2. Esperar ~5 s a que todos los agentes estén registrados
+#    Verificar en http://localhost:9000/info que aparecen los 4 transportistas
 
 # 3. Ejecutar el juego de prueba elegido
-python jp_cliente.py --jp 1   # o --jp 2, 3, 5, 6
-python jp7_jp8.py --jp 7      # o --jp 8
+python jp_cliente.py --jp 1   # JP1: más barato gana
+python jp_cliente.py --jp 2   # JP2: prioridad urgente (más rápido gana)
+python jp_cliente.py --jp 5   # JP5: tres pedidos simultáneos
+python jp_cliente.py --jp 6   # JP6: pedido multi-centro
 
-# 4. Esperar ~20s y observar los logs en pantalla
-# Los logs muestran: ofertas recibidas, ganador seleccionado, envío registrado
+# 4. Observar en los logs de AgenteLogistico:
+#    - Ofertas R1 de cada transportista
+#    - Cálculo de la contraoferta (90 % del mínimo R1)
+#    - Respuestas de R2 (acepta / propone / rechaza)
+#    - Línea "GANADOR" con nombre, precio y días
 
-# 5. Verificar resultado
-cat data/listado_envios.json
-cat data/listado_devoluciones.json
+# 5. Verificar el resultado en los ficheros de datos
+Get-Content Python\data\listado_envios_centro_madrid.json
 
 # 6. Parar el sistema
 bash stop_demo.sh
 ```
 
-### Para JP4 (agente externo), desde el PC del otro grupo:
+### Preparación especial para JP3 (sin transportistas)
+
 ```bash
-# Anfitrión: export ECSDI_PUBLIC_HOST=<IP_LAN> && bash start_demo.sh
-# Otro grupo:
-export PYTHONPATH="$(pwd)/..:$PYTHONPATH"
-python3 AgenteTransportista.py --port 9013 --dhost <IP_anfitrión> --dport 9000 \
+python DirectoryService.py --port 9000 --open
+# (en otra terminal)
+python AgenteLogistico.py --port 9003 --dport 9000 --centro "Centro Madrid" --open
+python jp_cliente.py --jp 3
+```
+
+### Preparación especial para JP4 (transportista externo)
+
+```bash
+# En el PC del otro grupo:
+export ECSDI_PUBLIC_HOST=<tu_IP_LAN>
+python3 AgenteTransportista.py --port 9014 \
+  --dhost <IP_anfitrión> --dport 9000 \
   --nombre TransportistaExterno --ciudad Madrid --open
 ```
 
-Guía completa: [Ontologias/INTEROPERABILIDAD_TRANSPORTE.md](Ontologias/INTEROPERABILIDAD_TRANSPORTE.md)
+Guía de ontología e interoperabilidad: [Ontologias/INTEROPERABILIDAD_TRANSPORTE.md](Ontologias/INTEROPERABILIDAD_TRANSPORTE.md)
