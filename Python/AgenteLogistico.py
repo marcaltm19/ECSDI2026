@@ -428,10 +428,57 @@ def realizar_envios():
         )
 
         notificar_gestor_multiples_envios(pedido, [envio])
+        notificar_gestor_pagos_envio(pedido)
         notificar_experiencia_envios(pedido, [envio])
 
     with open(ENVIOS_PATH, 'w') as f:
         json.dump(_envios, f, indent=2)
+
+
+def notificar_gestor_pagos_envio(pedido):
+    """INFORM ConfirmacionEnvio al AgenteGestorPagos cuando se realiza un envío."""
+    global mss_cnt
+
+    gmess = Graph()
+    gmess.bind('dso', DSO)
+    search_obj = agn[f'SearchPagos-{mss_cnt}']
+    gmess.add((search_obj, RDF.type, DSO.Search))
+    gmess.add((search_obj, DSO.AgentType, ECSNS['Ag.GestorDePagos']))
+    msg = build_message(gmess, perf=ACL.request, sender=LogisticoAgent.uri,
+                        receiver=DirectoryAgent.uri, content=search_obj, msgcnt=mss_cnt)
+    mss_cnt += 1
+    try:
+        r = http_requests.get(DirectoryAgent.address,
+                              params={'content': msg.serialize(format='xml')}, timeout=5)
+        gr_ds = Graph()
+        gr_ds.parse(data=r.text, format='xml')
+        pagos_addrs = [str(o) for s, p, o in gr_ds if p == DSO.Address]
+    except Exception as e:
+        logger.warning(f'[Logistico] No se pudo encontrar GestorPagos: {e}')
+        return
+
+    if not pagos_addrs:
+        logger.warning('[Logistico] GestorPagos no registrado en DS')
+        return
+
+    gr = Graph()
+    gr.bind('ecsns', ECSNS)
+    conf_uri = ECSNS[f'ConfirmacionEnvio-{pedido["id"]}']
+    gr.add((conf_uri, RDF.type,       ECSNS.ConfirmacionEnvio))
+    gr.add((conf_uri, ECSNS.idPedido, Literal(pedido['id'])))
+    gr.add((conf_uri, ECSNS.comprador, Literal(pedido.get('comprador', 'Anonimo'))))
+
+    try:
+        send_message(
+            build_message(gr, perf=ACL.inform, sender=LogisticoAgent.uri,
+                          receiver=agn.AgenteGestorPagos, content=conf_uri,
+                          msgcnt=mss_cnt),
+            pagos_addrs[0],
+        )
+        mss_cnt += 1
+        logger.info(f'[Logistico] Confirmación de envío enviada a GestorPagos — {pedido["id"]}')
+    except Exception as e:
+        logger.warning(f'[Logistico] Error notificando GestorPagos: {e}')
 
 
 def notificar_gestor_multiples_envios(pedido, sub_envios):

@@ -54,6 +54,7 @@ CENTROS_PATH  = os.path.join(os.path.dirname(__file__), 'data', 'centros_logisti
 _logistico_addresses = {}   # centro_nombre -> address
 experiencia_address  = None
 usuario_address      = None
+gestor_pagos_address = None
 
 GestorAgent = Agent(
     'AgenteGestorPedidos',
@@ -290,6 +291,65 @@ def get_logistico_address_for_centro(centro_nombre):
     return None
 
 
+def notificar_gestor_pagos(order_id, comprador, metodo_pago, total, vendedor_externo_id=None):
+    """INFORM InformacionPago al AgenteGestorPagos al crear el pedido."""
+    global mss_cnt, gestor_pagos_address
+    if gestor_pagos_address is None:
+        gestor_pagos_address = get_agent_address(ECSNS['Ag.GestorDePagos'])
+    if gestor_pagos_address is None:
+        logger.warning('[GestorPedidos] AgenteGestorPagos no encontrado en DS')
+        return
+    gmess = Graph()
+    gmess.bind('ecsns', ECSNS)
+    node = ECSNS['info-pago-' + order_id]
+    gmess.add((node, RDF.type,              ECSNS.InformacionPago))
+    gmess.add((node, ECSNS.idPedido,        Literal(order_id)))
+    gmess.add((node, ECSNS.comprador,       Literal(comprador)))
+    gmess.add((node, ECSNS.metodoPago,      Literal(metodo_pago)))
+    gmess.add((node, ECSNS.total,           Literal(round(total, 2))))
+    if vendedor_externo_id:
+        gmess.add((node, ECSNS.vendedorExternoId, Literal(vendedor_externo_id)))
+    try:
+        send_message(
+            build_message(gmess, perf=ACL.inform, sender=GestorAgent.uri,
+                          receiver=agn.AgenteGestorPagos, content=node, msgcnt=mss_cnt),
+            gestor_pagos_address,
+        )
+        mss_cnt += 1
+        logger.info(f'[GestorPedidos] Información de pago enviada a GestorPagos — {order_id}')
+    except Exception as e:
+        logger.warning(f'[GestorPedidos] Error notificando GestorPagos: {e}')
+
+
+def notificar_confirmacion_envio_pagos(order_id, comprador, total=0, vendedor_externo_id=None):
+    """INFORM ConfirmacionEnvio al GestorPagos (p. ej. pedido solo externo)."""
+    global mss_cnt, gestor_pagos_address
+    if gestor_pagos_address is None:
+        gestor_pagos_address = get_agent_address(ECSNS['Ag.GestorDePagos'])
+    if gestor_pagos_address is None:
+        return
+    gmess = Graph()
+    gmess.bind('ecsns', ECSNS)
+    node = ECSNS['conf-envio-' + order_id]
+    gmess.add((node, RDF.type,       ECSNS.ConfirmacionEnvio))
+    gmess.add((node, ECSNS.idPedido, Literal(order_id)))
+    gmess.add((node, ECSNS.comprador, Literal(comprador)))
+    if total:
+        gmess.add((node, ECSNS.total, Literal(round(total, 2))))
+    if vendedor_externo_id:
+        gmess.add((node, ECSNS.vendedorExternoId, Literal(vendedor_externo_id)))
+    try:
+        send_message(
+            build_message(gmess, perf=ACL.inform, sender=GestorAgent.uri,
+                          receiver=agn.AgenteGestorPagos, content=node, msgcnt=mss_cnt),
+            gestor_pagos_address,
+        )
+        mss_cnt += 1
+        logger.info(f'[GestorPedidos] Confirmación de envío enviada a GestorPagos — {order_id}')
+    except Exception as e:
+        logger.warning(f'[GestorPedidos] Error enviando confirmación a GestorPagos: {e}')
+
+
 def notificar_logistico(pedido):
     global mss_cnt
     # Agrupar productos por centro logístico
@@ -468,19 +528,12 @@ def procesar_compra(gm, content):
     # Mismo identificador para factura y pedido logístico (la UI muestra la factura)
     factura_id = 'FAC-' + str(uuid.uuid4())[:8].upper()
     envios_vendedor = []
+    total_pedido = sum(p['precio'] * p.get('cantidad', 1) for p in productos)
+    vendedor_ext_id = None
+    if vendor_products:
+        vendedor_ext_id = next(iter(vendor_products.keys()), None)
 
-    # Pedidos gestionados por la tienda propia (via AgenteLogistico)
-    if shop_products:
-        shop_pedido = {
-            'id':        factura_id,
-            'comprador': comprador,
-            'productos': shop_products,
-            'direccion': direccion,
-            'prioridad': prioridad,
-        }
-        notificar_logistico(shop_pedido)
-
-    # Pedidos gestionados por vendedores externos
+    # Pedidos gestionados por vendedores externos (antes de persistir factura)
     for vname, vprods in vendor_products.items():
         vaddr = obtener_address_vendedor(vname)
         if vaddr:
@@ -510,7 +563,27 @@ def procesar_compra(gm, content):
             })
 
     factura = generar_factura(productos, comprador, direccion, metodo_pago, envios_vendedor, factura_id=factura_id)
-    notificar_experiencia_compra(comprador, factura, productos)
+
+    notificar_gestor_pagos(
+        factura_id, comprador, metodo_pago, total_pedido, vendedor_ext_id,
+    )
+
+    # Pedidos gestionados por la tienda propia (via AgenteLogistico)
+    if shop_products:
+        shop_pedido = {
+            'id':        factura_id,
+            'comprador': comprador,
+            'productos': shop_products,
+            'direccion': direccion,
+            'prioridad': prioridad,
+        }
+        notificar_logistico(shop_pedido)
+
+    # Pedido solo vendedor externo: no hay logístico, confirmar envío a GestorPagos
+    if not shop_products and vendor_products:
+        notificar_confirmacion_envio_pagos(
+            factura_id, comprador, factura['total'], vendedor_ext_id,
+        )
 
     gr = Graph()
     gr.bind('ecsns', ECSNS)

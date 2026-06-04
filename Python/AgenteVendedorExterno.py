@@ -225,6 +225,37 @@ def procesar_pedido_externo(gm, content):
     return gr
 
 
+def procesar_obtener_proveedor_pago(gm, content):
+    pedido_id = str(gm.value(content, ECSNS.idPedido) or '')
+    gr = Graph()
+    gr.bind('ecsns', ECSNS)
+    resp = ECSNS['recibo-prov-' + (pedido_id or nombre_vendedor)]
+    proveedor = f'paypal_{nombre_vendedor}'
+    gr.add((resp, RDF.type,             ECSNS.ReciboProveedorPago))
+    gr.add((resp, ECSNS.idPedido,       Literal(pedido_id)))
+    gr.add((resp, ECSNS.datosProveedor, Literal(proveedor)))
+    logger.info(f'[{nombre_vendedor}] Proveedor de pago: {proveedor}')
+    return gr
+
+
+def procesar_pagar_vendedor(gm, content):
+    pedido_id = str(gm.value(content, ECSNS.idPedido) or '')
+    proveedor = str(gm.value(content, ECSNS.datosProveedor) or '')
+    total = gm.value(content, ECSNS.total)
+    importe = float(total) if total is not None else 0.0
+    logger.info(
+        f'[{nombre_vendedor}] Pago recibido — pedido {pedido_id}, '
+        f'{importe} EUR vía {proveedor}'
+    )
+    gr = Graph()
+    gr.bind('ecsns', ECSNS)
+    ack = ECSNS['ack-pago-' + pedido_id]
+    gr.add((ack, RDF.type,          ECSNS.AckActualizacion))
+    gr.add((ack, ECSNS.idPedido,    Literal(pedido_id)))
+    gr.add((ack, ECSNS.actualizado, Literal(True)))
+    return gr
+
+
 def procesar_devolucion(gm, content):
     factura_id = str(gm.value(content, ECSNS.idFactura) or '')
     comprador  = str(gm.value(content, ECSNS.comprador) or '')
@@ -315,6 +346,14 @@ def comunicacion():
                                  receiver=msgdic['sender'], msgcnt=mss_cnt)
         elif perf == ACL.request and accion == ECSNS.ActualizarCatalogo:
             resp = procesar_actualizacion(gm, content)
+            gr   = build_message(resp, ACL.inform, sender=VendedorAgent.uri,
+                                 receiver=msgdic['sender'], msgcnt=mss_cnt)
+        elif perf == ACL.request and accion == ECSNS.ObtenerProveedorPago:
+            resp = procesar_obtener_proveedor_pago(gm, content)
+            gr   = build_message(resp, ACL.inform, sender=VendedorAgent.uri,
+                                 receiver=msgdic['sender'], msgcnt=mss_cnt)
+        elif perf == ACL.request and accion == ECSNS.PagarVendedor:
+            resp = procesar_pagar_vendedor(gm, content)
             gr   = build_message(resp, ACL.inform, sender=VendedorAgent.uri,
                                  receiver=msgdic['sender'], msgcnt=mss_cnt)
         elif perf == ACL.request and accion == ECSNS.PedirReembolso:

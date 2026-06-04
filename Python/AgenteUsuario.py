@@ -75,13 +75,36 @@ DirectoryAgent = Agent(
 
 cola1 = Queue()
 
+# Rutas accesibles sin sesión (solo login + endpoints entre agentes)
+_ENDPOINTS_PUBLICOS = frozenset({'login', 'comunicacion', 'stop'})
+
+
+@app.before_request
+def requerir_sesion():
+    if request.endpoint in _ENDPOINTS_PUBLICOS:
+        return None
+    if not session.get('usuario', '').strip():
+        return redirect(url_for('login', next=request.path))
+
 
 @app.context_processor
 def inject_globals():
-    return {
-        'solicitudes_feedback': list(_solicitudes_feedback),
-        'usuario_actual': session.get('usuario', ''),
+    usuario = session.get('usuario', '').strip()
+    if usuario:
+        cn = _norm_comprador(usuario)
+        feedback = [
+            s for s in _solicitudes_feedback
+            if _norm_comprador(s.get('comprador')) == cn
+        ]
+    else:
+        feedback = []
+    ctx = {
+        'solicitudes_feedback': feedback,
+        'usuario_actual': usuario,
     }
+    if usuario:
+        ctx['num_carrito'] = _num_carrito()
+    return ctx
 
 
 def _comprador_sesion():
@@ -597,13 +620,21 @@ def enviar_valoracion(comprador, producto_id, pedido_id, nombre_producto, puntua
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     error = None
+    if request.method == 'GET' and session.get('usuario', '').strip():
+        return redirect(url_for('index'))
     if request.method == 'POST':
         username = request.form.get('username', '').strip()
         if username:
+            if session.get('usuario') != username:
+                session.pop('carrito', None)
             session['usuario'] = username
-            return redirect(request.args.get('next') or url_for('index'))
+            session.pop('ultimo_pedido', None)
+            dest = request.args.get('next') or url_for('index')
+            if dest.startswith('/login'):
+                dest = url_for('index')
+            return redirect(dest)
         error = 'Introduce un nombre de usuario.'
-    return render_template('usuario/login.html', num_carrito=_num_carrito(), error=error)
+    return render_template('usuario/login.html', error=error)
 
 
 @app.route('/logout')
@@ -616,11 +647,12 @@ def logout():
 
 @app.route('/')
 def index():
-    facturas = load_json(FACTURAS_PATH)
+    comprador = session.get('usuario', '').strip()
+    facturas_usuario = facturas_para_vista(solo_comprador=comprador)
     return render_template(
         'usuario/index.html',
         num_carrito=_num_carrito(),
-        num_facturas=len(facturas),
+        num_facturas=len(facturas_usuario),
         recomendaciones=_recomendaciones[-6:],
     )
 
