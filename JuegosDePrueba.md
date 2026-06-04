@@ -167,6 +167,70 @@ python jp_cliente.py --jp 6
 
 ---
 
+## JP7 — Búsqueda de productos con filtros
+
+**Propósito:** Verificar que el AgenteComprador aplica correctamente los filtros de búsqueda (categoría, precio máximo y valoración mínima) sobre el catálogo de productos, devolviendo únicamente los artículos que cumplen todas las condiciones especificadas, y que responde con una lista vacía cuando ningún producto satisface los criterios sin producir errores.
+
+**Entrada:**
+- El catálogo de productos cargado en `data/listado_productos_detallados.json` (incluye productos de distintas categorías, precios y valoraciones).
+- Cinco búsquedas independientes enviadas como mensajes ACL `ECSNS.Busqueda` al AgenteComprador:
+  - JP7a: filtro por categoría `Electronica` (sin restricción de precio ni valoración).
+  - JP7b: precio máximo de 50 €, sin otros filtros.
+  - JP7c: valoración mínima de 4.5 estrellas, sin otros filtros.
+  - JP7d: combinación de los tres filtros: categoría `Electronica`, precio máximo 500 €, valoración mínima 4.0.
+  - JP7e: precio máximo de 0.01 € (filtro imposible, sin resultados esperados).
+
+**Salida esperada:**
+- JP7a: todos los productos devueltos tienen `categoria = Electronica`; cualquier producto de otra categoría indica fallo.
+- JP7b: todos los productos devueltos tienen `precio ≤ 50`; cualquier producto más caro indica fallo.
+- JP7c: todos los productos devueltos tienen `valoracion ≥ 4.5`; cualquier resultado inferior indica fallo.
+- JP7d: todos los productos devueltos cumplen simultáneamente los tres filtros; cualquier incumplimiento indica fallo.
+- JP7e: la respuesta contiene una lista de productos vacía; el agente no lanza ninguna excepción.
+- En todos los casos el script muestra `[ OK ]` si el resultado coincide con lo esperado, o `[FAIL]` con detalle del error.
+
+**Lo que ocurre durante la ejecución:**
+1. El script envía un mensaje ACL `ECSNS.Busqueda` al AgenteComprador con los parámetros de filtrado.
+2. El AgenteComprador carga el catálogo desde `data/listado_productos_detallados.json` y recorre cada producto aplicando los filtros recibidos.
+3. Los productos que superan todos los filtros se añaden a un grafo RDF y se devuelven en la respuesta ACL.
+4. El AgenteComprador notifica la búsqueda al AgenteExperiencia (`ECSNS.RegistroBusqueda`) para actualizar el historial del usuario.
+5. El script parsea el grafo RDF de la respuesta, comprueba atributo a atributo que cada producto cumple los criterios y presenta el resultado del test por pantalla.
+
+---
+
+## JP8 — Devolución de un pedido
+
+**Propósito:** Verificar el flujo completo de devolución del AgenteDevolucion: que acepta automáticamente devoluciones por producto defectuoso, que acepta devoluciones dentro del plazo legal de 15 días, y que rechaza correctamente los casos de fuera de plazo, factura inexistente y solicitud duplicada sobre una factura ya devuelta.
+
+**Entrada:**
+- Una factura de prueba (`FAC-JPTEST-001`, comprador `TestUser`, producto `p001 – Laptop Pro 15`) insertada directamente en `data/listado_facturas.json` antes de ejecutar los subtests.
+- Cinco solicitudes de devolución enviadas como mensajes ACL `ECSNS.SolicitudDevolucion` al AgenteDevolucion:
+  - JP8a: factura `FAC-JPTEST-001`, razón `"El producto llegó defectuoso"`, recepción hace 3 días.
+  - JP8b: factura `FAC-JPTEST-001`, razón neutra `"No me convence"`, recepción hace 7 días.
+  - JP8c: factura `FAC-JPTEST-001`, razón neutra `"Ya no me gusta"`, recepción hace 20 días.
+  - JP8d: factura `FAC-NOEXISTE-999` (no registrada en el sistema), razón cualquiera.
+  - JP8e: factura `FAC-JPTEST-001` previamente marcada como `devuelta = true`, razón `"defectuoso"`.
+
+**Salida esperada:**
+- JP8a: devolución **aceptada** — la palabra clave `"defectuoso"` activa la aprobación automática independientemente del plazo; empresa asignada: `MensajeriaRapida S.L.`
+- JP8b: devolución **aceptada** — 7 días está dentro del plazo de 15 días; empresa asignada: `MensajeriaEstandar S.A.`
+- JP8c: devolución **rechazada** — han transcurrido 20 días, superando el plazo establecido.
+- JP8d: devolución **rechazada** — el AgenteGestorPedidos no encuentra la factura y devuelve verificación negativa.
+- JP8e: devolución **rechazada** — el AgenteGestorPedidos detecta que la factura ya fue devuelta con anterioridad.
+- En todos los casos el script muestra `[ OK ]` si el resultado coincide con lo esperado, o `[FAIL]` con el motivo recibido.
+- Las devoluciones aceptadas quedan registradas en `data/listado_devoluciones.json`.
+
+**Lo que ocurre durante la ejecución:**
+1. El script inserta la factura de prueba `FAC-JPTEST-001` en `data/listado_facturas.json`.
+2. Para cada subtest, envía un mensaje `ECSNS.SolicitudDevolucion` al AgenteDevolucion con la factura, la razón y la fecha de recepción correspondientes.
+3. El AgenteDevolucion consulta al AgenteGestorPedidos mediante `ECSNS.VerificarCompra` para comprobar que la factura existe, pertenece al comprador indicado y no ha sido devuelta antes.
+4. Si la verificación es positiva, evalúa la razón: primero busca palabras clave de producto defectuoso (`defectuoso`, `roto`, `dañado`, etc.); si no hay coincidencia, calcula los días transcurridos desde la fecha de recepción y los compara con el plazo de 15 días.
+5. Si la devolución se acepta, el AgenteDevolucion notifica al AgenteGestorPedidos para marcar la factura como devuelta, al AgenteExperiencia para eliminar la compra del historial del usuario, y al AgenteUsuario con el ID de devolución y la empresa de mensajería asignada.
+6. El resultado (aceptada o rechazada, con su motivo) se persiste en `data/listado_devoluciones.json` y se devuelve al script en un grafo RDF.
+7. El script parsea el campo `aceptada` de la respuesta, lo compara con el valor esperado y muestra el veredicto.
+8. Al finalizar todos los subtests, el script elimina la factura de prueba del sistema.
+
+---
+
 ## Guía de ejecución rápida para la demo
 
 ```bash
@@ -177,13 +241,15 @@ bash start_demo.sh
 # 2. Esperar ~3s a que todos los agentes estén registrados
 
 # 3. Ejecutar el juego de prueba elegido
-python jp_cliente.py --jp 1   # o --jp 2, 3, 5
+python jp_cliente.py --jp 1   # o --jp 2, 3, 5, 6
+python jp7_jp8.py --jp 7      # o --jp 8
 
 # 4. Esperar ~20s y observar los logs en pantalla
-# Los logs muestran: ofertas recibidas, ganador seleccionado, envio registrado
+# Los logs muestran: ofertas recibidas, ganador seleccionado, envío registrado
 
 # 5. Verificar resultado
-cat data/envios.json
+cat data/listado_envios.json
+cat data/listado_devoluciones.json
 
 # 6. Parar el sistema
 bash stop_demo.sh
