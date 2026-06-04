@@ -1,0 +1,25 @@
+[
+  {
+    "id": "FAC-D938473B",
+    "comprador": "Kaleb",
+    "fecha": "2026-06-03T18:31:50.863192",
+    "productos": [
+      {
+        "id": "p010",
+        "nombre": "Libro Python Avanzado",
+        "precio": 29.99,
+        "cantidad": 1,
+        "peso": 0.4,
+        "vendedor": "tienda",
+        "gestion_envio": "tienda"
+      }
+    ],
+    "total": 29.99,
+    "direccion": "Calle B",
+    "metodo_pago": "tarjeta",
+    "envios_vendedor": [],
+    "envios_logistico": [],
+    "devuelta": true,
+    "fecha_devolucion": "2026-06-03T18:34:18.408720"
+  }
+]
