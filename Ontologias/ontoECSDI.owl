@@ -1,0 +1,1304 @@
+<?xml version="1.0"?>
+<rdf:RDF xmlns="http://www.semanticweb.org/ECSDI2026/ontologies/shop/"
+     xml:base="http://www.semanticweb.org/ECSDI2026/ontologies/shop/"
+     xmlns:owl="http://www.w3.org/2002/07/owl#"
+     xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+     xmlns:xml="http://www.w3.org/XML/1998/namespace"
+     xmlns:xsd="http://www.w3.org/2001/XMLSchema#"
+     xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#">
+    <owl:Ontology rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop"/>
+    
+
+
+    <!-- 
+    ///////////////////////////////////////////////////////////////////////////////////////
+    //
+    // Object Properties
+    //
+    ///////////////////////////////////////////////////////////////////////////////////////
+     -->
+
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#tieneDevolucion -->
+
+    <owl:ObjectProperty rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#tieneDevolucion">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#ListaDevoluciones"/>
+        <rdfs:range rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Devolucion"/>
+        <rdfs:comment xml:lang="es">Enlaza un nodo ListaDevoluciones con cada instancia Devolucion individual que contiene, permitiendo iterar sobre el listado de devoluciones de un comprador.</rdfs:comment>
+    </owl:ObjectProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#tieneFeedback -->
+
+    <owl:ObjectProperty rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#tieneFeedback">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#SolicitudFeedback"/>
+        <rdfs:range rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Feedback"/>
+        <rdfs:comment xml:lang="es">Enlaza una SolicitudFeedback con la entidad Feedback que contiene los datos del producto y comprador a valorar. Implementa el patrón wrapper entre el mensaje de solicitud y la entidad de dominio.</rdfs:comment>
+    </owl:ObjectProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#tienePedido -->
+
+    <owl:ObjectProperty rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#tienePedido">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#SolicitudPedido"/>
+        <rdfs:range rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Pedido"/>
+        <rdfs:comment xml:lang="es">Enlaza una SolicitudPedido con la entidad Pedido que contiene los datos operativos de la compra. Implementa el patrón wrapper entre el mensaje de comunicación y la entidad de dominio.</rdfs:comment>
+    </owl:ObjectProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#tieneProducto -->
+
+    <owl:ObjectProperty rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#tieneProducto">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Pedido"/>
+        <rdfs:range rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Producto"/>
+        <rdfs:comment xml:lang="es">Enlaza un Pedido, CompraFinalizada o mensaje de envío con los nodos de producto que contiene, permitiendo iterar sobre los artículos de una compra o notificación.</rdfs:comment>
+    </owl:ObjectProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#tieneRecomendacion -->
+
+    <owl:ObjectProperty rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#tieneRecomendacion">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Recomendaciones"/>
+        <rdfs:range rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Producto"/>
+        <rdfs:comment xml:lang="es">Enlaza un mensaje Recomendaciones o RecomendacionesProactivas con cada nodo de producto recomendado individual, incluyendo su razón y valoración media.</rdfs:comment>
+    </owl:ObjectProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#tieneSubEnvio -->
+
+    <owl:ObjectProperty rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#tieneSubEnvio">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#ResultadoEnvio"/>
+        <rdfs:range rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#ResultadoEnvio"/>
+        <rdfs:comment xml:lang="es">Enlaza un ResultadoEnvio o NotificacionEnvios con cada sub-envío individual, donde cada sub-envío agrupa los productos enviados desde un mismo centro logístico con un transportista concreto.</rdfs:comment>
+    </owl:ObjectProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#tieneValoracion -->
+
+    <owl:ObjectProperty rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#tieneValoracion">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#ResultadoValoraciones"/>
+        <rdfs:range rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Feedback"/>
+        <rdfs:comment xml:lang="es">Enlaza un ResultadoValoraciones con cada instancia de valoración individual registrada por un comprador para un producto concreto.</rdfs:comment>
+    </owl:ObjectProperty>
+    
+
+
+    <!-- 
+    ///////////////////////////////////////////////////////////////////////////////////////
+    //
+    // Data properties
+    //
+    ///////////////////////////////////////////////////////////////////////////////////////
+     -->
+
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#aceptada -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#aceptada">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#ResultadoVerificacion"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#boolean"/>
+        <rdfs:comment xml:lang="es">Indica si una verificación de compra o una solicitud de devolución ha sido aceptada (true) o rechazada (false).</rdfs:comment>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#actualizado -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#actualizado">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#AckActualizacion"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#boolean"/>
+        <rdfs:comment xml:lang="es">Indica si una actualización de catálogo ha sido procesada correctamente por el AgenteVendedorExterno.</rdfs:comment>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#cantidad -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#cantidad">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Producto"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#nonNegativeInteger"/>
+        <rdfs:comment xml:lang="es">Número de unidades de un producto incluidas en un pedido o compra.</rdfs:comment>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#categoria -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#categoria">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Producto"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment xml:lang="es">Categoría de un producto (Electronica, Hogar, Moda, etc.) usada como filtro en búsquedas y en el catálogo del comprador.</rdfs:comment>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#ciudad -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#ciudad">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Pedido"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment xml:lang="es">Ciudad de entrega seleccionada por el usuario en el formulario de compra. Incluida en el Pedido para que el AgenteGestorPedidos la use en el mapa de zonas y asigne el centro logístico más cercano al destino.</rdfs:comment>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#comentario -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#comentario">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Feedback"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment xml:lang="es">Texto libre del comprador que acompaña la puntuación de una valoración de producto.</rdfs:comment>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#comprador -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#comprador">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Comunicacion"/>
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#SolicitudReembolso"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment xml:lang="es">Nombre del comprador o usuario que origina o protagoniza una comunicación entre agentes.</rdfs:comment>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#datosProveedor -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#datosProveedor">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#ReciboProveedorPago"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment xml:lang="es">Información de registro o identificador de transacciones devuelto por la pasarela de pago de un vendedor externo.</rdfs:comment>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#direccion -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#direccion">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Pedido"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment xml:lang="es">Dirección postal completa de entrega de un pedido, expresada como cadena de texto.</rdfs:comment>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#empresaMensajeria -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#empresaMensajeria">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#InformarDesicion"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment xml:lang="es">Nombre de la empresa de mensajería asignada para gestionar la recogida de un producto devuelto.</rdfs:comment>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#estado -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#estado">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#RespuestaPedidoExterno"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment xml:lang="es">Estado de tramitación de un pedido externo tal como lo informa el AgenteVendedorExterno (confirmado, en preparación, enviado, etc.).</rdfs:comment>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#estadoPago -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#estadoPago">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#InformacionPago"/>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#fecha -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#fecha">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#CompraFinalizada"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment xml:lang="es">Marca temporal de una compra, factura o entrada de historial, expresada como cadena ISO 8601.</rdfs:comment>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#fechaEntrega -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#fechaEntrega">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#RespuestaPedidoExterno"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment xml:lang="es">Fecha estimada de entrega al cliente comunicada por un AgenteVendedorExterno en su respuesta a un pedido externo.</rdfs:comment>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#fechaRecepcion -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#fechaRecepcion">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#SolicitudDevolucion"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment xml:lang="es">Fecha en que el comprador afirma haber recibido el producto, requerida para iniciar el plazo de devolución.</rdfs:comment>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#gestionEnvio -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#gestionEnvio">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Producto"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment xml:lang="es">Indica quién gestiona el envío del producto: la tienda propia o el vendedor externo. Valores: tienda, vendedor.</rdfs:comment>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#idDevolucion -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#idDevolucion">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#InformarDesicion"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment xml:lang="es">Identificador único generado para una devolución aceptada, usado para rastrear su estado.</rdfs:comment>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#idEnvio -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#idEnvio">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#ResultadoEnvio"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment xml:lang="es">Identificador único de un sub-envío generado por el AgenteLogístico al asignar un transportista.</rdfs:comment>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#idFactura -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#idFactura">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Factura"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment xml:lang="es">Identificador único de una factura, usado como referencia en solicitudes de devolución y confirmaciones de pago.</rdfs:comment>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#idPedido -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#idPedido">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Pedido"/>
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#SolicitudReembolso"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment xml:lang="es">Identificador único de un pedido a lo largo de todo su ciclo de vida en el sistema.</rdfs:comment>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#idProducto -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#idProducto">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Producto"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment xml:lang="es">Identificador único de un producto en el catálogo, usado como referencia en pedidos, valoraciones y envíos.</rdfs:comment>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#idValoracion -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#idValoracion">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Feedback"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment xml:lang="es">Identificador único asignado a una valoración registrada, devuelto por el AgenteExperiencia en la confirmación ValoracionOK.</rdfs:comment>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#incluirExternos -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#incluirExternos">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Busqueda"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#boolean"/>
+        <rdfs:comment xml:lang="es">Indica si la búsqueda debe incluir productos de vendedores externos además del catálogo propio.</rdfs:comment>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#mediaValoracion -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#mediaValoracion">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#ResultadoValoraciones"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2002/07/owl#real"/>
+        <rdfs:comment xml:lang="es">Media aritmética de las puntuaciones recibidas por un producto, calculada por el AgenteExperiencia.</rdfs:comment>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#metodoPago -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#metodoPago">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#InformacionPago"/>
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Pedido"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment xml:lang="es">Método de pago elegido por el comprador al realizar el pedido (tarjeta, transferencia, etc.).</rdfs:comment>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#modalidad -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#modalidad">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Ag.Transportista"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment xml:lang="es">Perfil de servicio publicado por un AgenteTransportista al registrarse en el DirectoryService. Determina su estrategia de precio y plazo de entrega: premium (1 día, precio más alto con coste por peso × 2,0), eco (precio bajo con coste por peso × 0,5 y plazo estándar + 2 días), estandar (precio y plazo intermedios según la prioridad del pedido con coste por peso × 1,0).</rdfs:comment>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#motivo -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#motivo">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#ResultadoVerificacion"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment xml:lang="es">Explicación textual del resultado de una verificación de compra, indicando por qué fue aceptada o rechazada.</rdfs:comment>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#motivoDevolucion -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#motivoDevolucion">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#InformarDesicion"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment xml:lang="es">Motivo detallado por el que se acepta o rechaza la devolución, comunicado por el AgenteDevolucion al usuario.</rdfs:comment>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#nombre -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#nombre">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Producto"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment xml:lang="es">Nombre legible de un producto, recomendación u otro elemento identificable del catálogo.</rdfs:comment>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#nombreVendedor -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#nombreVendedor">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Producto"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment xml:lang="es">Nombre de la tienda externa o vendedor propietario de un producto externo dentro del catálogo.</rdfs:comment>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#numEnvios -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#numEnvios">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#ResultadoEnvio"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#nonNegativeInteger"/>
+        <rdfs:comment xml:lang="es">Número total de sub-envíos en que se ha dividido un pedido, según el número de centros logísticos implicados.</rdfs:comment>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#numeroTarjeta -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#numeroTarjeta">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Usuario"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment xml:lang="es">Número de tarjeta bancaria del comprador, usado para procesar el pago en la pasarela externa.</rdfs:comment>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#peso -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#peso">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Producto"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2002/07/owl#real"/>
+        <rdfs:comment xml:lang="es">Masa del producto en kilogramos, usada para calcular tarifas de transporte y agrupar lotes de envío.</rdfs:comment>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#precio -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#precio">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Producto"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2002/07/owl#real"/>
+        <rdfs:comment xml:lang="es">Precio unitario de venta de un producto al público.</rdfs:comment>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#precioMaximo -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#precioMaximo">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Busqueda"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2002/07/owl#real"/>
+        <rdfs:comment xml:lang="es">Filtro opcional de búsqueda que limita los resultados a productos con precio igual o inferior al valor indicado.</rdfs:comment>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#prioridad -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#prioridad">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Pedido"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment xml:lang="es">Nivel de urgencia del pedido que determina el criterio de selección del transportista: urgente (más rápido), normal o economica (más barato).</rdfs:comment>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#proveedorPagoVendedor -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#proveedorPagoVendedor">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#InformacionPago"/>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#puntuacion -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#puntuacion">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Feedback"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#int"/>
+        <rdfs:comment xml:lang="es">Puntuación numérica de 1 a 5 asignada por el comprador a un producto en su valoración.</rdfs:comment>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#razonDevolucion -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#razonDevolucion">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#SolicitudDevolucion"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment xml:lang="es">Motivo alegado por el comprador para solicitar la devolución de un producto (defectuoso, no coincide con descripción, etc.).</rdfs:comment>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#razonRecomendacion -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#razonRecomendacion">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Recomendaciones"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment xml:lang="es">Explicación textual de por qué el AgenteExperiencia recomienda un producto (bien valorado, popular, misma categoría, etc.).</rdfs:comment>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#stock -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#stock">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Producto"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#nonNegativeInteger"/>
+        <rdfs:comment xml:lang="es">Número de unidades disponibles de un producto en el catálogo en el momento de la búsqueda.</rdfs:comment>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#tieneCentro -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#tieneCentro">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Producto"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment xml:lang="es">Nombre del centro logístico asignado a un producto en el pedido, propagado desde el AgenteGestorPedidos al AgenteLogístico.</rdfs:comment>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#tieneDestino -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#tieneDestino">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#CFP"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment xml:lang="es">Dirección de entrega comunicada en el CFP para que los transportistas puedan calcular su oferta de precio y plazo.</rdfs:comment>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#tieneFechaEntrega -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#tieneFechaEntrega">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Oferta"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment xml:lang="es">Fecha prevista de entrega al cliente (formato YYYY-MM-DD) incluida en una oferta de transporte o sub-envío.</rdfs:comment>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#tienePeso -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#tienePeso">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#CFP"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2002/07/owl#real"/>
+        <rdfs:comment xml:lang="es">Peso total del envío en kilogramos (suma de peso × cantidad de todos los productos del pedido), incluido en el CFP para que cada AgenteTransportista calcule el coste por peso según su modalidad y lo sume al precio base de su oferta.</rdfs:comment>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#tienePrecio -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#tienePrecio">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Oferta"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2002/07/owl#real"/>
+        <rdfs:comment xml:lang="es">Precio propuesto por un transportista en una oferta o contraoferta durante la negociación Contract Net.</rdfs:comment>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#tienePrioridad -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#tienePrioridad">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#CFP"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment xml:lang="es">Nivel de prioridad del envío comunicado en el CFP (urgente, normal, economica), usado por los transportistas para calcular su oferta.</rdfs:comment>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#tieneProductoId -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#tieneProductoId">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#ResultadoEnvio"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment xml:lang="es">Identificador de un producto incluido en un sub-envío, comunicado como literal en la notificación al usuario y al gestor.</rdfs:comment>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#tieneTransportista -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#tieneTransportista">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Oferta"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment xml:lang="es">Nombre de la empresa transportista que propone el envío en una oferta del protocolo Contract Net.</rdfs:comment>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#total -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#total">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#ConfirmacionEnvio"/>
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Factura"/>
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#InformacionPago"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2002/07/owl#real"/>
+        <rdfs:comment xml:lang="es">Importe total de una factura o compra finalizada, calculado como suma de los precios por cantidades de todos los productos.</rdfs:comment>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#totalValoraciones -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#totalValoraciones">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#ResultadoValoraciones"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#nonNegativeInteger"/>
+        <rdfs:comment xml:lang="es">Número total de valoraciones recibidas por un producto, incluido en el ResultadoValoraciones.</rdfs:comment>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#transportista -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#transportista">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#RespuestaPedidoExterno"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment xml:lang="es">Nombre de la empresa de mensajería con la que el vendedor externo gestiona sus propios envíos.</rdfs:comment>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#valoracion -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#valoracion">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Producto"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2002/07/owl#real"/>
+        <rdfs:comment xml:lang="es">Valoración media de un producto en el catálogo, usada por el AgenteExperiencia para filtrar recomendaciones.</rdfs:comment>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#valoracionMinima -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#valoracionMinima">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Busqueda"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2002/07/owl#real"/>
+        <rdfs:comment xml:lang="es">Filtro opcional de búsqueda que limita los resultados a productos con valoración media igual o superior al valor indicado.</rdfs:comment>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#vendedor -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#vendedor">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Producto"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment xml:lang="es">Nombre de la tienda externa propietaria de un producto, usado para identificar a qué vendedor debe dirigirse un pedido externo.</rdfs:comment>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#vendedorExternoId -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#vendedorExternoId">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#ConfirmacionEnvio"/>
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#InformacionPago"/>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- 
+    ///////////////////////////////////////////////////////////////////////////////////////
+    //
+    // Classes
+    //
+    ///////////////////////////////////////////////////////////////////////////////////////
+     -->
+
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Accion -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Accion">
+        <rdfs:subClassOf rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Comunicacion"/>
+        <rdfs:comment xml:lang="es">Clase abstracta base de la que heredan todas las solicitudes operativas o directivas que un agente pide realizar a otro.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#AckActualizacion -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#AckActualizacion">
+        <rdfs:subClassOf rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Respuesta"/>
+        <rdfs:comment xml:lang="es">Confirmación enviada por el AgenteVendedorExterno al recibir correctamente una solicitud de actualización de su catálogo de productos.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#ActualizarCatalogo -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#ActualizarCatalogo">
+        <rdfs:subClassOf rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Accion"/>
+        <rdfs:comment xml:lang="es">Acción enviada al AgenteVendedorExterno para sincronizar el inventario de sus productos con los datos más recientes.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Ag.Comprador -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Ag.Comprador">
+        <rdfs:comment xml:lang="es">Agente encargado de gestionar las búsquedas de productos en el catálogo interno y en los vendedores externos, aplicando filtros de nombre, categoría, precio y valoración.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Ag.Devolucion -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Ag.Devolucion">
+        <rdfs:comment xml:lang="es">Agente responsable de tramitar las solicitudes de devolución, verificando la compra con el gestor de pedidos y comunicando la resolución al usuario y al agente de experiencia.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Ag.Experiencia -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Ag.Experiencia">
+        <rdfs:comment xml:lang="es">Agente que gestiona el historial de compras, las valoraciones de productos y la generación de recomendaciones personalizadas, tanto bajo petición como de forma proactiva.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Ag.GestorDePagos -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Ag.GestorDePagos">
+        <rdfs:comment xml:lang="es">Agente encargado de gestionar los cobros al usuario y los pagos a los vendedores externos. Intermedia los protocolos Envío realizado (recibe del Logístico), Información pago (recibe del Gestor de pedidos) y Compra completada (informa a Experiencia).</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Ag.GestorDePedidos -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Ag.GestorDePedidos">
+        <rdfs:comment xml:lang="es">Agente central que procesa las compras recibidas del usuario, coordina los envíos con el agente logístico, delega los pedidos a vendedores externos y emite las facturas correspondientes.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Ag.Logistico -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Ag.Logistico">
+        <rdfs:comment xml:lang="es">Agente que gestiona la asignación de envíos a empresas de transporte mediante el protocolo Contract Net, agrupando los productos por centro logístico de origen.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Ag.Transportista -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Ag.Transportista">
+        <rdfs:comment xml:lang="es">Agente que representa a una empresa de transporte. Recibe CFPs del agente logístico, propone precio y fecha de entrega, y negocia mediante contraoferta.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Ag.Usuario -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Ag.Usuario">
+        <rdfs:comment xml:lang="es">Agente interfaz web que recibe las interacciones del cliente final, construye los mensajes ontológicos y los despacha a los agentes especializados del sistema.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Ag.VendedorExterno -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Ag.VendedorExterno">
+        <rdfs:comment xml:lang="es">Agente que representa a una tienda de terceros integrada en la plataforma. Gestiona su propio catálogo y tramita los pedidos que le envía el gestor de pedidos.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Busqueda -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Busqueda">
+        <rdfs:subClassOf rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Accion"/>
+        <rdfs:comment xml:lang="es">Acción enviada por el AgenteUsuario al AgenteComprador para buscar productos aplicando filtros opcionales de categoría, precio máximo y valoración mínima.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#CFP -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#CFP">
+        <rdfs:subClassOf rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Accion"/>
+        <rdfs:comment xml:lang="es">Call for Proposals enviado por el AgenteLogístico a todos los transportistas registrados para iniciar la primera ronda de negociación del protocolo Contract Net.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#CatalogoExterno -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#CatalogoExterno">
+        <rdfs:subClassOf rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Respuesta"/>
+        <rdfs:comment xml:lang="es">Respuesta enviada por el AgenteVendedorExterno con los productos de su catálogo que coinciden con los criterios de una búsqueda.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#CategoriaProducto -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#CategoriaProducto">
+        <rdfs:comment xml:lang="es">Clasificación taxonómica utilizada para organizar el catálogo de productos y facilitar las restricciones de búsqueda.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#CentroLogistico -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#CentroLogistico">
+        <rdfs:comment xml:lang="es">Instalación distribuida encargada del almacenamiento de productos, preparación de paquetes, agrupación en lotes y negociación del transporte.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Cobrar -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Cobrar">
+        <rdfs:subClassOf rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Accion"/>
+        <rdfs:comment xml:lang="es">Clase abstracta para acciones de cobro al comprador, implementada por el AgenteGestorPagos.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#CobrarPedido -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#CobrarPedido">
+        <rdfs:subClassOf rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Accion"/>
+        <rdfs:comment xml:lang="es">Acción de cobro específica asociada a un pedido concreto, ejecutada por el AgenteGestorPagos tras la confirmación de envío.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#CompraFinalizada -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#CompraFinalizada">
+        <rdfs:subClassOf rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Respuesta"/>
+        <rdfs:comment xml:lang="es">Notificación enviada por el AgenteGestorPagos al AgenteExperiencia para registrar una compra completada en el historial del comprador.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#CompraProducto -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#CompraProducto">
+        <rdfs:comment xml:lang="es">Línea de detalle dentro de un pedido que asocia un producto concreto con la cantidad exacta adquirida.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Comunicacion -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Comunicacion">
+        <rdfs:comment xml:lang="es">Clase raíz abstracta para modelar todos los flujos de interacción, mensajes y contenidos que se intercambian los agentes.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#ConfirmacionEnvio -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#ConfirmacionEnvio">
+        <rdfs:subClassOf rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Informar"/>
+        <rdfs:comment xml:lang="es">Notificación enviada por el AgenteLogistico o el Gestor de pedidos al Gestor de pagos cuando un envío se ha realizado, desencadenando el cobro al usuario.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#ConsultaDevoluciones -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#ConsultaDevoluciones">
+        <rdfs:subClassOf rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Accion"/>
+        <rdfs:comment xml:lang="es">Solicitud enviada por un agente para obtener el listado de devoluciones registradas para un comprador o pedido concreto.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#ConsultaHistorial -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#ConsultaHistorial">
+        <rdfs:subClassOf rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Accion"/>
+        <rdfs:comment xml:lang="es">Acción enviada al AgenteExperiencia para obtener el historial de pedidos y productos comprados por un comprador concreto.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#ConsultaValoraciones -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#ConsultaValoraciones">
+        <rdfs:subClassOf rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Accion"/>
+        <rdfs:comment xml:lang="es">Acción enviada al AgenteExperiencia para obtener la media, el total y el detalle de valoraciones de un producto identificado por su id.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#ContraOferta -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#ContraOferta">
+        <rdfs:subClassOf rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Accion"/>
+        <rdfs:comment xml:lang="es">Propuesta de precio enviada por el AgenteLogístico a un transportista en la segunda ronda del protocolo Contract Net, ofreciendo un precio inferior al mínimo recibido en la primera ronda.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Devolucion -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Devolucion">
+        <rdfs:subClassOf rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Respuesta"/>
+        <rdfs:comment xml:lang="es">Proceso global de gestión del retorno de un producto y la consecuente restitución económica al comprador. El proceso de devolución se pone en marcha una vez se ha aceptado la solicitud de devolución que ha hecho el usuario.</rdfs:comment>
+        <rdfs:comment xml:lang="es">Proceso global de gestión del retorno de un producto. Actúa como entidad de dominio (persistida en listado_devoluciones.json) y como respuesta al mensaje SolicitudDevolucion, transportando el resultado de la evaluación (aceptada/rechazada, motivo, empresa de mensajería).</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#DevolucionAceptada -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#DevolucionAceptada">
+        <rdfs:subClassOf rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Informar"/>
+        <rdfs:comment xml:lang="es">Notificación proactiva enviada por el agente de devoluciones al agente de experiencia cuando una solicitud de devolución es aceptada, para que este elimine la compra del historial del cliente.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Direccion -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Direccion">
+        <rdfs:comment xml:lang="es">Estructura de datos que almacena los componentes geográficos (calle, número, código postal, ciudad, país) de un domicilio o instalación (centro logístico, por ejemplo).</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#EmpresaTransporte -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#EmpresaTransporte">
+        <rdfs:comment xml:lang="es">Agente logístico externo encargado del traslado físico de las mercancías desde los centros logísticos hasta el usuario.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#EnviosAsignados -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#EnviosAsignados">
+        <rdfs:subClassOf rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Respuesta"/>
+        <rdfs:comment xml:lang="es">Notificación enviada por el AgenteLogístico al AgenteExperiencia con los sub-envíos asignados a un pedido, para programar las solicitudes de feedback tras la entrega.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Factura -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Factura">
+        <rdfs:comment xml:lang="es">Documento legal e impositivo emitido tras un cobro que detalla el desglose de importes, subtotales e impuestos de un pedido.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Feedback -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Feedback">
+        <rdfs:comment xml:lang="es">Registro de la valoración cualitativa (reseña) y cuantitativa (puntuación) efectuada por un cliente sobre un producto.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#HistorialCompras -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#HistorialCompras">
+        <rdfs:subClassOf rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Respuesta"/>
+        <rdfs:comment xml:lang="es">Respuesta del AgenteExperiencia con el listado de pedidos y productos comprados por un comprador, incluyendo fechas y totales.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#InformacionPago -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#InformacionPago">
+        <rdfs:subClassOf rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Informar"/>
+        <rdfs:comment xml:lang="es">Mensaje enviado por el Gestor de pedidos al Gestor de pagos con el método de pago del usuario, activando el protocolo Información pago (Pr).</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Informar -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Informar">
+        <rdfs:subClassOf rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Accion"/>
+        <rdfs:comment xml:lang="es">Clase abstracta para mensajes que comunican proactivamente un resultado, estado o decisión sin que haya una petición previa explícita del receptor.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#InformarDesicion -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#InformarDesicion">
+        <rdfs:subClassOf rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Informar"/>
+        <rdfs:comment xml:lang="es">Mensaje enviado por el AgenteDevolucion al AgenteUsuario con el resultado de una solicitud de devolución, indicando si fue aceptada o rechazada y la empresa de mensajería asignada.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#ListaDevoluciones -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#ListaDevoluciones">
+        <rdfs:subClassOf rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Respuesta"/>
+        <rdfs:comment xml:lang="es">Respuesta del AgenteDevolucion con el listado de devoluciones registradas para un comprador o pedido determinado.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#ListarProductos -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#ListarProductos">
+        <rdfs:subClassOf rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Accion"/>
+        <rdfs:comment xml:lang="es">Acción para obtener el catálogo completo de productos disponibles. Usada internamente por el AgenteExperiencia para calcular recomendaciones personalizadas.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Marca -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Marca">
+        <rdfs:comment xml:lang="es">Firma comercial o fabricante asociado a un producto específico.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#NotificacionEnvios -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#NotificacionEnvios">
+        <rdfs:subClassOf rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Informar"/>
+        <rdfs:comment xml:lang="es">Mensaje enviado por el AgenteGestorPedidos al AgenteUsuario con los sub-envíos logísticos asignados a un pedido, para mostrárselos al cliente en la confirmación.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#NuevaValoracion -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#NuevaValoracion">
+        <rdfs:subClassOf rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Accion"/>
+        <rdfs:comment xml:lang="es">Acción enviada por el AgenteUsuario al AgenteExperiencia para registrar la puntuación y comentario de un comprador sobre un producto de un pedido concreto.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#ObtenerProveedorPago -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#ObtenerProveedorPago">
+        <rdfs:subClassOf rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Accion"/>
+        <rdfs:comment xml:lang="es">Acción para consultar la pasarela de pago asociada a una tienda externa, implementada entre AgenteGestorPagos y AgenteVendedorExterno.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Oferta -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Oferta">
+        <rdfs:subClassOf rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Respuesta"/>
+        <rdfs:comment xml:lang="es">Propuesta de precio y fecha de entrega enviada por un AgenteTransportista al AgenteLogístico en respuesta a un CFP o a una contraoferta aceptada.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#OfertaTransporte -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#OfertaTransporte">
+        <rdfs:comment xml:lang="es">Propuesta económica y temporal emitida por un transportista (o &apos;EmrpesaTransporte&apos;) como respuesta a una solicitud de envío de un lote de pedidos.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#PagarVendedor -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#PagarVendedor">
+        <rdfs:subClassOf rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Accion"/>
+        <rdfs:comment xml:lang="es">Acción de transferencia económica a un vendedor externo tras completarse una venta de sus productos, ejecutada por el AgenteGestorPagos.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Pedido -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Pedido">
+        <rdfs:comment xml:lang="es">Registro que consolida la solicitud de compra de un usuario, agrupando costes totales, prioridades y datos de envío proporcionados por el usuario. El pedido se pone en marcha una vez el usuario ha efectuado el pago de los productos que quiere comprar.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#PedidoExterno -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#PedidoExterno">
+        <rdfs:subClassOf rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Accion"/>
+        <rdfs:comment xml:lang="es">Acción enviada por el AgenteGestorPedidos a un AgenteVendedorExterno para encargarle los productos de su catálogo incluidos en una compra.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#PedirRecomendaciones -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#PedirRecomendaciones">
+        <rdfs:subClassOf rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Accion"/>
+        <rdfs:comment xml:lang="es">Acción enviada por el AgenteUsuario al AgenteExperiencia para obtener productos recomendados basados en el historial de compras y búsquedas del comprador.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#PedirReembolso -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#PedirReembolso">
+        <rdfs:subClassOf rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Accion"/>
+        <rdfs:comment xml:lang="es">Acción enviada por el AgenteDevolucion al AgenteVendedorExterno para solicitar la devolución del importe de un producto externo retornado por el comprador.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Producto -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Producto">
+        <rdfs:comment xml:lang="es">Elemento o artículo comercial disponible en el catálogo para ser comprado por los usuarios, con atributos indispensables como el precio, peso y descripción.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#ProductoExterno -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#ProductoExterno">
+        <rdfs:subClassOf rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Respuesta"/>
+        <rdfs:comment xml:lang="es">Artículo perteneciente al catálogo de un vendedor externo, con su propio identificador, precio y nombre tal como los gestiona la tienda de terceros.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Proponer -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Proponer">
+        <rdfs:subClassOf rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Accion"/>
+        <rdfs:comment xml:lang="es">Clase abstracta para mensajes que contienen una propuesta dentro de un protocolo de negociación. Sin subclases activas en el sistema actual.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#ReciboProveedorPago -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#ReciboProveedorPago">
+        <rdfs:subClassOf rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Respuesta"/>
+        <rdfs:comment xml:lang="es">Respuesta del AgenteVendedorExterno con el identificador del proveedor de pago de la tienda.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Recomendaciones -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Recomendaciones">
+        <rdfs:subClassOf rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Respuesta"/>
+        <rdfs:comment xml:lang="es">Respuesta del AgenteExperiencia con una lista de productos recomendados para un comprador, incluyendo la razón de cada recomendación y su valoración media.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#RecomendacionesProactivas -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#RecomendacionesProactivas">
+        <rdfs:subClassOf rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Respuesta"/>
+        <rdfs:comment xml:lang="es">Mensaje enviado periódicamente por el AgenteExperiencia al AgenteUsuario con recomendaciones calculadas sin que haya mediado una petición explícita del usuario.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Reembolsar -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Reembolsar">
+        <rdfs:subClassOf rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Accion"/>
+        <rdfs:comment xml:lang="es">Clase abstracta para acciones de reintegro económico al comprador. Implementada mediante SolicitudReembolso en el AgenteGestorPagos.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#RegistroBusqueda -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#RegistroBusqueda">
+        <rdfs:subClassOf rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Informar"/>
+        <rdfs:comment xml:lang="es">Notificación enviada por el AgenteComprador al AgenteExperiencia con los parámetros de una búsqueda realizada, para registrar el historial de búsquedas del comprador.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Respuesta -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Respuesta">
+        <rdfs:subClassOf rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Comunicacion"/>
+        <rdfs:comment xml:lang="es">Clase abstracta que engloba aquellos mensajes que sirven como réplica, entrega de datos o confirmación a una acción previa.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#RespuestaPedidoExterno -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#RespuestaPedidoExterno">
+        <rdfs:subClassOf rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Respuesta"/>
+        <rdfs:comment xml:lang="es">Confirmación enviada por el AgenteVendedorExterno al AgenteGestorPedidos con el estado, la empresa de mensajería y la fecha estimada de entrega de un pedido externo.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#ResultadoEnvio -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#ResultadoEnvio">
+        <rdfs:subClassOf rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Respuesta"/>
+        <rdfs:comment xml:lang="es">Respuesta del AgenteLogístico al AgenteGestorPedidos con los sub-envíos asignados tras completar la negociación de transporte para un pedido.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#ResultadoValoraciones -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#ResultadoValoraciones">
+        <rdfs:subClassOf rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Respuesta"/>
+        <rdfs:comment xml:lang="es">Respuesta del AgenteExperiencia con la media, el total de valoraciones y el detalle de cada reseña para un producto solicitado.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#ResultadoVerificacion -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#ResultadoVerificacion">
+        <rdfs:subClassOf rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Respuesta"/>
+        <rdfs:comment xml:lang="es">Respuesta del gestor de pedidos a una VerificarCompra. Indica si la compra es válida para iniciar una devolución (aceptada) y, en caso contrario, el motivo del rechazo.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#SolicitudDevolucion -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#SolicitudDevolucion">
+        <rdfs:subClassOf rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Accion"/>
+        <rdfs:comment xml:lang="es">Acción enviada por el AgenteUsuario al AgenteDevolucion para iniciar el proceso de devolución de una factura, indicando el motivo y la fecha de recepción del producto.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#SolicitudFeedback -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#SolicitudFeedback">
+        <rdfs:subClassOf rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Accion"/>
+        <rdfs:comment xml:lang="es">Acción enviada por el AgenteExperiencia al AgenteUsuario para solicitar al comprador que valore un producto tras su fecha prevista de entrega. Actúa como wrapper de la entidad Feedback.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#SolicitudPedido -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#SolicitudPedido">
+        <rdfs:subClassOf rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Accion"/>
+        <rdfs:comment xml:lang="es">Mensaje de acción que inicia el procesamiento de una compra. Lo envía el agente usuario al gestor de pedidos y, posteriormente, el gestor al agente logístico. Transporta los datos operativos del pedido (comprador, dirección, prioridad, productos), pero es semánticamente distinto de la entidad Pedido, que representa la instancia persistida en la base de datos.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#SolicitudReembolso -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#SolicitudReembolso">
+        <rdfs:subClassOf rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Reembolsar"/>
+        <rdfs:comment xml:lang="es">Solicitud de devolución económica enviada al AgenteGestorPagos con el identificador de pedido y comprador.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#TiendaExterna -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#TiendaExterna">
+        <rdfs:comment xml:lang="es">Vendedor o comercio de terceros integrado en la plataforma que provee sus propios productos y recibe pagos de la tienda principal (nuestro sistema). La tienda (nuestro sistema) vende estos productos de terceros, pero es la tienda externa la que se encarga de la gestión de sus productos (devolución, envío a domicilio).</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Usuario -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Usuario">
+        <rdfs:comment xml:lang="es">Representa al cliente final de la plataforma, que interactúa a través de su agente para realizar búsquedas, compras y valoraciones.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#ValoracionOK -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#ValoracionOK">
+        <rdfs:subClassOf rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Respuesta"/>
+        <rdfs:comment xml:lang="es">Confirmación enviada por el AgenteExperiencia al AgenteUsuario tras registrar correctamente la valoración de un producto.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#VerificarCompra -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#VerificarCompra">
+        <rdfs:subClassOf rdf:resource="http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#Accion"/>
+        <rdfs:comment xml:lang="es">Solicitud enviada por el agente de devoluciones al gestor de pedidos para comprobar si una factura existe, pertenece al comprador indicado y no ha sido ya devuelta.</rdfs:comment>
+    </owl:Class>
+</rdf:RDF>
+
+
+
+<!-- Generated by the OWL API (version 4.5.29.2024-05-13T12:11:03Z) https://github.com/owlcs/owlapi -->
+
