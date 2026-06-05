@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Directory Service — Info</title>
+  <style>
+    body { font-family: monospace; background: #1e1e1e; color: #d4d4d4; padding: 2rem; }
+    h1 { color: #4ec9b0; }
+    pre { background: #252526; border: 1px solid #3c3c3c; padding: 1rem; border-radius: 6px;
+          white-space: pre-wrap; word-break: break-all; font-size: 0.85rem; }
+    .badge { display: inline-block; background: #0e639c; color: #fff;
+             padding: 2px 10px; border-radius: 4px; font-size: 0.8rem; margin-bottom: 1rem; }
+  </style>
+</head>
+<body>
+  <h1>📋 Directory Service</h1>
+  <span class="badge">{{ nmess }} mensajes procesados</span>
+  <h2>Agentes registrados (RDF/Turtle)</h2>
+  <pre>{{ graph }}</pre>
+</body>
+</html>

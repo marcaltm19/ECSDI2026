@@ -1,0 +1,124 @@
+{% extends 'usuario/base.html' %}
+{% block title %}Devoluciones{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Devoluciones</h1>
+  <p>Plazo estándar: 15 días desde la recepción. Solo puedes devolver pedidos a tu nombre.</p>
+</div>
+
+{% if resultado %}
+<div class="card">
+  {% if resultado.aceptada %}
+  <div class="alert alert-success"><strong>Devolución aceptada.</strong> {{ resultado.motivo }}</div>
+  <p class="text-muted text-sm">El pedido ya no aparecerá en <a href="/historial">Mis pedidos</a> y quedará registrado abajo.</p>
+  <table>
+    <tr><th>Referencia</th><td><span class="badge badge-success">{{ resultado.id }}</span></td></tr>
+    {% if resultado.empresa %}
+    <tr><th>Mensajería</th><td>{{ resultado.empresa }}</td></tr>
+    {% endif %}
+  </table>
+  {% else %}
+  <div class="alert alert-danger"><strong>Devolución rechazada.</strong> {{ resultado.motivo }}</div>
+  {% endif %}
+  <a href="/devolucion?comprador={{ comprador|urlencode }}" class="btn btn-outline mt-3">Volver a devoluciones</a>
+</div>
+{% else %}
+
+{% if error %}
+<div class="alert alert-danger">{{ error }}</div>
+{% endif %}
+
+<div class="card">
+  <div class="card-title">Identificación</div>
+  <form method="post" action="/devolucion">
+    <div class="form-group">
+      <label>Nombre del comprador (como en el pedido)</label>
+      <input class="form-control" type="text" name="comprador" value="{{ comprador }}" required>
+    </div>
+    <button type="submit" class="btn btn-outline">Cargar mis pedidos y devoluciones</button>
+  </form>
+</div>
+
+{% if comprador %}
+
+  {% if mis_devoluciones %}
+  <div class="card">
+    <div class="card-title">Mis devoluciones</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Referencia</th>
+          <th>Factura</th>
+          <th>Estado</th>
+          <th>Fecha</th>
+          <th>Detalle</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for d in mis_devoluciones %}
+        <tr>
+          <td><span class="badge {% if d.aceptada %}badge-success{% else %}badge-muted{% endif %}">{{ d.id }}</span></td>
+          <td>{{ d.factura_id }}</td>
+          <td>{% if d.aceptada %}Aceptada{% else %}Rechazada{% endif %}</td>
+          <td class="text-sm">{{ d.fecha_solicitud[:10] }}</td>
+          <td class="text-sm text-muted">{{ d.motivo }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  {% if facturas %}
+  <div class="card">
+    <div class="card-title">Nueva solicitud</div>
+    <form method="post" action="/devolucion">
+      <input type="hidden" name="comprador" value="{{ comprador }}">
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Factura (solo tus pedidos sin devolver)</label>
+          <select class="form-control" name="factura_id" required>
+            {% for f in facturas %}
+            <option value="{{ f.id }}">{{ f.id }} — {{ f.fecha[:10] }} — {{ '%.2f'|format(f.total) }} €</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Motivo</label>
+          <select class="form-control" name="razon">
+            <option value="insatisfaccion">No satisfecho con el producto</option>
+            <option value="defectuoso">Producto defectuoso o dañado</option>
+            <option value="equivocado">Producto incorrecto</option>
+            <option value="no_necesito">Ya no lo necesito</option>
+            <option value="otro">Otro motivo</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Fecha en que recibiste el producto</label>
+          <input class="form-control" type="date" name="fecha_recepcion" required
+                 max="{{ hoy }}" title="No puede ser una fecha futura">
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary mt-3">Enviar solicitud</button>
+    </form>
+  </div>
+  {% elif not mis_devoluciones %}
+  <div class="alert alert-warning">No tienes pedidos activos a tu nombre «{{ comprador }}» para devolver.</div>
+  {% else %}
+  <div class="alert alert-info">Todos tus pedidos activos ya tienen devolución registrada. Consulta el listado superior.</div>
+  {% endif %}
+
+{% endif %}
+
+<div class="card">
+  <div class="card-title">Política</div>
+  <ul style="padding-left:18px; font-size:14px; color:var(--text-muted); line-height:1.9">
+    <li>Solo el comprador de la factura puede solicitar la devolución</li>
+    <li>15 días desde la recepción para devoluciones estándar</li>
+    <li>Productos defectuosos o envío erróneo: aceptación automática</li>
+    <li>Los pedidos devueltos (aceptados) pasan de historial a esta sección</li>
+  </ul>
+</div>
+
+{% endif %}
+{% endblock %}

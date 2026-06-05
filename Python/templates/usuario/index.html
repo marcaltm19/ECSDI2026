@@ -1,0 +1,56 @@
+{% extends 'usuario/base.html' %}
+{% block title %}Inicio{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>ECSDI Shop</h1>
+  <p>Tienda en línea del proyecto multiagente ECSDI 2026</p>
+</div>
+
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-value">{{ num_facturas }}</div>
+    <div class="stat-label">Pedidos realizados</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value">{{ num_carrito }}</div>
+    <div class="stat-label">Artículos en carrito</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value">{{ recomendaciones|length }}</div>
+    <div class="stat-label">Recomendaciones activas</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-title">Accesos rápidos</div>
+  <div class="flex gap-3" style="flex-wrap:wrap">
+    <a href="/buscar" class="btn btn-primary">Buscar en catálogo</a>
+    <a href="/recomendaciones" class="btn btn-outline">Recomendaciones</a>
+    <a href="/carrito" class="btn btn-outline">Ver carrito</a>
+    <a href="/historial" class="btn btn-outline">Mis pedidos</a>
+  </div>
+</div>
+
+{% if recomendaciones %}
+<div class="page-header" style="margin-top:24px">
+  <h1>Recomendaciones recientes</h1>
+  <p>Generadas por el agente de experiencia según compras y valoraciones</p>
+</div>
+<div class="grid-products">
+  {% for r in recomendaciones %}
+  <div class="prod-card">
+    <span class="prod-cat">{{ r.categoria or '—' }}</span>
+    <span class="prod-name">{{ r.nombre }}</span>
+    {% if r.precio %}<span class="prod-price">{{ '%.2f'|format(r.precio) }} €</span>{% endif %}
+    {% if r.razon %}<span class="prod-rating">{{ r.razon }}</span>{% endif %}
+    <a href="/buscar?categoria={{ r.categoria|urlencode }}" class="btn btn-outline btn-sm mt-3">Buscar similares</a>
+  </div>
+  {% endfor %}
+</div>
+<p class="text-muted text-sm mt-3"><a href="/recomendaciones">Ver todas las recomendaciones</a> o solicitar nuevas con tu nombre de comprador.</p>
+{% else %}
+<div class="card mt-4">
+  <p class="text-muted text-sm">Las recomendaciones aparecen tras realizar compras y valoraciones. El agente de experiencia las envía de forma proactiva, o puedes pedirlas en la sección <a href="/recomendaciones">Recomendaciones</a>.</p>
+</div>
+{% endif %}
+{% endblock %}

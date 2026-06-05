@@ -1,0 +1,67 @@
+{% extends 'usuario/base.html' %}
+{% block title %}Tramitar pedido{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Datos del pedido</h1>
+  <p>Completa la entrega y confirma la compra</p>
+</div>
+
+{% if error %}
+<div class="alert alert-danger">{{ error }}</div>
+{% endif %}
+
+<div style="display:grid; grid-template-columns:1fr 320px; gap:20px; align-items:start">
+  <div class="card">
+    <div class="card-title">Entrega y pago</div>
+    <form method="post" action="/pedido">
+      <div class="form-group">
+        <label>Nombre del comprador</label>
+        <input class="form-control" type="text" name="comprador"
+               value="{{ comprador_default }}" required
+               {% if comprador_default %}readonly style="background:#f5f7f8;color:#5d6d7e"{% endif %}>
+        {% if comprador_default %}
+        <span class="text-muted text-sm">Sesión activa como <strong>{{ comprador_default }}</strong>. <a href="/logout">Cambiar usuario</a></span>
+        {% endif %}
+      </div>
+      <div class="form-group">
+        <label>Dirección de entrega</label>
+        <input class="form-control" type="text" name="direccion" required placeholder="Calle, número, ciudad, código postal">
+      </div>
+      <div class="form-group">
+        <label>Prioridad de envío</label>
+        <select class="form-control" name="prioridad">
+          <option value="normal">Normal (2–4 días laborables)</option>
+          <option value="urgente">Urgente (1–2 días laborables)</option>
+          <option value="economica">Económica (4–6 días laborables)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Método de pago</label>
+        <select class="form-control" name="metodo_pago">
+          <option value="tarjeta">Tarjeta</option>
+          <option value="paypal">PayPal</option>
+          <option value="transferencia">Transferencia bancaria</option>
+        </select>
+      </div>
+      <button type="submit" class="btn btn-success">Confirmar pedido</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Resumen</div>
+    {% for item in carrito %}
+    <div class="flex items-center" style="justify-content:space-between; padding:7px 0; border-bottom:1px solid var(--border)">
+      <div>
+        <div style="font-size:14px; font-weight:500">{{ item.nombre }}</div>
+        <div class="text-muted text-sm">Cantidad: {{ item.cantidad }}</div>
+      </div>
+      <div class="fw-bold">{{ '%.2f'|format(item.precio * item.cantidad) }} €</div>
+    </div>
+    {% endfor %}
+    <div class="flex items-center mt-3" style="justify-content:space-between">
+      <span class="fw-bold">Total</span>
+      <span style="font-size:18px; font-weight:700">{{ '%.2f'|format(total) }} €</span>
+    </div>
+  </div>
+</div>
+{% endblock %}

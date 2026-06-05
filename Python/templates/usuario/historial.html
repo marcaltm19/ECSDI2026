@@ -1,0 +1,72 @@
+{% extends 'usuario/base.html' %}
+{% block title %}Mis pedidos{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>{% if comprador %}Pedidos de {{ comprador }}{% else %}Historial de pedidos{% endif %}</h1>
+  <p>Pedidos activos (sin devolución aceptada). Las devoluciones están en <a href="/devolucion">Devoluciones</a>.</p>
+</div>
+
+{% if facturas %}
+{% for f in facturas %}
+<div class="card order-card">
+  <div class="order-head">
+    <div>
+      <span class="fw-bold">{{ f.id }}</span>
+      <span class="text-muted text-sm" style="margin-left:10px">{{ f.fecha[:10] }}</span>
+      <span class="text-muted text-sm" style="margin-left:10px">{{ f.comprador }}</span>
+    </div>
+    <div class="flex items-center gap-2">
+      {% if f.estado_envio == 'enviado' %}
+        <span class="badge badge-success">Enviado</span>
+      {% elif f.estado_envio == 'procesando' %}
+        <span class="badge badge-warning">En preparación</span>
+      {% else %}
+        <span class="badge badge-muted">Confirmado</span>
+      {% endif %}
+      <span class="fw-bold">{{ '%.2f'|format(f.total) }} €</span>
+    </div>
+  </div>
+  <div class="order-body">
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px">
+      <div>
+        <div class="text-muted text-sm" style="font-weight:600; margin-bottom:8px">PRODUCTOS</div>
+        {% for p in f.get('productos', []) %}
+        <div class="text-sm" style="padding:2px 0">{{ p.nombre }} × {{ p.get('cantidad', 1) }} — {{ '%.2f'|format(p.precio) }} €</div>
+        {% endfor %}
+      </div>
+      <div>
+        <div class="text-muted text-sm" style="font-weight:600; margin-bottom:8px">ENVÍO</div>
+        {% if f.envios_logistico %}
+          {% for e in f.envios_logistico %}
+          <div class="envio-tag">
+            {{ e.transportista }} — {{ e.centro }} — {{ (e.fecha or '')[:10] }}
+          </div>
+          {% endfor %}
+        {% elif f.get('envios_vendedor') %}
+          {% for e in f.envios_vendedor %}
+          <div class="envio-tag">
+            {{ e.vendedor }}: {{ e.transportista }} — {{ e.fecha_prevista }}
+          </div>
+          {% endfor %}
+        {% elif f.estado_envio == 'procesando' %}
+          <p class="text-muted text-sm">Asignando transportista y centro logístico…</p>
+        {% else %}
+          <p class="text-muted text-sm">Sin datos de envío.</p>
+        {% endif %}
+      </div>
+    </div>
+    <div class="flex gap-2 mt-3">
+      <a href="/devolucion?comprador={{ f.comprador|urlencode }}" class="btn btn-outline btn-sm">Solicitar devolución</a>
+      <a href="/valorar?comprador={{ f.comprador|urlencode }}" class="btn btn-outline btn-sm">Valorar producto</a>
+    </div>
+  </div>
+</div>
+{% endfor %}
+{% else %}
+<div class="empty-state">
+  <h3>Aún no hay pedidos</h3>
+  <p>Cuando completes una compra, aparecerá aquí con su estado de envío.</p>
+  <a href="/buscar" class="btn btn-primary mt-3">Ir al catálogo</a>
+</div>
+{% endif %}
+{% endblock %}

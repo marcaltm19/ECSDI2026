@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Tienda{% endblock %} — ECSDI</title>
+<style>
+:root {
+  --bg: #eceff1;
+  --surface: #ffffff;
+  --surface2: #f5f7f8;
+  --border: #d5dce0;
+  --primary: #2c3e50;
+  --primary-dark: #1a252f;
+  --primary-light: #e8edf0;
+  --accent: #2874a6;
+  --accent-dark: #1f5f85;
+  --accent-light: #d4e6f1;
+  --success: #1e6f4a;
+  --success-light: #d5f0e3;
+  --danger: #922b21;
+  --danger-light: #f5e0de;
+  --warning: #7d6608;
+  --warning-light: #f9f3d4;
+  --text: #212529;
+  --text-muted: #5d6d7e;
+  --text-light: #95a5a6;
+  --radius: 4px;
+  --shadow: 0 1px 3px rgba(0,0,0,.06);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.55;
+  min-height: 100vh;
+}
+.nav {
+  background: var(--primary);
+  padding: 0 28px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 52px;
+  border-bottom: 3px solid var(--accent);
+}
+.nav-brand {
+  font-weight: 600;
+  font-size: 15px;
+  color: #fff;
+  text-decoration: none;
+  margin-right: 24px;
+  letter-spacing: 0.02em;
+}
+.nav a {
+  color: rgba(255,255,255,.78);
+  text-decoration: none;
+  padding: 6px 11px;
+  border-radius: var(--radius);
+  font-size: 13px;
+}
+.nav a:hover, .nav a.active { background: rgba(255,255,255,.1); color: #fff; }
+.nav-spacer { flex: 1; }
+.nav-cart {
+  background: var(--accent) !important;
+  color: #fff !important;
+  font-weight: 500 !important;
+}
+.nav-cart:hover { background: var(--accent-dark) !important; }
+.container { max-width: 1040px; margin: 28px auto; padding: 0 20px 48px; }
+.page-header { margin-bottom: 22px; border-bottom: 1px solid var(--border); padding-bottom: 14px; }
+.page-header h1 { font-size: 22px; font-weight: 600; color: var(--primary); }
+.page-header p { color: var(--text-muted); margin-top: 4px; font-size: 14px; }
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 22px;
+  box-shadow: var(--shadow);
+  margin-bottom: 18px;
+}
+.card-title { font-size: 14px; font-weight: 600; margin-bottom: 14px; color: var(--primary); text-transform: uppercase; letter-spacing: 0.04em; }
+.grid-products {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+  margin-top: 16px;
+}
+.prod-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.prod-card:hover { border-color: #aeb6bf; }
+.prod-name { font-weight: 600; font-size: 14px; line-height: 1.35; }
+.prod-cat {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+.prod-price { font-size: 18px; font-weight: 700; color: var(--success); }
+.prod-rating { font-size: 12px; color: var(--text-muted); }
+.prod-vendor { font-size: 12px; color: var(--text-light); }
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 16px;
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid transparent;
+  text-decoration: none;
+  font-family: inherit;
+}
+.btn-primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+.btn-primary:hover { background: var(--primary-dark); }
+.btn-success { background: var(--success); color: #fff; }
+.btn-success:hover { background: #165a38; }
+.btn-danger { background: var(--danger); color: #fff; }
+.btn-danger:hover { background: #7b241c; }
+.btn-outline { background: #fff; color: var(--primary); border-color: var(--border); }
+.btn-outline:hover { background: var(--surface2); }
+.btn-sm { padding: 4px 10px; font-size: 12px; }
+.btn-full { width: 100%; }
+.form-group { margin-bottom: 14px; }
+.form-group label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 5px;
+}
+.form-control {
+  width: 100%;
+  padding: 8px 11px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 14px;
+  background: #fff;
+  font-family: inherit;
+}
+.form-control:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px rgba(40,116,166,.15); }
+.form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
+.alert { padding: 11px 14px; border-radius: var(--radius); font-size: 14px; margin-bottom: 14px; border: 1px solid; }
+.alert-success { background: var(--success-light); color: var(--success); border-color: #a9dfbf; }
+.alert-danger { background: var(--danger-light); color: var(--danger); border-color: #f1948a; }
+.alert-warning { background: var(--warning-light); color: var(--warning); border-color: #f4d03f; }
+.alert-info { background: var(--accent-light); color: var(--accent-dark); border-color: #85c1e9; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th {
+  background: var(--surface2);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 9px 12px;
+  text-align: left;
+  border-bottom: 2px solid var(--border);
+}
+td { padding: 11px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+tr:last-child td { border-bottom: none; }
+.badge { padding: 2px 8px; border-radius: 2px; font-size: 11px; font-weight: 600; display: inline-block; }
+.badge-primary { background: var(--primary-light); color: var(--primary); }
+.badge-success { background: var(--success-light); color: var(--success); }
+.badge-warning { background: var(--warning-light); color: var(--warning); }
+.badge-muted { background: var(--surface2); color: var(--text-muted); }
+.empty-state { text-align: center; padding: 48px 20px; color: var(--text-muted); }
+.empty-state h3 { font-size: 17px; color: var(--text); margin-bottom: 8px; font-weight: 600; }
+.envio-tag {
+  display: block;
+  background: var(--surface2);
+  border-left: 3px solid var(--success);
+  padding: 8px 12px;
+  font-size: 13px;
+  margin-bottom: 6px;
+  color: var(--text);
+}
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 22px; }
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 16px;
+  text-align: center;
+}
+.stat-value { font-size: 26px; font-weight: 700; color: var(--primary); }
+.stat-label { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+.mt-3 { margin-top: 12px; }
+.mt-4 { margin-top: 16px; }
+.flex { display: flex; }
+.gap-2 { gap: 8px; }
+.gap-3 { gap: 12px; }
+.items-center { align-items: center; }
+.text-muted { color: var(--text-muted); }
+.text-sm { font-size: 13px; }
+.fw-bold { font-weight: 600; }
+hr { border: none; border-top: 1px solid var(--border); margin: 18px 0; }
+.order-card { padding: 0; overflow: hidden; }
+.order-head {
+  background: var(--surface2);
+  border-bottom: 1px solid var(--border);
+  padding: 12px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.order-body { padding: 16px 18px; }
+@media (max-width: 600px) {
+  .form-grid { grid-template-columns: 1fr; }
+  .container { padding: 0 12px 32px; }
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+  {% if usuario_actual %}
+  <a class="nav-brand" href="/">ECSDI Shop</a>
+  <a href="/" {% if request.path == '/' %}class="active"{% endif %}>Inicio</a>
+  <a href="/buscar" {% if request.path == '/buscar' %}class="active"{% endif %}>Catálogo</a>
+  <a href="/recomendaciones" {% if request.path == '/recomendaciones' %}class="active"{% endif %}>Recomendaciones</a>
+  <a href="/historial" {% if request.path == '/historial' %}class="active"{% endif %}>Pedidos</a>
+  <a href="/devolucion" {% if request.path == '/devolucion' %}class="active"{% endif %}>Devoluciones</a>
+  <a href="/valorar" {% if request.path == '/valorar' %}class="active"{% endif %}>Valoraciones</a>
+  <span class="nav-spacer"></span>
+  <span style="color:rgba(255,255,255,.78);font-size:13px;margin-right:4px">{{ usuario_actual }}</span>
+  <a href="/logout" style="color:rgba(255,255,255,.55);font-size:12px;padding:4px 8px;border-radius:3px;border:1px solid rgba(255,255,255,.2);margin-right:10px;text-decoration:none">Salir</a>
+  <a href="/carrito" class="btn nav-cart">Carrito{% if num_carrito is defined and num_carrito > 0 %} ({{ num_carrito }}){% endif %}</a>
+  {% else %}
+  <a class="nav-brand" href="{{ url_for('login') }}">ECSDI Shop</a>
+  <span class="nav-spacer"></span>
+  {% endif %}
+</nav>
+<div class="container">
+  {% if solicitudes_feedback %}
+  <div class="alert alert-warning" style="margin-top:16px">
+    <strong>Valoración solicitada:</strong>
+    {% for s in solicitudes_feedback %}
+    <span style="display:block;margin-top:6px">
+      ¿Qué te ha parecido <em>{{ s.nombre }}</em> (pedido {{ s.pedido_id or '—' }})?
+      <a href="{{ url_for('valorar', comprador=s.comprador, linea=s.pedido_id ~ '|' ~ s.producto_id if s.pedido_id else '') }}">Valorar ahora</a>
+    </span>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% block content %}{% endblock %}
+</div>
+</body>
+</html>

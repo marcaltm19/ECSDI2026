@@ -1,0 +1,71 @@
+{% extends 'usuario/base.html' %}
+{% block title %}Recomendaciones{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Recomendaciones</h1>
+  <p>Productos sugeridos según tu historial de compras y las valoraciones de otros usuarios</p>
+</div>
+
+<div class="card">
+  <div class="card-title">Recomendaciones personalizadas</div>
+  <p class="text-muted text-sm" style="margin-bottom:14px">
+    El agente de experiencia analiza tu historial de compras y búsquedas para sugerirte
+    productos bien valorados que aún no has comprado.
+  </p>
+  <form method="post" action="/recomendaciones">
+    <div class="form-grid">
+      {% if usuario_actual %}
+      <input type="hidden" name="comprador" value="{{ usuario_actual }}">
+      <div class="form-group" style="display:flex; align-items:center; gap:12px">
+        <span class="text-muted text-sm">Calculando para <strong>{{ usuario_actual }}</strong></span>
+        <button type="submit" class="btn btn-primary">Actualizar</button>
+      </div>
+      {% else %}
+      <div class="form-group">
+        <label>Nombre del comprador</label>
+        <input class="form-control" type="text" name="comprador" value="{{ comprador }}" required>
+      </div>
+      <div class="form-group" style="display:flex; align-items:flex-end">
+        <button type="submit" class="btn btn-primary">Actualizar recomendaciones</button>
+      </div>
+      {% endif %}
+    </div>
+  </form>
+</div>
+
+{% if error %}
+<div class="alert alert-danger">{{ error }}</div>
+{% elif recs_nuevas %}
+<div class="alert alert-success">Se han añadido {{ recs_nuevas }} recomendación(es) nuevas.</div>
+{% elif comprador and not recomendaciones %}
+<div class="alert alert-info">No hay recomendaciones disponibles para este perfil. Compra y valora productos para mejorar las sugerencias.</div>
+{% endif %}
+
+{% if recomendaciones %}
+<div class="grid-products">
+  {% for r in recomendaciones %}
+  <div class="prod-card">
+    <span class="prod-cat">{{ r.categoria or '—' }}</span>
+    <span class="prod-name">{{ r.nombre }}</span>
+    {% if r.precio %}<span class="prod-price">{{ '%.2f'|format(r.precio) }} €</span>{% endif %}
+    {% if r.media %}<span class="prod-rating">Valoración media: {{ '%.1f'|format(r.media) }} / 5</span>{% endif %}
+    {% if r.razon %}<span class="prod-rating">{{ r.razon }}</span>{% endif %}
+    <form method="post" action="/carrito/anadir" style="margin-top:8px">
+      <input type="hidden" name="id" value="{{ r.id }}">
+      <input type="hidden" name="nombre" value="{{ r.nombre }}">
+      <input type="hidden" name="precio" value="{{ r.precio or 0 }}">
+      <input type="hidden" name="peso" value="0">
+      <button type="submit" class="btn btn-success btn-full">Añadir al carrito</button>
+    </form>
+    <a href="/buscar?categoria={{ (r.categoria or '')|urlencode }}" class="btn btn-outline btn-sm btn-full mt-3">Ver categoría</a>
+  </div>
+  {% endfor %}
+</div>
+{% elif not comprador %}
+<div class="empty-state">
+  <h3>Inicia sesión para ver tus recomendaciones</h3>
+  <p>Tras realizar compras y búsquedas, el sistema generará sugerencias personalizadas automáticamente.</p>
+  <a href="/login" class="btn btn-primary mt-3">Iniciar sesión</a>
+</div>
+{% endif %}
+{% endblock %}

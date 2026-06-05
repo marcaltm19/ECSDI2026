@@ -1,0 +1,15 @@
+{
+  "p010": {
+    "nombre": "Libro Python Avanzado",
+    "valoraciones": [
+      {
+        "id": "VAL-CBA87AC9",
+        "comprador": "Kaleb",
+        "pedido_id": "FAC-D938473B",
+        "puntuacion": 1,
+        "comentario": "Pensaba que era un libro de serpientes",
+        "fecha": "2026-06-03T18:33:19.638039"
+      }
+    ]
+  }
+}

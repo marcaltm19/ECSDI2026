@@ -1,0 +1,52 @@
+{% extends 'usuario/base.html' %}
+{% block title %}Pedido confirmado{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Pedido registrado</h1>
+  <p>El gestor de pedidos ha aceptado tu compra</p>
+</div>
+
+<div class="alert alert-success">Tu pedido se ha tramitado correctamente.</div>
+
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:18px">
+  <div class="card">
+    <div class="card-title">Factura</div>
+    <table>
+      <tr><th>Número</th><td><span class="badge badge-primary">{{ factura.id }}</span></td></tr>
+      <tr><th>Comprador</th><td>{{ comprador }}</td></tr>
+      <tr><th>Total</th><td class="fw-bold">{{ '%.2f'|format(factura.total) }} €</td></tr>
+      <tr><th>Fecha</th><td>{{ factura.fecha[:19]|replace('T', ' ') }}</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <div class="card-title">Líneas</div>
+    {% for item in items %}
+    <div class="flex items-center" style="justify-content:space-between; padding:6px 0; border-bottom:1px solid var(--border)">
+      <span class="text-sm">{{ item.nombre }} × {{ item.cantidad }}</span>
+      <span class="fw-bold">{{ '%.2f'|format(item.precio * item.cantidad) }} €</span>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-title">Envío</div>
+  {% if envios %}
+    {% for e in envios %}
+    <div class="envio-tag">
+      <strong>{{ e.transportista }}</strong>
+      — Centro: {{ e.centro }}
+      — Entrega estimada: {{ e.fecha[:10] if e.fecha else e.fecha }}
+      {% if e.productos %}<br><span class="text-muted text-sm">Productos: {{ e.productos|join(', ') }}</span>{% endif %}
+    </div>
+    {% endfor %}
+  {% else %}
+  <p class="text-muted text-sm">El agente logístico está asignando transportista y fecha. Consulta el historial en unos segundos.</p>
+  {% endif %}
+</div>
+
+<div class="flex gap-3">
+  <a href="/historial" class="btn btn-outline">Ver mis pedidos</a>
+  <a href="/buscar" class="btn btn-primary">Seguir comprando</a>
+</div>
+{% endblock %}
