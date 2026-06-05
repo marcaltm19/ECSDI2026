@@ -325,6 +325,9 @@
         <DataProperty IRI="#metodoPago"/>
     </Declaration>
     <Declaration>
+        <DataProperty IRI="#modalidad"/>
+    </Declaration>
+    <Declaration>
         <DataProperty IRI="#motivo"/>
     </Declaration>
     <Declaration>
@@ -380,6 +383,9 @@
     </Declaration>
     <Declaration>
         <DataProperty IRI="#tienePrecio"/>
+    </Declaration>
+    <Declaration>
+        <DataProperty IRI="#tienePeso"/>
     </Declaration>
     <Declaration>
         <DataProperty IRI="#tienePrioridad"/>
@@ -681,7 +687,7 @@
     </DataPropertyDomain>
     <DataPropertyDomain>
         <DataProperty IRI="#ciudad"/>
-        <Class IRI="#Ag.Transportista"/>
+        <Class IRI="#Pedido"/>
     </DataPropertyDomain>
     <DataPropertyDomain>
         <DataProperty IRI="#comentario"/>
@@ -776,6 +782,10 @@
         <Class IRI="#Pedido"/>
     </DataPropertyDomain>
     <DataPropertyDomain>
+        <DataProperty IRI="#modalidad"/>
+        <Class IRI="#Ag.Transportista"/>
+    </DataPropertyDomain>
+    <DataPropertyDomain>
         <DataProperty IRI="#motivo"/>
         <Class IRI="#ResultadoVerificacion"/>
     </DataPropertyDomain>
@@ -841,6 +851,10 @@
     </DataPropertyDomain>
     <DataPropertyDomain>
         <DataProperty IRI="#tieneDestino"/>
+        <Class IRI="#CFP"/>
+    </DataPropertyDomain>
+    <DataPropertyDomain>
+        <DataProperty IRI="#tienePeso"/>
         <Class IRI="#CFP"/>
     </DataPropertyDomain>
     <DataPropertyDomain>
@@ -1000,6 +1014,10 @@
         <Datatype abbreviatedIRI="xsd:string"/>
     </DataPropertyRange>
     <DataPropertyRange>
+        <DataProperty IRI="#modalidad"/>
+        <Datatype abbreviatedIRI="xsd:string"/>
+    </DataPropertyRange>
+    <DataPropertyRange>
         <DataProperty IRI="#motivo"/>
         <Datatype abbreviatedIRI="xsd:string"/>
     </DataPropertyRange>
@@ -1069,6 +1087,10 @@
     </DataPropertyRange>
     <DataPropertyRange>
         <DataProperty IRI="#tienePrecio"/>
+        <Datatype abbreviatedIRI="owl:real"/>
+    </DataPropertyRange>
+    <DataPropertyRange>
+        <DataProperty IRI="#tienePeso"/>
         <Datatype abbreviatedIRI="owl:real"/>
     </DataPropertyRange>
     <DataPropertyRange>
@@ -1495,7 +1517,7 @@
     <AnnotationAssertion>
         <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
         <IRI>#ciudad</IRI>
-        <Literal xml:lang="es">Ciudad de cobertura de un AgenteTransportista, usada por el AgenteLogístico para filtrar transportistas según el centro logístico de origen.</Literal>
+        <Literal xml:lang="es">Ciudad de entrega seleccionada por el usuario en el formulario de compra. Incluida en el Pedido para que el AgenteGestorPedidos la use en el mapa de zonas y asigne el centro logístico más cercano al destino.</Literal>
     </AnnotationAssertion>
     <AnnotationAssertion>
         <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
@@ -1591,6 +1613,11 @@
         <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
         <IRI>#metodoPago</IRI>
         <Literal xml:lang="es">Método de pago elegido por el comprador al realizar el pedido (tarjeta, transferencia, etc.).</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#modalidad</IRI>
+        <Literal xml:lang="es">Perfil de servicio publicado por un AgenteTransportista al registrarse en el DirectoryService. Determina su estrategia de precio y plazo de entrega: premium (1 día, precio más alto con coste por peso × 2,0), eco (precio bajo con coste por peso × 0,5 y plazo estándar + 2 días), estandar (precio y plazo intermedios según la prioridad del pedido con coste por peso × 1,0).</Literal>
     </AnnotationAssertion>
     <AnnotationAssertion>
         <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
@@ -1696,6 +1723,11 @@
         <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
         <IRI>#tienePrecio</IRI>
         <Literal xml:lang="es">Precio propuesto por un transportista en una oferta o contraoferta durante la negociación Contract Net.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#tienePeso</IRI>
+        <Literal xml:lang="es">Peso total del envío en kilogramos (suma de peso × cantidad de todos los productos del pedido), incluido en el CFP para que cada AgenteTransportista calcule el coste por peso según su modalidad y lo sume al precio base de su oferta.</Literal>
     </AnnotationAssertion>
     <AnnotationAssertion>
         <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
