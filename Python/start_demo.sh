@@ -90,24 +90,24 @@ echo "[9/16] Arrancando AgenteLogistico: Centro Sevilla (9009)..."
 echo $! > /tmp/logistico_sevilla.pid
 sleep 0.8
 
-# 7. Transportistas (uno por ciudad de cobertura + uno extra)
-echo "[10/16] Arrancando AgenteTransportista: RapidExpress (9010)..."
-"$PYTHON_BIN" AgenteTransportista.py --port 9010 --dport 9000 --nombre RapidExpress --open &
+# 7. Transportistas (perfiles de modalidad: premium / eco / estandar)
+echo "[10/16] Arrancando AgenteTransportista: RapidExpress — premium (9010)..."
+"$PYTHON_BIN" AgenteTransportista.py --port 9010 --dport 9000 --nombre RapidExpress   --modalidad premium  --open &
 echo $! > /tmp/t1.pid
 sleep 0.5
 
-echo "[11/16] Arrancando AgenteTransportista: EcoEnvios (9011)..."
-"$PYTHON_BIN" AgenteTransportista.py --port 9011 --dport 9000 --nombre EcoEnvios --open &
+echo "[11/16] Arrancando AgenteTransportista: EcoEnvios — eco (9011)..."
+"$PYTHON_BIN" AgenteTransportista.py --port 9011 --dport 9000 --nombre EcoEnvios      --modalidad eco      --open &
 echo $! > /tmp/t2.pid
 sleep 0.5
 
-echo "[12/16] Arrancando AgenteTransportista: MensajeriaPlus (9012)..."
-"$PYTHON_BIN" AgenteTransportista.py --port 9012 --dport 9000 --nombre MensajeriaPlus --open &
+echo "[12/16] Arrancando AgenteTransportista: MensajeriaPlus — estandar (9012)..."
+"$PYTHON_BIN" AgenteTransportista.py --port 9012 --dport 9000 --nombre MensajeriaPlus --modalidad estandar --open &
 echo $! > /tmp/t3.pid
 sleep 0.5
 
-echo "[13/16] Arrancando AgenteTransportista: SurExpress (9013)..."
-"$PYTHON_BIN" AgenteTransportista.py --port 9013 --dport 9000 --nombre SurExpress --open &
+echo "[13/16] Arrancando AgenteTransportista: SurExpress — estandar (9013)..."
+"$PYTHON_BIN" AgenteTransportista.py --port 9013 --dport 9000 --nombre SurExpress     --modalidad estandar --open &
 echo $! > /tmp/t4.pid
 sleep 0.5
 
@@ -144,10 +144,10 @@ echo " Logístico Sevilla:       http://localhost:9009/comm"
 echo " Devolucion:              http://localhost:9006/comm"
 echo " Vendedor Externo:        http://localhost:9007/comm"
 echo " Usuario (UI):            http://localhost:9020/"
-echo " RapidExpress (Madrid):   puerto 9010"
-echo " EcoEnvios (Barcelona):   puerto 9011"
-echo " MensajeriaPlus (Valencia): puerto 9012"
-echo " SurExpress (Sevilla):    puerto 9013"
+echo " RapidExpress  (premium):  puerto 9010"
+echo " EcoEnvios    (eco):      puerto 9011"
+echo " MensajeriaPlus (estandar): puerto 9012"
+echo " SurExpress   (estandar): puerto 9013"
 echo ""
 echo " Para parar todo: bash stop_demo.sh"
 echo "====================================================="
