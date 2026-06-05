@@ -486,7 +486,7 @@ def buscar_productos(nombre='', categoria='', precio_max='', val_min=''):
         return [], f'Error de comunicación con AgenteComprador: {e}'
 
 
-def enviar_pedido(comprador, direccion, prioridad, metodo_pago, carrito):
+def enviar_pedido(comprador, direccion, ciudad, prioridad, metodo_pago, carrito):
     global mss_cnt
     addr = get_agent_address('Ag.GestorDePedidos')
     if not addr:
@@ -501,6 +501,7 @@ def enviar_pedido(comprador, direccion, prioridad, metodo_pago, carrito):
     gmess.add((ped, RDF.type,          ECSNS.Pedido))
     gmess.add((ped, ECSNS.comprador,   Literal(comprador)))
     gmess.add((ped, ECSNS.direccion,   Literal(direccion)))
+    gmess.add((ped, ECSNS.ciudad,      Literal(ciudad)))
     gmess.add((ped, ECSNS.prioridad,   Literal(prioridad)))
     gmess.add((ped, ECSNS.metodoPago,  Literal(metodo_pago)))
     for i, item in enumerate(carrito):
@@ -753,12 +754,13 @@ def pedido():
     if request.method == 'POST':
         comprador   = request.form.get('comprador', '').strip() or comprador_default
         direccion   = request.form.get('direccion', '').strip()
+        ciudad      = request.form.get('ciudad', 'Madrid').strip()
         prioridad   = request.form.get('prioridad', 'normal')
         metodo_pago = request.form.get('metodo_pago', 'tarjeta')
         if not comprador or not direccion:
             error = 'Rellena todos los campos obligatorios'
         else:
-            factura, err = enviar_pedido(comprador, direccion, prioridad, metodo_pago, carrito)
+            factura, err = enviar_pedido(comprador, direccion, ciudad, prioridad, metodo_pago, carrito)
             if factura:
                 session['carrito'] = []
                 session['comprador'] = comprador

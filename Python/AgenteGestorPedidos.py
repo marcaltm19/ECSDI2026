@@ -352,14 +352,42 @@ def notificar_confirmacion_envio_pagos(order_id, comprador, total=0, vendedor_ex
 
 def notificar_logistico(pedido):
     global mss_cnt
-    # Agrupar productos por centro logístico
+
+    mapa_zonas = {
+        'Barcelona':  'Centro Barcelona',
+        'Zaragoza':   'Centro Barcelona',
+        'Valencia':   'Centro Valencia',
+        'Madrid':     'Centro Madrid',
+        'Bilbao':     'Centro Madrid',
+        'Sevilla':    'Centro Sevilla',
+    }
+
+    ciudad  = pedido.get('ciudad', 'Madrid')
+    centros = cargar_centros_gp()
+
+    # Agrupar productos por centro logístico usando lógica de stock + preferencia geográfica
     grupos = {}
     for p in pedido['productos']:
-        centro = obtener_centro_de_producto_gp(p['id'])
-        cn = centro['nombre']
-        if cn not in grupos:
-            grupos[cn] = []
-        grupos[cn].append(p)
+        # Paso A: centros que tienen este producto en stock
+        centros_con_stock = [c for c in centros if p['id'] in c.get('productos', [])]
+
+        if not centros_con_stock:
+            # Sin stock registrado: usar preferencia geográfica como fallback
+            centro_nombre = mapa_zonas.get(ciudad, 'Centro Madrid')
+            logger.warning(f'[GestorPedidos] Producto {p["id"]} sin stock registrado, fallback a {centro_nombre}')
+        elif len(centros_con_stock) == 1:
+            # Paso B: stock en un único centro → asignación obligatoria
+            centro_nombre = centros_con_stock[0]['nombre']
+        else:
+            # Paso C: stock en varios centros → preferencia geográfica del usuario
+            centro_nombre = mapa_zonas.get(ciudad, 'Centro Madrid')
+            nombres_con_stock = {c['nombre'] for c in centros_con_stock}
+            if centro_nombre not in nombres_con_stock:
+                centro_nombre = centros_con_stock[0]['nombre']
+
+        if centro_nombre not in grupos:
+            grupos[centro_nombre] = []
+        grupos[centro_nombre].append(p)
 
     if not grupos:
         logger.warning('[GestorPedidos] Pedido sin productos para logístico')
@@ -497,6 +525,7 @@ def procesar_compra(gm, content):
     ped_node    = gm.value(subject=content, predicate=ECSNS.tienePedido)
     comprador   = str(gm.value(subject=ped_node, predicate=ECSNS.comprador)  or 'Anonimo')
     direccion   = str(gm.value(subject=ped_node, predicate=ECSNS.direccion)  or '')
+    ciudad      = str(gm.value(subject=ped_node, predicate=ECSNS.ciudad)     or 'Madrid')
     prioridad   = str(gm.value(subject=ped_node, predicate=ECSNS.prioridad)  or 'normal')
     metodo_pago = str(gm.value(subject=ped_node, predicate=ECSNS.metodoPago) or '')
 
@@ -532,6 +561,7 @@ def procesar_compra(gm, content):
     vendedor_ext_id = None
     if vendor_products:
         vendedor_ext_id = next(iter(vendor_products.keys()), None)
+
 
     # Pedidos gestionados por vendedores externos (antes de persistir factura)
     for vname, vprods in vendor_products.items():
@@ -575,6 +605,7 @@ def procesar_compra(gm, content):
             'comprador': comprador,
             'productos': shop_products,
             'direccion': direccion,
+            'ciudad':    ciudad,
             'prioridad': prioridad,
         }
         notificar_logistico(shop_pedido)
