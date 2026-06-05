@@ -73,6 +73,9 @@
         <Class IRI="#CompraFinalizada"/>
     </Declaration>
     <Declaration>
+        <Class IRI="#ConfirmacionEnvio"/>
+    </Declaration>
+    <Declaration>
         <Class IRI="#CompraProducto"/>
     </Declaration>
     <Declaration>
@@ -205,6 +208,9 @@
         <Class IRI="#SolicitudDevolucion"/>
     </Declaration>
     <Declaration>
+        <Class IRI="#SolicitudReembolso"/>
+    </Declaration>
+    <Declaration>
         <Class IRI="#SolicitudFeedback"/>
     </Declaration>
     <Declaration>
@@ -277,6 +283,9 @@
         <DataProperty IRI="#estado"/>
     </Declaration>
     <Declaration>
+        <DataProperty IRI="#estadoPago"/>
+    </Declaration>
+    <Declaration>
         <DataProperty IRI="#fecha"/>
     </Declaration>
     <Declaration>
@@ -346,6 +355,9 @@
         <DataProperty IRI="#prioridad"/>
     </Declaration>
     <Declaration>
+        <DataProperty IRI="#proveedorPagoVendedor"/>
+    </Declaration>
+    <Declaration>
         <DataProperty IRI="#puntuacion"/>
     </Declaration>
     <Declaration>
@@ -395,6 +407,9 @@
     </Declaration>
     <Declaration>
         <DataProperty IRI="#vendedor"/>
+    </Declaration>
+    <Declaration>
+        <DataProperty IRI="#vendedorExternoId"/>
     </Declaration>
     <SubClassOf>
         <Class IRI="#Accion"/>
@@ -463,6 +478,10 @@
     <SubClassOf>
         <Class IRI="#HistorialCompras"/>
         <Class IRI="#Respuesta"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#ConfirmacionEnvio"/>
+        <Class IRI="#Informar"/>
     </SubClassOf>
     <SubClassOf>
         <Class IRI="#InformacionPago"/>
@@ -539,6 +558,10 @@
     <SubClassOf>
         <Class IRI="#Reembolsar"/>
         <Class IRI="#Accion"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#SolicitudReembolso"/>
+        <Class IRI="#Reembolsar"/>
     </SubClassOf>
     <SubClassOf>
         <Class IRI="#RegistroBusqueda"/>
@@ -735,6 +758,42 @@
     <DataPropertyDomain>
         <DataProperty IRI="#metodoPago"/>
         <Class IRI="#Pedido"/>
+    </DataPropertyDomain>
+    <DataPropertyDomain>
+        <DataProperty IRI="#metodoPago"/>
+        <Class IRI="#InformacionPago"/>
+    </DataPropertyDomain>
+    <DataPropertyDomain>
+        <DataProperty IRI="#estadoPago"/>
+        <Class IRI="#InformacionPago"/>
+    </DataPropertyDomain>
+    <DataPropertyDomain>
+        <DataProperty IRI="#proveedorPagoVendedor"/>
+        <Class IRI="#InformacionPago"/>
+    </DataPropertyDomain>
+    <DataPropertyDomain>
+        <DataProperty IRI="#vendedorExternoId"/>
+        <Class IRI="#ConfirmacionEnvio"/>
+    </DataPropertyDomain>
+    <DataPropertyDomain>
+        <DataProperty IRI="#vendedorExternoId"/>
+        <Class IRI="#InformacionPago"/>
+    </DataPropertyDomain>
+    <DataPropertyDomain>
+        <DataProperty IRI="#idPedido"/>
+        <Class IRI="#SolicitudReembolso"/>
+    </DataPropertyDomain>
+    <DataPropertyDomain>
+        <DataProperty IRI="#comprador"/>
+        <Class IRI="#SolicitudReembolso"/>
+    </DataPropertyDomain>
+    <DataPropertyDomain>
+        <DataProperty IRI="#total"/>
+        <Class IRI="#ConfirmacionEnvio"/>
+    </DataPropertyDomain>
+    <DataPropertyDomain>
+        <DataProperty IRI="#total"/>
+        <Class IRI="#InformacionPago"/>
     </DataPropertyDomain>
     <DataPropertyDomain>
         <DataProperty IRI="#motivo"/>
@@ -1125,6 +1184,16 @@
     </AnnotationAssertion>
     <AnnotationAssertion>
         <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#ConfirmacionEnvio</IRI>
+        <Literal xml:lang="es">Notificación enviada por el AgenteLogistico o el Gestor de pedidos al Gestor de pagos cuando un envío se ha realizado, desencadenando el cobro al usuario.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#SolicitudReembolso</IRI>
+        <Literal xml:lang="es">Solicitud de devolución económica enviada al AgenteGestorPagos con el identificador de pedido y comprador.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
         <IRI>#Marca</IRI>
         <Literal xml:lang="es">Firma comercial o fabricante asociado a un producto específico.</Literal>
     </AnnotationAssertion>
@@ -1501,17 +1570,17 @@
     <AnnotationAssertion>
         <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
         <IRI>#Cobrar</IRI>
-        <Literal xml:lang="es">Clase abstracta para acciones de cobro al comprador. No implementada en el sistema actual al no existir un AgenteGestorDePagos separado.</Literal>
+        <Literal xml:lang="es">Clase abstracta para acciones de cobro al comprador, implementada por el AgenteGestorPagos.</Literal>
     </AnnotationAssertion>
     <AnnotationAssertion>
         <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
         <IRI>#CobrarPedido</IRI>
-        <Literal xml:lang="es">Acción de cobro específica asociada a un pedido concreto. No implementada en el sistema actual.</Literal>
+        <Literal xml:lang="es">Acción de cobro específica asociada a un pedido concreto, ejecutada por el AgenteGestorPagos tras la confirmación de envío.</Literal>
     </AnnotationAssertion>
     <AnnotationAssertion>
         <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
         <IRI>#CompraFinalizada</IRI>
-        <Literal xml:lang="es">Notificación enviada por el AgenteGestorPedidos al AgenteExperiencia para registrar una compra completada en el historial del comprador.</Literal>
+        <Literal xml:lang="es">Notificación enviada por el AgenteGestorPagos al AgenteExperiencia para registrar una compra completada en el historial del comprador.</Literal>
     </AnnotationAssertion>
     <AnnotationAssertion>
         <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
@@ -1571,7 +1640,7 @@
     <AnnotationAssertion>
         <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
         <IRI>#ObtenerProveedorPago</IRI>
-        <Literal xml:lang="es">Acción para consultar la pasarela de pago asociada a una tienda externa. No implementada en el sistema actual al no existir un AgenteGestorDePagos separado.</Literal>
+        <Literal xml:lang="es">Acción para consultar la pasarela de pago asociada a una tienda externa, implementada entre AgenteGestorPagos y AgenteVendedorExterno.</Literal>
     </AnnotationAssertion>
     <AnnotationAssertion>
         <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
@@ -1581,7 +1650,7 @@
     <AnnotationAssertion>
         <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
         <IRI>#PagarVendedor</IRI>
-        <Literal xml:lang="es">Acción de transferencia económica a un vendedor externo tras completarse una venta de sus productos. No implementada en el sistema actual.</Literal>
+        <Literal xml:lang="es">Acción de transferencia económica a un vendedor externo tras completarse una venta de sus productos, ejecutada por el AgenteGestorPagos.</Literal>
     </AnnotationAssertion>
     <AnnotationAssertion>
         <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
@@ -1611,7 +1680,7 @@
     <AnnotationAssertion>
         <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
         <IRI>#ReciboProveedorPago</IRI>
-        <Literal xml:lang="es">Confirmación de cobro emitida por la pasarela de pago de un vendedor externo. No implementada en el sistema actual.</Literal>
+        <Literal xml:lang="es">Respuesta del AgenteVendedorExterno con el identificador del proveedor de pago de la tienda.</Literal>
     </AnnotationAssertion>
     <AnnotationAssertion>
         <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
@@ -1626,7 +1695,7 @@
     <AnnotationAssertion>
         <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
         <IRI>#Reembolsar</IRI>
-        <Literal xml:lang="es">Clase abstracta para acciones de reintegro económico al comprador. Sin subclases activas en el sistema actual.</Literal>
+        <Literal xml:lang="es">Clase abstracta para acciones de reintegro económico al comprador. Implementada mediante SolicitudReembolso en el AgenteGestorPagos.</Literal>
     </AnnotationAssertion>
     <AnnotationAssertion>
         <AnnotationProperty abbreviatedIRI="rdfs:comment"/>

@@ -66,6 +66,7 @@ DirectoryAgent = Agent(
 
 cola1 = Queue()
 gestor_address      = None
+gestor_pagos_address = None
 experiencia_address = None
 usuario_address     = None
 
@@ -100,6 +101,58 @@ def cargar_devoluciones():
 def guardar_devoluciones(devs):
     with open(DEVOLUCIONES_PATH, 'w') as f:
         json.dump(devs, f, indent=2)
+
+
+def get_gestor_pagos_address():
+    global mss_cnt, gestor_pagos_address
+    if gestor_pagos_address is not None:
+        return gestor_pagos_address
+    gmess = Graph()
+    gmess.bind('dso', DSO)
+    search_obj = agn['SearchPagos-' + str(mss_cnt)]
+    gmess.add((search_obj, RDF.type,      DSO.Search))
+    gmess.add((search_obj, DSO.AgentType, ECSNS['Ag.GestorDePagos']))
+    msg = build_message(gmess, perf=ACL.request, sender=DevolucionAgent.uri,
+                        receiver=DirectoryAgent.uri, content=search_obj, msgcnt=mss_cnt)
+    mss_cnt += 1
+    try:
+        r = http_requests.get(DirectoryAgent.address,
+                              params={'content': msg.serialize(format='xml')}, timeout=5)
+        gr = Graph()
+        gr.parse(data=r.text, format='xml')
+        for s, p, o in gr:
+            if p == DSO.Address:
+                gestor_pagos_address = str(o)
+                return gestor_pagos_address
+    except Exception as e:
+        logger.warning(f'[Devolucion] No se pudo localizar AgenteGestorPagos: {e}')
+    return None
+
+
+def solicitar_reembolso_gestor_pagos(factura_id, comprador):
+    """REQUEST SolicitudReembolso al AgenteGestorPagos."""
+    global mss_cnt
+    addr = get_gestor_pagos_address()
+    if addr is None:
+        logger.warning('[Devolucion] GestorPagos no disponible para reembolso')
+        return
+    gmess = Graph()
+    gmess.bind('ecsns', ECSNS)
+    node = ECSNS['reemb-pagos-' + str(mss_cnt)]
+    gmess.add((node, RDF.type,        ECSNS.SolicitudReembolso))
+    gmess.add((node, ECSNS.idPedido,  Literal(factura_id)))
+    gmess.add((node, ECSNS.comprador, Literal(comprador)))
+    try:
+        send_message(
+            build_message(gmess, perf=ACL.request, sender=DevolucionAgent.uri,
+                          receiver=agn.AgenteGestorPagos, content=node, msgcnt=mss_cnt),
+            addr,
+        )
+        mss_cnt += 1
+        logger.info(f'[Devolucion] Reembolso solicitado a GestorPagos — factura {factura_id}')
+    except Exception as e:
+        mss_cnt += 1
+        logger.warning(f'[Devolucion] Error solicitando reembolso a GestorPagos: {e}')
 
 
 def get_gestor_address():
@@ -412,7 +465,7 @@ def procesar_solicitud(gm, content):
         notificar_gestor_devolucion_aceptada(factura_id, comprador)
         notificar_experiencia_devolucion(comprador, factura_id)
         notificar_usuario_devolucion(comprador, dev_id, motivo, empresa)
-        notificar_devolucion_a_vendedores(factura_id, comprador, productos)
+        solicitar_reembolso_gestor_pagos(factura_id, comprador)
     logger.info(f'[Devolucion] {dev_id} — aceptada={aceptada} — {motivo}')
 
     gr = Graph()
