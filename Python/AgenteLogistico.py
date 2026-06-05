@@ -45,7 +45,6 @@ dport = args.dport
 dhostname = os.environ.get('ECSDI_DHOST') or args.dhost or socket.gethostname()
 
 CENTRO_NOMBRE = args.centro
-CIUDAD        = CENTRO_NOMBRE.replace('Centro ', '').strip()
 _centro_slug  = CENTRO_NOMBRE.replace(' ', '_').lower()
 _agent_name   = f'AgenteLogistico_{CENTRO_NOMBRE.replace(" ", "_")}'
 
@@ -210,15 +209,10 @@ def _buscar_transportistas():
     gr_ds.parse(data=r.text, format='xml')
     
     transportistas = []
-    # Find all response nodes that represent an agent in the DS response
     for entry in gr_ds.subjects(DSO.Uri):
         addr = gr_ds.value(entry, DSO.Address)
-        ciudad = gr_ds.value(entry, ECSNS.ciudad)
         if addr:
-            transportistas.append({
-                'address': str(addr),
-                'ciudad': str(ciudad) if ciudad else ''
-            })
+            transportistas.append({'address': str(addr)})
     return transportistas
 
 
@@ -308,16 +302,6 @@ def negociar_transporte(prioridad, direccion, centro=None):
     if not transportistas:
         logger.warning('[Logistico] No hay transportistas en el DS, usando fallback')
         return 'Desconocido', (datetime.now() + timedelta(days=3)).strftime('%Y-%m-%d')
-
-    # Filtrado por ciudad de cobertura
-    if centro and 'nombre' in centro:
-        ciudad_centro = centro['nombre'].replace("Centro ", "").strip().lower()
-        filtrados = [t for t in transportistas if t['ciudad'].strip().lower() == ciudad_centro]
-        if filtrados:
-            logger.info(f"[Logistico] Transportistas filtrados para la ciudad '{ciudad_centro}': {[t['address'] for t in filtrados]}")
-            transportistas = filtrados
-        else:
-            logger.info(f"[Logistico] No se encontraron transportistas para la ciudad '{ciudad_centro}', negociando con todos.")
 
     ofertas_r1 = {}
     for t in transportistas:
