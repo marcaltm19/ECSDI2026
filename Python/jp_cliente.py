@@ -28,7 +28,7 @@ from ontologia import ECSNS
 import requests as http_requests
 
 agn = Namespace('http://www.agentes.org#')
-LOGISTICO_URL = 'http://192.168.68.121:9003/comm'
+LOGISTICO_URL = 'http://localhost:9003/comm'
 mss_cnt = 0
 
 

@@ -52,7 +52,6 @@ FACTURAS_PATH = os.path.join(os.path.dirname(__file__), 'data', 'listado_factura
 CENTROS_PATH  = os.path.join(os.path.dirname(__file__), 'data', 'centros_logisticos.json')
 
 _logistico_addresses = {}   # centro_nombre -> address
-experiencia_address  = None
 usuario_address      = None
 gestor_pagos_address = None
 
@@ -428,41 +427,6 @@ def notificar_logistico(pedido):
         )
         mss_cnt += 1
         logger.info(f'[GestorPedidos] Sub-pedido → {centro_nombre} ({len(productos_centro)} producto/s)')
-
-
-def notificar_experiencia_compra(comprador, factura, productos):
-    """
-    Notifica al AgenteExperiencia que se finalizo una compra
-    para que actualice el historial del comprador.
-    """
-    global mss_cnt, experiencia_address
-    if experiencia_address is None:
-        experiencia_address = get_agent_address(ECSNS['Ag.Experiencia'])
-    if experiencia_address is None:
-        logger.warning('[GestorPedidos] AgenteExperiencia no encontrado en DS')
-        return
-    gmess = Graph()
-    gmess.bind('ecsns', ECSNS)
-    compra_node = ECSNS['compra-' + factura['id']]
-    gmess.add((compra_node, RDF.type,        ECSNS.CompraFinalizada))
-    gmess.add((compra_node, ECSNS.comprador, Literal(comprador)))
-    gmess.add((compra_node, ECSNS.idPedido,  Literal(factura['id'])))
-    gmess.add((compra_node, ECSNS.total,     Literal(factura['total'])))
-    gmess.add((compra_node, ECSNS.fecha,     Literal(factura['fecha'])))
-    for i, p in enumerate(productos):
-        pn = ECSNS['compra-prod-' + str(i)]
-        gmess.add((compra_node, ECSNS.tieneProducto, pn))
-        gmess.add((pn, ECSNS.idProducto, Literal(p['id'])))
-        gmess.add((pn, ECSNS.nombre,     Literal(p.get('nombre', ''))))
-        gmess.add((pn, ECSNS.precio,     Literal(p.get('precio', 0))))
-        gmess.add((pn, ECSNS.cantidad,   Literal(p.get('cantidad', 1))))
-    send_message(
-        build_message(gmess, perf=ACL.inform, sender=GestorAgent.uri,
-                      receiver=agn.AgenteExperiencia, content=compra_node, msgcnt=mss_cnt),
-        experiencia_address,
-    )
-    mss_cnt += 1
-    logger.info(f'[GestorPedidos] AgenteExperiencia notificado -- comprador: {comprador}')
 
 
 

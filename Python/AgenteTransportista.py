@@ -30,6 +30,9 @@ parser.add_argument('--dport', type=int, default=9000)
 parser.add_argument('--nombre', type=str, default='Transportista')
 parser.add_argument('--precio-factor', type=float, default=1.0,
                     help='Factor multiplicador sobre el precio base (default: 1.0)')
+parser.add_argument('--modalidad', type=str, default='estandar',
+                    choices=['eco', 'estandar', 'premium'],
+                    help='Perfil de servicio: eco (barato/lento), estandar, premium (rapido/caro)')
 args = parser.parse_args()
 
 logger = config_logger(level=1)
@@ -43,6 +46,7 @@ dport = args.dport
 dhostname = os.environ.get('ECSDI_DHOST') or args.dhost or socket.gethostname()
 NOMBRE = args.nombre
 PRECIO_FACTOR = args.precio_factor
+MODALIDAD = args.modalidad
 
 app = Flask(__name__)
 if not args.verbose:
@@ -81,48 +85,34 @@ def register_message():
     gmess.add((reg_obj, FOAF.name, Literal(TransportistaAgent.name)))
     gmess.add((reg_obj, DSO.Address, Literal(TransportistaAgent.address)))
     gmess.add((reg_obj, DSO.AgentType, ECSNS['Ag.Transportista']))
+    gmess.add((reg_obj, ECSNS.modalidad, Literal(MODALIDAD)))
     gr = send_message(
         build_message(gmess, perf=ACL.request, sender=TransportistaAgent.uri,
                       receiver=DirectoryAgent.uri, content=reg_obj, msgcnt=mss_cnt),
         DirectoryAgent.address,
     )
     mss_cnt += 1
-    logger.info(f'[{NOMBRE}] Registrado en DS como {TransportistaAgent.address}')
+    logger.info(f'[{NOMBRE}] Registrado en DS — modalidad: {MODALIDAD}')
     return gr
 
 
-def _calcular_oferta_inicial(prioridad):
-    # Perfil de servicio basado en el nombre del transportista
-    if NOMBRE == 'RapidExpress':
-        # 50 % más caro que tarifa normal, pero entrega siempre en 1 día
-        precio_base = random.uniform(12, 22)
+def _calcular_oferta_inicial(prioridad, peso=1.0):
+    if MODALIDAD == 'premium':
+        precio_base = random.uniform(12, 22) + (peso * 2.0)
         dias = 1
-    elif NOMBRE == 'EcoEnvios':
-        # Precio barato pero suma +2 días al plazo estándar de la prioridad
-        precio_base = random.uniform(3, 8)
+    elif MODALIDAD == 'eco':
+        precio_base = random.uniform(3, 8) + (peso * 0.5)
         dias_base = {'urgente': 1, 'economica': 4}.get(prioridad, 2)
         dias = dias_base + 2
-    elif NOMBRE == 'MensajeriaPlus':
-        # Precio y plazo intermedios
+    else:  # estandar
         if prioridad == 'urgente':
-            precio_base = random.uniform(12, 20)
-            dias = 2
-        elif prioridad == 'economica':
-            precio_base = random.uniform(5, 10)
-            dias = 5
-        else:
-            precio_base = random.uniform(8, 15)
-            dias = 3
-    else:
-        # Comportamiento genérico para otros transportistas
-        if prioridad == 'urgente':
-            precio_base = random.uniform(15, 30)
+            precio_base = random.uniform(15, 30) + (peso * 1.0)
             dias = random.randint(1, 2)
         elif prioridad == 'economica':
-            precio_base = random.uniform(3, 8)
+            precio_base = random.uniform(3, 8) + (peso * 1.0)
             dias = random.randint(4, 6)
         else:
-            precio_base = random.uniform(8, 15)
+            precio_base = random.uniform(8, 15) + (peso * 1.0)
             dias = random.randint(2, 4)
 
     precio = round(precio_base * PRECIO_FACTOR, 2)
@@ -155,7 +145,9 @@ def comunicacion():
 
     if perf == ACL.request and accion == ECSNS.CFP:
         prioridad = str(gm.value(content, ECSNS.tienePrioridad) or 'normal')
-        precio, fecha = _calcular_oferta_inicial(prioridad)
+        peso_lit  = gm.value(content, ECSNS.tienePeso)
+        peso      = float(peso_lit) if peso_lit is not None else 1.0
+        precio, fecha = _calcular_oferta_inicial(prioridad, peso)
         with _lock:
             _ultima_oferta_precio = precio
 
