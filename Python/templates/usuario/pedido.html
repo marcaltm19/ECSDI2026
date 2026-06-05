@@ -24,8 +24,19 @@
         {% endif %}
       </div>
       <div class="form-group">
-        <label>Dirección de entrega</label>
-        <input class="form-control" type="text" name="direccion" required placeholder="Calle, número, ciudad, código postal">
+        <label>Dirección de entrega (Calle)</label>
+        <input class="form-control" type="text" name="direccion" required placeholder="Calle y número">
+      </div>
+      <div class="form-group">
+        <label>Ciudad</label>
+        <select class="form-control" name="ciudad" required>
+          <option value="Madrid">Madrid</option>
+          <option value="Barcelona">Barcelona</option>
+          <option value="Valencia">Valencia</option>
+          <option value="Sevilla">Sevilla</option>
+          <option value="Zaragoza">Zaragoza</option>
+          <option value="Bilbao">Bilbao</option>
+        </select>
       </div>
       <div class="form-group">
         <label>Prioridad de envío</label>

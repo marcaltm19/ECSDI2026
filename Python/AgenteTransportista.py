@@ -30,8 +30,6 @@ parser.add_argument('--dport', type=int, default=9000)
 parser.add_argument('--nombre', type=str, default='Transportista')
 parser.add_argument('--precio-factor', type=float, default=1.0,
                     help='Factor multiplicador sobre el precio base (default: 1.0)')
-parser.add_argument('--ciudad', type=str, default='',
-                    help='Ciudad de cobertura geografica (default: "")')
 args = parser.parse_args()
 
 logger = config_logger(level=1)
@@ -45,7 +43,6 @@ dport = args.dport
 dhostname = os.environ.get('ECSDI_DHOST') or args.dhost or socket.gethostname()
 NOMBRE = args.nombre
 PRECIO_FACTOR = args.precio_factor
-CIUDAD = args.ciudad
 
 app = Flask(__name__)
 if not args.verbose:
@@ -84,28 +81,49 @@ def register_message():
     gmess.add((reg_obj, FOAF.name, Literal(TransportistaAgent.name)))
     gmess.add((reg_obj, DSO.Address, Literal(TransportistaAgent.address)))
     gmess.add((reg_obj, DSO.AgentType, ECSNS['Ag.Transportista']))
-    if CIUDAD:
-        gmess.add((reg_obj, ECSNS.ciudad, Literal(CIUDAD)))
     gr = send_message(
         build_message(gmess, perf=ACL.request, sender=TransportistaAgent.uri,
                       receiver=DirectoryAgent.uri, content=reg_obj, msgcnt=mss_cnt),
         DirectoryAgent.address,
     )
     mss_cnt += 1
-    logger.info(f'[{NOMBRE}] Registrado en DS como {TransportistaAgent.address} - Ciudad: {CIUDAD}')
+    logger.info(f'[{NOMBRE}] Registrado en DS como {TransportistaAgent.address}')
     return gr
 
 
 def _calcular_oferta_inicial(prioridad):
-    if prioridad == 'urgente':
-        precio_base = random.uniform(15, 30)
-        dias = random.randint(1, 2)
-    elif prioridad == 'economica':
+    # Perfil de servicio basado en el nombre del transportista
+    if NOMBRE == 'RapidExpress':
+        # 50 % más caro que tarifa normal, pero entrega siempre en 1 día
+        precio_base = random.uniform(12, 22)
+        dias = 1
+    elif NOMBRE == 'EcoEnvios':
+        # Precio barato pero suma +2 días al plazo estándar de la prioridad
         precio_base = random.uniform(3, 8)
-        dias = random.randint(4, 6)
+        dias_base = {'urgente': 1, 'economica': 4}.get(prioridad, 2)
+        dias = dias_base + 2
+    elif NOMBRE == 'MensajeriaPlus':
+        # Precio y plazo intermedios
+        if prioridad == 'urgente':
+            precio_base = random.uniform(12, 20)
+            dias = 2
+        elif prioridad == 'economica':
+            precio_base = random.uniform(5, 10)
+            dias = 5
+        else:
+            precio_base = random.uniform(8, 15)
+            dias = 3
     else:
-        precio_base = random.uniform(8, 15)
-        dias = random.randint(2, 4)
+        # Comportamiento genérico para otros transportistas
+        if prioridad == 'urgente':
+            precio_base = random.uniform(15, 30)
+            dias = random.randint(1, 2)
+        elif prioridad == 'economica':
+            precio_base = random.uniform(3, 8)
+            dias = random.randint(4, 6)
+        else:
+            precio_base = random.uniform(8, 15)
+            dias = random.randint(2, 4)
 
     precio = round(precio_base * PRECIO_FACTOR, 2)
     fecha = (datetime.now() + timedelta(days=dias)).strftime('%Y-%m-%d')

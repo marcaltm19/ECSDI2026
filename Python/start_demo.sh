@@ -91,23 +91,23 @@ echo $! > /tmp/logistico_sevilla.pid
 sleep 0.8
 
 # 7. Transportistas (uno por ciudad de cobertura + uno extra)
-echo "[10/16] Arrancando AgenteTransportista: RapidExpress (Madrid, 9010)..."
-"$PYTHON_BIN" AgenteTransportista.py --port 9010 --dport 9000 --nombre RapidExpress --ciudad Madrid --open &
+echo "[10/16] Arrancando AgenteTransportista: RapidExpress (9010)..."
+"$PYTHON_BIN" AgenteTransportista.py --port 9010 --dport 9000 --nombre RapidExpress --open &
 echo $! > /tmp/t1.pid
 sleep 0.5
 
-echo "[11/16] Arrancando AgenteTransportista: EcoEnvios (Barcelona, 9011)..."
-"$PYTHON_BIN" AgenteTransportista.py --port 9011 --dport 9000 --nombre EcoEnvios --ciudad Barcelona --open &
+echo "[11/16] Arrancando AgenteTransportista: EcoEnvios (9011)..."
+"$PYTHON_BIN" AgenteTransportista.py --port 9011 --dport 9000 --nombre EcoEnvios --open &
 echo $! > /tmp/t2.pid
 sleep 0.5
 
-echo "[12/16] Arrancando AgenteTransportista: MensajeriaPlus (Valencia, 9012)..."
-"$PYTHON_BIN" AgenteTransportista.py --port 9012 --dport 9000 --nombre MensajeriaPlus --ciudad Valencia --open &
+echo "[12/16] Arrancando AgenteTransportista: MensajeriaPlus (9012)..."
+"$PYTHON_BIN" AgenteTransportista.py --port 9012 --dport 9000 --nombre MensajeriaPlus --open &
 echo $! > /tmp/t3.pid
 sleep 0.5
 
-echo "[13/16] Arrancando AgenteTransportista: SurExpress (Sevilla, 9013)..."
-"$PYTHON_BIN" AgenteTransportista.py --port 9013 --dport 9000 --nombre SurExpress --ciudad Sevilla --open &
+echo "[13/16] Arrancando AgenteTransportista: SurExpress (9013)..."
+"$PYTHON_BIN" AgenteTransportista.py --port 9013 --dport 9000 --nombre SurExpress --open &
 echo $! > /tmp/t4.pid
 sleep 0.5
 
