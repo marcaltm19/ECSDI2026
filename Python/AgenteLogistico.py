@@ -216,7 +216,7 @@ def _buscar_transportistas():
     return transportistas
 
 
-def _enviar_cfp(t_addr, prioridad, direccion):
+def _enviar_cfp(t_addr, prioridad, direccion, peso_total=1.0):
     global mss_cnt
     cfp_graph = Graph()
     cfp_graph.bind('ecsns', ECSNS)
@@ -224,6 +224,7 @@ def _enviar_cfp(t_addr, prioridad, direccion):
     cfp_graph.add((cfp_uri, RDF.type, ECSNS.CFP))
     cfp_graph.add((cfp_uri, ECSNS.tieneDestino, Literal(direccion)))
     cfp_graph.add((cfp_uri, ECSNS.tienePrioridad, Literal(prioridad)))
+    cfp_graph.add((cfp_uri, ECSNS.tienePeso, Literal(round(peso_total, 3))))
     cfp_msg = build_message(cfp_graph, perf=ACL.request, sender=LogisticoAgent.uri,
                             content=cfp_uri, msgcnt=mss_cnt)
     mss_cnt += 1
@@ -296,7 +297,7 @@ def escoger_mejor_oferta(pool, prioridad):
     return ganador_addr
 
 
-def negociar_transporte(prioridad, direccion, centro=None):
+def negociar_transporte(prioridad, direccion, peso_total=1.0, centro=None):
     global mss_cnt
     transportistas = _buscar_transportistas()
     if not transportistas:
@@ -306,7 +307,7 @@ def negociar_transporte(prioridad, direccion, centro=None):
     ofertas_r1 = {}
     for t in transportistas:
         t_addr = t['address']
-        resultado = _enviar_cfp(t_addr, prioridad, direccion)
+        resultado = _enviar_cfp(t_addr, prioridad, direccion, peso_total)
         if resultado:
             precio, nombre, fecha, dias = resultado
             ofertas_r1[t_addr] = {'precio': precio, 'nombre': nombre, 'fecha': fecha, 'dias': dias}
@@ -388,9 +389,11 @@ def realizar_envios():
         logger.info(f'[{CENTRO_NOMBRE}] Procesando pedido {pedido["id"]} '
                     f'({len(productos)} producto/s)')
 
+        peso_total = sum(p.get('peso', 0) * p.get('cantidad', 1) for p in productos)
         nombre_t, fecha = negociar_transporte(
             pedido.get('prioridad', 'normal'),
             pedido.get('direccion', ''),
+            peso_total,
             {'nombre': CENTRO_NOMBRE},
         )
 
