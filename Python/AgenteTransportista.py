@@ -172,7 +172,7 @@ def comunicacion():
         if dado < 0.33:
             # ACEPTA la contra-oferta
             logger.info(f'[{NOMBRE}] R2 -- ACEPTA contra-oferta: {contra_precio}EUR')
-            resp = build_message(Graph(), ACL.inform,
+            resp = build_message(Graph(), ACL['accept-proposal'],
                                  sender=TransportistaAgent.uri,
                                  receiver=msgdic['sender'],
                                  msgcnt=mss_cnt)
@@ -192,7 +192,7 @@ def comunicacion():
             else:
                 # Rango invalido (contra_precio >= oferta_inicial): acepta directamente
                 logger.info(f'[{NOMBRE}] R2 -- rango invalido, ACEPTA: {contra_precio}EUR')
-                resp = build_message(Graph(), ACL.inform,
+                resp = build_message(Graph(), ACL['accept-proposal'],
                                      sender=TransportistaAgent.uri,
                                      receiver=msgdic['sender'],
                                      msgcnt=mss_cnt)

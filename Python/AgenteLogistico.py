@@ -268,7 +268,7 @@ def _enviar_contraoferta(t_addr, contra_precio):
         if not msgdic_r:
             return 'error', None
         perf = msgdic_r.get('performative')
-        if perf == ACL.inform:
+        if perf == ACL['accept-proposal']:
             return 'acepta', contra_precio
         elif perf == ACL.propose:
             c = msgdic_r.get('content')
