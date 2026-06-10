@@ -636,14 +636,17 @@ def jp14():
     time.sleep(1)
 
     opiniones = _load_json(OPINIONES_PATH, {})
-    # La estructura puede ser dict con 'valoraciones' key, o dict por usuario
-    vals = opiniones.get('valoraciones', []) if isinstance(opiniones, dict) else []
-    if not vals and isinstance(opiniones, dict):
-        for v in opiniones.values():
-            if isinstance(v, list):
-                vals.extend(v)
+    # Structure: { product_id: { "valoraciones": [{...}], ... } }
+    vals = []
+    if isinstance(opiniones, dict):
+        for datos in opiniones.values():
+            if isinstance(datos, dict):
+                vals.extend(datos.get('valoraciones', []))
+            elif isinstance(datos, list):
+                vals.extend(datos)
     encontrada = any(
         v.get('idPedido') == pedido_id or v.get('pedido_id') == pedido_id
+        or v.get('pedido_id') == pedido_id.upper()
         for v in vals if isinstance(v, dict)
     )
     if encontrada:
@@ -664,7 +667,10 @@ def jp14():
                         sender=agn.ClienteTest, receiver=agn.AgenteExperiencia,
                         content=node, msgcnt=cnt)
     gr = _get(EXPERIENCIA_URL, msg)
-    recs = list(gr.subjects(RDF.type, ECSNS.Producto)) if gr else []
+    recs = []
+    if gr:
+        for rec_node in gr.subjects(RDF.type, ECSNS.Recomendaciones):
+            recs.extend(gr.objects(rec_node, ECSNS.tieneRecomendacion))
     if recs:
         print(f'  {PASS} {len(recs)} recomendación(es) recibida(s):')
         for r in recs[:3]:
