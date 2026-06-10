@@ -194,10 +194,10 @@ def _limpiar_pago(order_id):
 
 
 def _pedidos_en_centro(nombre_centro):
-    """Devuelve el conjunto de ids de pedidos con envío registrado en el centro dado."""
+    """Devuelve el conjunto de ids de pedidos recibidos en el centro dado."""
     key  = nombre_centro.lower().replace(' ', '_')   # "Centro Madrid" → "centro_madrid"
-    path = os.path.join(DATA_DIR, f'listado_envios_{key}.json')
-    return {e.get('pedido_id', '') for e in _load_json(path, [])}
+    path = os.path.join(DATA_DIR, f'listado_pedidos_{key}.json')
+    return {e.get('id', '') for e in _load_json(path, [])}
 
 
 # ── JP9: flujo extremo a extremo ───────────────────────────────────────────────
