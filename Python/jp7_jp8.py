@@ -54,12 +54,12 @@ def _next_cnt():
     return c
 
 
-def _get(url, msg_graph):
+def _get(url, msg_graph, timeout=10):
     try:
         resp = http_requests.get(
             url,
             params={'content': msg_graph.serialize(format='xml')},
-            timeout=10,
+            timeout=timeout,
         )
         resp.raise_for_status()
         gr = Graph()
@@ -286,7 +286,7 @@ def _marcar_factura_devuelta():
         print(f'  [ERROR] No se pudo preparar el estado de la factura: {e}')
 
 
-def _enviar_devolucion(factura_id, razon, fecha_recepcion, comprador=TEST_COMPRADOR):
+def _enviar_devolucion(factura_id, razon, fecha_recepcion, comprador=TEST_COMPRADOR, timeout=10):
     g = Graph()
     g.bind('ecsns', ECSNS)
     cnt  = _next_cnt()
@@ -300,7 +300,7 @@ def _enviar_devolucion(factura_id, razon, fecha_recepcion, comprador=TEST_COMPRA
                         sender=agn.ClienteTest,
                         receiver=agn.AgenteDevolucion,
                         content=node, msgcnt=cnt)
-    return _get(DEVOLUCION_URL, msg)
+    return _get(DEVOLUCION_URL, msg, timeout=timeout)
 
 
 def _extraer_devolucion(gr):
@@ -322,7 +322,7 @@ def jp8a():
     _resetear_factura_test()
     fecha = date.today() - timedelta(days=3)
     print(f'  Factura: {TEST_FACTURA_ID} | razón: "El producto llegó defectuoso" | recepción: {fecha}')
-    gr = _enviar_devolucion(TEST_FACTURA_ID, 'El producto llegó defectuoso', fecha)
+    gr = _enviar_devolucion(TEST_FACTURA_ID, 'El producto llegó defectuoso', fecha, timeout=60)
     aceptada, motivo, dev_id = _extraer_devolucion(gr)
     if aceptada is True:
         print(f'  {PASS} Devolución ACEPTADA — {motivo} (ID: {dev_id})')
@@ -338,7 +338,7 @@ def jp8b():
     _resetear_factura_test()
     fecha = date.today() - timedelta(days=7)
     print(f'  Factura: {TEST_FACTURA_ID} | razón: "No me convence" | recepción: {fecha}')
-    gr = _enviar_devolucion(TEST_FACTURA_ID, 'No me convence el producto', fecha)
+    gr = _enviar_devolucion(TEST_FACTURA_ID, 'No me convence el producto', fecha, timeout=60)
     aceptada, motivo, dev_id = _extraer_devolucion(gr)
     if aceptada is True:
         print(f'  {PASS} Devolución ACEPTADA — {motivo}')

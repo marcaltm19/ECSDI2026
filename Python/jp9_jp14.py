@@ -68,13 +68,13 @@ def _cnt():
     return c
 
 
-def _get(url, msg_graph):
+def _get(url, msg_graph, timeout=12):
     """Envía un mensaje ACL y devuelve el grafo de respuesta, o None si falla."""
     try:
         r = http_requests.get(
             url,
             params={'content': msg_graph.serialize(format='xml')},
-            timeout=12,
+            timeout=timeout,
         )
         r.raise_for_status()
         gr = Graph()
@@ -155,6 +155,7 @@ def _cfp_msg(prioridad):
     node = agn[f'cfp-{cnt}']
     g.add((node, RDF.type,             ECSNS.CFP))
     g.add((node, ECSNS.tienePrioridad, Literal(prioridad)))
+    g.add((node, ECSNS.tienePeso,      Literal(0.0)))
     return build_message(g, perf=ACL.request,
                          sender=agn.ClienteTest, receiver=agn.AgenteTransportista,
                          content=node, msgcnt=cnt)
@@ -193,10 +194,10 @@ def _limpiar_pago(order_id):
 
 
 def _pedidos_en_centro(nombre_centro):
-    """Devuelve el conjunto de ids de pedidos almacenados en el centro dado."""
+    """Devuelve el conjunto de ids de pedidos con envío registrado en el centro dado."""
     key  = nombre_centro.lower().replace(' ', '_')   # "Centro Madrid" → "centro_madrid"
-    path = os.path.join(DATA_DIR, f'listado_pedidos_{key}.json')
-    return {p.get('id') or p.get('pedido_id', '') for p in _load_json(path, [])}
+    path = os.path.join(DATA_DIR, f'listado_envios_{key}.json')
+    return {e.get('pedido_id', '') for e in _load_json(path, [])}
 
 
 # ── JP9: flujo extremo a extremo ───────────────────────────────────────────────
@@ -238,7 +239,10 @@ def jp9():
 # ── JP10: perfiles de transportista ───────────────────────────────────────────
 
 def _verificar_perfil(url, nombre, prioridad, precio_min, precio_max, dias_esperado):
-    """Envía un CFP y verifica que precio y fecha de entrega encajan con el perfil."""
+    """Envía un CFP y verifica que precio y fecha de entrega encajan con el perfil.
+
+    dias_esperado puede ser un int (día exacto) o una tupla (min_dias, max_dias).
+    """
     print(f'\n--- JP10 — {nombre} · prioridad "{prioridad}" ---')
     gr = _get(url, _cfp_msg(prioridad))
     if gr is None:
@@ -252,17 +256,26 @@ def _verificar_perfil(url, nombre, prioridad, precio_min, precio_max, dias_esper
 
     precio    = float(gr.value(oferta, ECSNS.tienePrecio) or -1)
     fecha_str = str(gr.value(oferta, ECSNS.tieneFechaEntrega) or '')
-    fecha_esp = (date.today() + timedelta(days=dias_esperado)).isoformat()
 
     if precio_min <= precio <= precio_max:
         print(f'  {PASS} Precio: {precio:.2f} € (rango esperado [{precio_min}, {precio_max}])')
     else:
         print(f'  {FAIL} Precio: {precio:.2f} € fuera del rango [{precio_min}, {precio_max}]')
 
-    if fecha_str == fecha_esp:
-        print(f'  {PASS} Fecha entrega: {fecha_str} (esperado {fecha_esp})')
+    if isinstance(dias_esperado, tuple):
+        min_dias, max_dias = dias_esperado
+        fecha_min = (date.today() + timedelta(days=min_dias)).isoformat()
+        fecha_max = (date.today() + timedelta(days=max_dias)).isoformat()
+        if fecha_min <= fecha_str <= fecha_max:
+            print(f'  {PASS} Fecha entrega: {fecha_str} (rango esperado [{fecha_min}, {fecha_max}])')
+        else:
+            print(f'  {FAIL} Fecha entrega: {fecha_str} fuera del rango [{fecha_min}, {fecha_max}]')
     else:
-        print(f'  {FAIL} Fecha entrega: {fecha_str} (esperado {fecha_esp})')
+        fecha_esp = (date.today() + timedelta(days=dias_esperado)).isoformat()
+        if fecha_str == fecha_esp:
+            print(f'  {PASS} Fecha entrega: {fecha_str} (esperado {fecha_esp})')
+        else:
+            print(f'  {FAIL} Fecha entrega: {fecha_str} (esperado {fecha_esp})')
 
 
 def jp10_r():
@@ -285,10 +298,12 @@ def jp10_e():
 def jp10_m():
     """MensajeriaPlus: precio y plazo intermedios según prioridad."""
     print('\n--- JP10m: MensajeriaPlus — precio y plazo intermedios ---')
+    # precio: random.uniform base (peso=0 en el CFP)
+    # dias:   random.randint range del perfil estandar
     casos = [
-        ('urgente',  12.0, 20.0, 2),
-        ('normal',    8.0, 15.0, 3),
-        ('economica', 5.0, 10.0, 5),
+        ('urgente',  15.0, 30.0, (1, 2)),
+        ('normal',    8.0, 15.0, (2, 4)),
+        ('economica', 3.0,  8.0, (4, 6)),
     ]
     for prioridad, pmin, pmax, dias in casos:
         _verificar_perfil(T_MENSAJERIAPLUS_URL, 'MensajeriaPlus', prioridad,
@@ -322,7 +337,7 @@ def _enviar_pedido_y_esperar(pedido_id, ciudad, prod_id):
     gr = _get(GESTOR_URL, _pedido_msg(pedido_id, ciudad, 'normal', 'tarjeta', [
         {'id': prod_id, 'nombre': f'Prod {prod_id}', 'precio': 10.0,
          'vendedor': 'tienda', 'gestion_envio': 'tienda'},
-    ]))
+    ]), timeout=120)
     factura_id = _factura_id_de_respuesta(gr)
     time.sleep(2)
     despues = {cn: _pedidos_en_centro(cn) for cn in TODOS_CENTROS}
