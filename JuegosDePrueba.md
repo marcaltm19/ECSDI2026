@@ -166,41 +166,6 @@ python jp_cliente.py --jp 3
 
 ---
 
-### JP4 — Integración con agente transportista externo (interoperabilidad)
-
-**Objetivo:** Verificar la interoperabilidad entre sistemas de distintos grupos mediante la ontología y el protocolo Contract Net acordados. Un AgenteTransportista del otro grupo debe poder participar en la negociación y ser seleccionado si ofrece la mejor propuesta.
-
-**Requisitos previos:**
-- El otro grupo tiene su AgenteTransportista externo accesible en la red local (LAN).
-- El transportista externo se registra en el DirectoryService del grupo anfitrión con tipo `ECSNS['Ag.Transportista']`.
-- Ambos grupos utilizan el namespace `http://www.semanticweb.org/ecsdi/ontologies/2026/e-shop#` y los predicados: `tienePrecio`, `tieneDestino`, `tienePrioridad`, `tieneTransportista`, `tieneFechaEntrega`.
-
-**Arranque del transportista externo** (ejecutado desde el PC del otro grupo):
-```bash
-export PYTHONPATH="$(pwd)/..:$PYTHONPATH"
-python3 AgenteTransportista.py --port 9014 --dhost <IP_anfitrión> --dport 9000 \
-  --nombre TransportistaExterno --ciudad Madrid --open
-```
-
-**Flujo detallado:**
-
-1. El logístico consulta el DS y obtiene la lista que incluye al transportista externo junto a los propios.
-2. Envía el mismo CFP a todos los transportistas (propios y externos) sin distinción de origen.
-3. El transportista externo responde con `ACL.propose` usando la ontología acordada.
-4. El logístico evalúa todas las propuestas con el mismo criterio y selecciona la mejor.
-5. Si el transportista externo ofrece el precio más bajo (o los menos días, si la prioridad es urgente), recibe `ACL.accept-proposal`.
-
-**Salida esperada:**
-- El DS (`/info`) muestra al transportista externo registrado junto a los propios.
-- Log del logístico: el nombre del transportista externo aparece en la línea de oferta R1.
-- `data/listado_envios_*.json`: si el externo gana, su nombre aparece como `transportista`.
-
-**Criterio de superación:** el transportista externo participa en la negociación y puede ganarla, sin que sea necesario ningún cambio en el código del AgenteLogistico.
-
-**Nota:** este JP requiere coordinación previa con el otro grupo para verificar conectividad de red y compatibilidad de la ontología.
-
----
-
 ### JP5 — Múltiples pedidos simultáneos
 
 **Objetivo:** Verificar que el sistema gestiona correctamente varios pedidos concurrentes sin que las negociaciones se interfieran entre sí, y que cada pedido se asigna de forma independiente al transportista correcto según su prioridad.
